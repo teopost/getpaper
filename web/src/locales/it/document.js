@@ -100,4 +100,12 @@ export default {
     'Questo documento e i suoi documenti annidati verranno eliminati definitivamente. L’operazione non può essere annullata.',
   'Document permanently deleted': 'Documento eliminato definitivamente',
   'Public links have been disabled by the administrator.': 'I link pubblici sono stati disattivati dall’amministratore.',
+  'Document moved to {workspace}': 'Documento spostato in {workspace}',
+  'Workspace': 'Workspace',
+  '{name} (current)': '{name} (attuale)',
+  'The document and its nested documents, history, comments and attachments move to {workspace}. Its public links are revoked.': 'Il documento, con le sue sottopagine, cronologia, commenti e allegati, viene spostato in {workspace}. I suoi link pubblici vengono revocati.',
+  'No collection you can write to in this workspace.': 'Nessuna collezione in cui puoi scrivere in questo workspace.',
+  'Move to another workspace?': 'Spostare in un altro workspace?',
+  '“{title}” and its nested documents will be moved to {workspace} ({target}), with history, comments and attachments. Only members of {workspace} will be able to see them, and their public links will be revoked.': '“{title}” e le sue sottopagine verranno spostati in {workspace} ({target}), con cronologia, commenti e allegati. Potranno vederli solo i membri di {workspace} e i loro link pubblici verranno revocati.',
+  'Move': 'Sposta',
 };

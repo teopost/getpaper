@@ -59,7 +59,7 @@ Everything is saved automatically while you type.
 | ```` ``` ```` | Code block |
 "#;
 
-pub async fn create_team(db: &PgPool, user: &User, name: &str) -> ApiResult<Team> {
+pub async fn create_team(db: &PgPool, user: &User, name: &str, product: &str) -> ApiResult<Team> {
     let mut tx = db.begin().await?;
     let team: Team = sqlx::query_as("INSERT INTO teams (id, name, color, created_by) VALUES ($1, $2, $3, $4) RETURNING *")
         .bind(Uuid::new_v4())
@@ -87,7 +87,7 @@ pub async fn create_team(db: &PgPool, user: &User, name: &str) -> ApiResult<Team
     let did = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO documents (id, url_id, team_id, collection_id, title, emoji, text, created_by, updated_by, published_at, position) \
-         VALUES ($1, $2, $3, $4, 'Welcome to GetPaper', '👋', $5, $6, $6, now(), 1)",
+         VALUES ($1, $2, $3, $4, 'Welcome to ' || $7, '👋', $5, $6, $6, now(), 1)",
     )
     .bind(did)
     .bind(new_url_id())
@@ -95,6 +95,7 @@ pub async fn create_team(db: &PgPool, user: &User, name: &str) -> ApiResult<Team
     .bind(cid)
     .bind(WELCOME_TEXT)
     .bind(user.id)
+    .bind(product)
     .execute(&mut *tx)
     .await?;
     tx.commit().await?;
@@ -120,7 +121,7 @@ pub struct CreateReq {
 
 pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<CreateReq>) -> ApiResult<Json<Value>> {
     let name = non_empty(&b.name, "Name")?;
-    let team = create_team(&st.db, &auth.user, &name).await?;
+    let team = create_team(&st.db, &auth.user, &name, &st.settings().product_name()).await?;
     if let Some(h) = &auth.session_hash {
         sqlx::query("UPDATE sessions SET team_id = $1 WHERE token_hash = $2")
             .bind(team.id)

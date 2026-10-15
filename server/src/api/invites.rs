@@ -43,10 +43,12 @@ async fn send_invite_email(st: &AppState, inviter: &User, team: Uuid, email: &st
     let (team_name,): (String,) = sqlx::query_as("SELECT name FROM teams WHERE id = $1").bind(team).fetch_one(&st.db).await?;
     let lang = inviter.language.clone().unwrap_or_else(|| st.defaults().language);
     let settings = st.settings();
+    let product = settings.product_name();
     let brand = settings.header_color.or(settings.accent_color).unwrap_or_else(|| "#1f2937".into());
     let base = st.cfg.url.trim_end_matches('/');
     let mail = crate::mail::invite(&crate::mail::InviteMail {
         lang: &lang,
+        product: &product,
         inviter: &inviter.name,
         team: &team_name,
         role,

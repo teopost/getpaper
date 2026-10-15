@@ -45,7 +45,11 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(patch): Json<Va
     let mut current = serde_json::to_value(st.settings()).map_err(|e| ApiError::internal(e.to_string()))?;
     for (k, v) in patch {
         // empty strings from the form mean "not set"
-        let v = if v.as_str() == Some("") { Value::Null } else { v };
+        let v = match v.as_str().map(str::trim) {
+            Some("") => Value::Null,
+            Some(s) => Value::String(s.to_string()),
+            None => v,
+        };
         current[k] = v;
     }
     let next: InstanceSettings = serde_json::from_value(current).map_err(|e| ApiError::bad_request(format!("Invalid settings: {e}")))?;
@@ -79,7 +83,8 @@ pub async fn test_email(State(st): State<AppState>, auth: Auth, Json(b): Json<Te
     let mail = crate::mail::invite(&crate::mail::InviteMail {
         lang: &lang,
         inviter: &auth.user.name,
-        team: "GetPaper",
+        team: &st.settings().product_name(),
+        product: &st.settings().product_name(),
         role: "member",
         email: &auth.user.email,
         link: &base,

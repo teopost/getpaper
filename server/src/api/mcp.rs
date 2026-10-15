@@ -13,6 +13,7 @@ use axum::{
 };
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
+use uuid::Uuid;
 
 use crate::{
     api::{collections, comments, documents, revisions, session, shares},
@@ -28,7 +29,9 @@ const INSTRUCTIONS: &str = "GetPaper is a team wiki (Outline compatible). Conten
 documents can be nested and are written in Markdown (GitHub flavoured, plus notice blocks `:::info … :::`, \
 `:::warning`, `:::tip`, `:::success`). Start with list_collections or search_documents. Documents can be referenced \
 by id, urlId or full URL; collections by id, urlId or name. New documents are published by default; pass \
-publish=false to keep a private draft. Prefer update_document with append_text to add content without rewriting.";
+publish=false to keep a private draft. Prefer update_document with append_text to add content without rewriting. \
+The API key may be valid in several workspaces: list_workspaces shows them; every tool takes an optional `workspace` \
+(name or id, default: the key's default workspace) and search_documents can search all of them with all_workspaces=true.";
 
 // ---------------------------------------------------------------------------
 // transport
@@ -111,8 +114,16 @@ async fn dispatch(st: &AppState, auth: &Auth, msg: Value) -> Option<Value> {
             if !tool_definitions().iter().any(|t| t["name"] == name) {
                 return Some(rpc_error(id, -32602, format!("Unknown tool: {name}")));
             }
-            let (text, is_error) = match call_tool(st, auth, name, args).await {
-                Ok(t) => (t, false),
+            // run the tool in the requested workspace, if the key allows it
+            let scoped = match arg(&args, "workspace").filter(|w| !w.trim().is_empty()) {
+                Some(w) => resolve_workspace(st, auth, &w).await,
+                None => Ok(auth.clone()),
+            };
+            let (text, is_error) = match scoped {
+                Ok(a) => match call_tool(st, &a, name, args).await {
+                    Ok(t) => (t, false),
+                    Err(e) => (e, true),
+                },
                 Err(e) => (e, true),
             };
             rpc_result(id, json!({ "content": [{ "type": "text", "text": text }], "isError": is_error }))
@@ -137,10 +148,38 @@ fn tool(name: &str, title: &str, description: &str, properties: Value, required:
     })
 }
 
+/// Every tool takes an optional `workspace`; search_documents can also search all of them.
 fn tool_definitions() -> Vec<Value> {
+    let mut tools = base_tool_definitions();
+    for t in tools.iter_mut() {
+        let name = t["name"].as_str().unwrap_or("").to_string();
+        if name == "list_workspaces" {
+            continue;
+        }
+        let props = &mut t["inputSchema"]["properties"];
+        props["workspace"] = json!({
+            "type": "string",
+            "description": "Workspace name or id (see list_workspaces). Default: the API key's default workspace."
+        });
+        if name == "search_documents" {
+            props["all_workspaces"] = json!({ "type": "boolean", "description": "Search every workspace the key is valid in" });
+        }
+    }
+    tools
+}
+
+fn base_tool_definitions() -> Vec<Value> {
     let doc_id = json!({ "type": "string", "description": "Document id, urlId or URL" });
     let coll = json!({ "type": "string", "description": "Collection id, urlId or name" });
     vec![
+        tool(
+            "list_workspaces",
+            "List workspaces",
+            "List the workspaces this API key can be used in, with the user's effective role and which one is the default.",
+            json!({}),
+            &[],
+            true,
+        ),
         tool("workspace_info", "Workspace info", "Return the current workspace, the authenticated user and their role.", json!({}), &[], true),
         tool("list_collections", "List collections", "List the collections the user can access in the workspace.", json!({}), &[], true),
         tool(
@@ -384,10 +423,67 @@ fn summary(st: &AppState, verb: &str, d: &Value) -> String {
     )
 }
 
+/// Workspaces usable by this request: the key's, or every membership for a browser session.
+async fn usable_workspaces(st: &AppState, auth: &Auth) -> Result<Vec<(Uuid, String, String)>, String> {
+    let rows: Vec<(Uuid, String, String)> = sqlx::query_as(
+        "SELECT t.id, t.name, m.role FROM team_memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $1 ORDER BY t.name",
+    )
+    .bind(auth.user.id)
+    .fetch_all(&st.db)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(match &auth.key {
+        Some(k) => {
+            let mut v: Vec<_> = rows.into_iter().filter(|r| k.teams.contains(&r.0)).collect();
+            v.sort_by_key(|r| k.teams.iter().position(|t| *t == r.0));
+            v
+        }
+        None => rows,
+    })
+}
+
+/// Workspace by id or (case-insensitive) name among those usable by the key.
+async fn resolve_workspace(st: &AppState, auth: &Auth, wanted: &str) -> Result<Auth, String> {
+    let all = usable_workspaces(st, auth).await?;
+    let w = wanted.trim();
+    let found = all
+        .iter()
+        .find(|t| t.0.to_string() == w)
+        .or_else(|| all.iter().find(|t| t.1.eq_ignore_ascii_case(w)))
+        .ok_or_else(|| {
+            let names: Vec<&str> = all.iter().map(|t| t.1.as_str()).collect();
+            format!("Workspace \"{w}\" not available for this key. Available: {}", names.join(", "))
+        })?;
+    auth.for_team(&st.db, found.0).await.map_err(|e| e.message)
+}
+
 async fn call_tool(st: &AppState, auth: &Auth, name: &str, args: Value) -> Result<String, String> {
     let st_ = || State(st.clone());
     let au = || auth.clone();
     match name {
+        "list_workspaces" => {
+            let all = usable_workspaces(st, auth).await?;
+            let default = auth.key.as_ref().and_then(|k| k.teams.first().copied()).or(auth.team_id);
+            let collections = match auth.key.as_ref().and_then(|k| k.collections.as_ref()) {
+                Some(c) => format!("\nThis key is limited to {} collection(s).", c.len()),
+                None => String::new(),
+            };
+            let access = match &auth.key {
+                Some(k) if !k.write => "\nThis key is read-only.",
+                _ => "",
+            };
+            let lines: Vec<String> = all
+                .iter()
+                .map(|(id, name, role)| {
+                    let role = match &auth.key {
+                        Some(k) => crate::auth::key_role(role, k),
+                        None => role.clone(),
+                    };
+                    format!("- {name} — id: {id} — role: {role}{}", if Some(*id) == default { " — default" } else { "" })
+                })
+                .collect();
+            Ok(format!("{}{collections}{access}", lines.join("\n")))
+        }
         "workspace_info" => {
             let i = data(session::info(st_(), au()).await)?;
             Ok(format!(
@@ -466,6 +562,7 @@ async fn call_tool(st: &AppState, auth: &Auth, name: &str, args: Value) -> Resul
                     Json(req(json!({
                         "query": arg(&args, "query").unwrap_or_default(),
                         "collectionId": cid,
+                        "allWorkspaces": args.get("all_workspaces").and_then(|v| v.as_bool()).unwrap_or(false),
                         "limit": args.get("limit").and_then(|l| l.as_i64()).unwrap_or(10),
                     }))?),
                 )

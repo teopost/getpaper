@@ -252,13 +252,15 @@ export function Empty({ children }) {
   return <div className="empty">{children}</div>;
 }
 
-export function Field({ label, hint, children }) {
+/** Labelled form field. `group`: for a set of radio buttons or checkboxes, which carry their own labels. */
+export function Field({ label, hint, group, children }) {
+  const Tag = group ? 'div' : 'label';
   return (
-    <label className="field">
+    <Tag className="field" role={group ? 'group' : undefined}>
       {label && <span className="field-label">{label}</span>}
       {children}
       {hint && <span className="field-hint">{hint}</span>}
-    </label>
+    </Tag>
   );
 }
 

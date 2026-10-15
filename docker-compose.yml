@@ -39,7 +39,7 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
-      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-GetPaper}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-}
       SMTP_SECURE: ${SMTP_SECURE:-}
       # Accounts that are always superadmins (comma separated), e.g. to recover access
       SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}

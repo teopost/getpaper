@@ -145,7 +145,7 @@ pub async fn register(State(st): State<AppState>, Json(b): Json<RegisterReq>) ->
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| format!("{name}'s Workspace"));
-        create_team(&st.db, &user, &tn).await?.id
+        create_team(&st.db, &user, &tn, &st.settings().product_name()).await?.id
     };
 
     let token = create_session(&st.db, user.id, Some(team_id)).await?;

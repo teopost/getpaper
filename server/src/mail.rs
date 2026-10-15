@@ -1,5 +1,5 @@
 //! Outgoing email over SMTP (SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL,
-//! SMTP_FROM_NAME, SMTP_SECURE) and the messages GetPaper sends: workspace invitations.
+//! SMTP_FROM_NAME, SMTP_SECURE) and the messages the application sends: workspace invitations.
 
 use std::time::Duration;
 
@@ -18,7 +18,8 @@ pub struct SmtpConfig {
     pub username: String,
     pub password: String,
     pub from_email: String,
-    pub from_name: String,
+    /// SMTP_FROM_NAME; when not set the product name of the email is used
+    pub from_name: Option<String>,
     /// "ssl" (implicit TLS, port 465), "starttls" or "none"
     pub secure: String,
 }
@@ -40,7 +41,7 @@ impl SmtpConfig {
             username: var("SMTP_USERNAME").unwrap_or_default(),
             password: var("SMTP_PASSWORD").unwrap_or_default(),
             from_email,
-            from_name: var("SMTP_FROM_NAME").unwrap_or_else(|| "GetPaper".into()),
+            from_name: var("SMTP_FROM_NAME"),
             secure,
         })
     }
@@ -61,7 +62,8 @@ impl SmtpConfig {
 
     pub async fn send(&self, to_email: &str, to_name: Option<&str>, mail: &Mail) -> ApiResult<()> {
         let bad = |e: String| ApiError::bad_request(format!("Cannot send the email: {e}"));
-        let from = Mailbox::new(Some(self.from_name.clone()), self.from_email.parse().map_err(|e| bad(format!("{e}")))?);
+        let name = self.from_name.clone().unwrap_or_else(|| mail.sender.clone());
+        let from = Mailbox::new(Some(name), self.from_email.parse().map_err(|e| bad(format!("{e}")))?);
         let to = Mailbox::new(to_name.map(|n| n.to_string()), to_email.parse().map_err(|e| bad(format!("{e}")))?);
         let message = Message::builder()
             .from(from)
@@ -87,6 +89,8 @@ impl SmtpConfig {
 }
 
 pub struct Mail {
+    /// sender name when SMTP_FROM_NAME is not set
+    pub sender: String,
     pub subject: String,
     pub text: String,
     pub html: String,
@@ -109,6 +113,8 @@ fn on(color: &str) -> &'static str {
 
 pub struct InviteMail<'a> {
     pub lang: &'a str,
+    /// product name shown in the email (GetPaper or the custom one)
+    pub product: &'a str,
     pub inviter: &'a str,
     pub team: &'a str,
     pub role: &'a str,
@@ -143,15 +149,16 @@ pub fn invite(m: &InviteMail) -> Mail {
     };
     let (subject, title, intro, button, sign_in, fallback, ignore, footer) = if it {
         (
-            if m.added { format!("{} ti ha aggiunto a {} su GetPaper", m.inviter, m.team) } else { format!("{} ti ha invitato su GetPaper", m.inviter) },
+            if m.added { format!("{} ti ha aggiunto a {} su {}", m.inviter, m.team, m.product) } else { format!("{} ti ha invitato su {}", m.inviter, m.product) },
             if m.added { format!("Ora fai parte di {}", m.team) } else { format!("Sei stato invitato in {}", m.team) },
             format!(
-                "<strong>{}</strong> {} al workspace <strong>{}</strong> su GetPaper, la documentazione del team, come <strong>{role}</strong>: {role_hint}.",
+                "<strong>{}</strong> {} al workspace <strong>{}</strong> su {}, la documentazione del team, come <strong>{role}</strong>: {role_hint}.",
                 esc(m.inviter),
                 if m.added { "ti ha aggiunto" } else { "ti ha invitato a unirti" },
-                esc(m.team)
+                esc(m.team),
+                esc(m.product)
             ),
-            if m.added { "Apri GetPaper".to_string() } else { "Accetta l'invito".to_string() },
+            if m.added { format!("Apri {}", m.product) } else { "Accetta l'invito".to_string() },
             if m.microsoft {
                 format!("Accedi con il tuo account Microsoft aziendale <strong>{}</strong>: non serve creare una password.", esc(m.email))
             } else {
@@ -163,15 +170,16 @@ pub fn invite(m: &InviteMail) -> Mail {
         )
     } else {
         (
-            if m.added { format!("{} added you to {} on GetPaper", m.inviter, m.team) } else { format!("{} invited you to GetPaper", m.inviter) },
+            if m.added { format!("{} added you to {} on {}", m.inviter, m.team, m.product) } else { format!("{} invited you to {}", m.inviter, m.product) },
             if m.added { format!("You are now part of {}", m.team) } else { format!("You're invited to {}", m.team) },
             format!(
-                "<strong>{}</strong> {} the <strong>{}</strong> workspace on GetPaper, your team's documentation, as <strong>{role}</strong>: {role_hint}.",
+                "<strong>{}</strong> {} the <strong>{}</strong> workspace on {}, your team's documentation, as <strong>{role}</strong>: {role_hint}.",
                 esc(m.inviter),
                 if m.added { "added you to" } else { "invited you to join" },
-                esc(m.team)
+                esc(m.team),
+                esc(m.product)
             ),
-            if m.added { "Open GetPaper".to_string() } else { "Accept invitation".to_string() },
+            if m.added { format!("Open {}", m.product) } else { "Accept invitation".to_string() },
             if m.microsoft {
                 format!("Sign in with your work Microsoft account <strong>{}</strong>: no password needed.", esc(m.email))
             } else {
@@ -198,11 +206,12 @@ pub fn invite(m: &InviteMail) -> Mail {
         out.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
     };
     let text = format!(
-        "{title}\n\n{}\n\n{}\n\n{button}: {link}\n\n{ignore}\n-- \nGetPaper · {base}\n",
+        "{title}\n\n{}\n\n{}\n\n{button}: {link}\n\n{ignore}\n-- \n{product} · {base}\n",
         strip(&intro),
         strip(&sign_in),
         link = m.link,
-        base = m.base_url
+        base = m.base_url,
+        product = m.product
     );
     let html = format!(
         r#"<!doctype html>
@@ -218,7 +227,7 @@ pub fn invite(m: &InviteMail) -> Mail {
       <div style="height:3px;width:14px;background:{brand};border-radius:2px;margin:0 0 3px;font-size:0;line-height:0;">&nbsp;</div>
       <div style="height:3px;width:9px;background:{brand};border-radius:2px;font-size:0;line-height:0;">&nbsp;</div>
     </td>
-    <td style="padding-left:10px;color:{brand_text};font-size:20px;font-weight:700;letter-spacing:-0.3px;">GetPaper</td>
+    <td style="padding-left:10px;color:{brand_text};font-size:20px;font-weight:700;letter-spacing:-0.3px;">{product_e}</td>
   </tr></table>
 </td></tr>
 <tr><td style="padding:32px 32px 8px;">
@@ -242,6 +251,7 @@ pub fn invite(m: &InviteMail) -> Mail {
         title_e = esc(&title),
         link_e = esc(m.link),
         base_e = esc(m.base_url),
+        product_e = esc(m.product),
     );
-    Mail { subject, text, html }
+    Mail { sender: m.product.to_string(), subject, text, html }
 }

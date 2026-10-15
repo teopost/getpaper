@@ -13,16 +13,20 @@ pub async fn team_role(db: &PgPool, auth: &Auth, team_id: Uuid) -> ApiResult<Opt
     if auth.team_id == Some(team_id) {
         return Ok(auth.role.clone());
     }
-    if auth.session_hash.is_none() {
-        // API keys are scoped to a single workspace
-        return Ok(None);
+    if let Some(k) = &auth.key {
+        if !k.teams.contains(&team_id) {
+            return Ok(None);
+        }
     }
     let r: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2")
         .bind(auth.user.id)
         .bind(team_id)
         .fetch_optional(db)
         .await?;
-    Ok(r.map(|r| r.0))
+    Ok(r.map(|r| match &auth.key {
+        Some(k) => crate::auth::key_role(&r.0, k),
+        None => r.0,
+    }))
 }
 
 pub fn compute_collection_access(role: &str, c: &Collection, membership: Option<&str>) -> Access {
@@ -48,6 +52,9 @@ pub fn compute_collection_access(role: &str, c: &Collection, membership: Option<
 }
 
 pub async fn collection_access(db: &PgPool, auth: &Auth, c: &Collection) -> ApiResult<Access> {
+    if auth.key.as_ref().is_some_and(|k| !k.allows_collection(c.id)) {
+        return Ok(Access::None);
+    }
     let role = match team_role(db, auth, c.team_id).await? {
         Some(r) => r,
         None => return Ok(Access::None),
@@ -83,7 +90,8 @@ pub async fn load_collection(db: &PgPool, auth: &Auth, id: &str, need: Access) -
 
 /// Workspaces the user belongs to and the collections they can read in each of them
 /// (same rules as `readable_collection_ids`, applied with the user's role in every workspace).
-pub async fn readable_collection_ids_all_teams(db: &PgPool, user_id: Uuid) -> ApiResult<(Vec<Uuid>, Vec<Uuid>)> {
+pub async fn readable_collection_ids_all_teams(db: &PgPool, auth: &Auth) -> ApiResult<(Vec<Uuid>, Vec<Uuid>)> {
+    let user_id = auth.user.id;
     let teams: Vec<(Uuid,)> = sqlx::query_as("SELECT team_id FROM team_memberships WHERE user_id = $1")
         .bind(user_id)
         .fetch_all(db)
@@ -96,7 +104,12 @@ pub async fn readable_collection_ids_all_teams(db: &PgPool, user_id: Uuid) -> Ap
     .bind(user_id)
     .fetch_all(db)
     .await?;
-    Ok((teams.into_iter().map(|r| r.0).collect(), cols.into_iter().map(|r| r.0).collect()))
+    // an API key narrows both to its workspaces and collections; read keys still read everything they can
+    let key = auth.key.as_ref();
+    Ok((
+        teams.into_iter().map(|r| r.0).filter(|t| key.map_or(true, |k| k.teams.contains(t))).collect(),
+        cols.into_iter().map(|r| r.0).filter(|c| key.map_or(true, |k| k.allows_collection(*c))).collect(),
+    ))
 }
 
 pub async fn readable_collection_ids(db: &PgPool, auth: &Auth) -> ApiResult<Vec<Uuid>> {
@@ -117,7 +130,7 @@ pub async fn readable_collection_ids(db: &PgPool, auth: &Auth) -> ApiResult<Vec<
         .fetch_all(db)
         .await?
     };
-    Ok(rows.into_iter().map(|r| r.0).collect())
+    Ok(rows.into_iter().map(|r| r.0).filter(|c| auth.key.as_ref().map_or(true, |k| k.allows_collection(*c))).collect())
 }
 
 pub async fn find_doc(db: &PgPool, user_id: Uuid, id: &str) -> ApiResult<DocRow> {
@@ -145,6 +158,12 @@ pub async fn doc_access(db: &PgPool, auth: &Auth, d: &DocRow) -> ApiResult<Acces
         Some(r) => r,
         None => return Ok(Access::None),
     };
+    // a key limited to some collections sees only documents in them
+    if let Some(k) = &auth.key {
+        if k.collections.is_some() && !d.collection_id.is_some_and(|c| k.allows_collection(c)) {
+            return Ok(Access::None);
+        }
+    }
     let is_owner = d.created_by == auth.user.id;
     if d.published_at.is_none() && !is_owner {
         return Ok(Access::None);

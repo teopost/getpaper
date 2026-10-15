@@ -4,6 +4,7 @@ import { api } from '../api';
 import { Button, Field } from '../components/ui';
 import { t } from '../i18n';
 import { LogoFull } from '../components/Logo';
+import { getProductName } from '../prefs';
 
 export { LogoMark as Logo } from '../components/Logo';
 
@@ -56,7 +57,7 @@ export default function Login() {
   const redirect = params.get('redirect') || '/';
 
   useEffect(() => {
-    document.title = t('Login - GetPaper');
+    document.title = t('Login - {product}', { product: getProductName() });
     api('auth.config').then(setConfig).catch(() => {});
   }, []);
 
@@ -77,7 +78,7 @@ export default function Login() {
 
   if (config.isFirstUser && config.passwordLogin) {
     return (
-      <AuthShell title={t('Welcome to GetPaper')} subtitle={t('Let\'s get started by creating the first account and workspace.')}>
+      <AuthShell title={t('Welcome to {product}', { product: getProductName() })} subtitle={t('Let\'s get started by creating the first account and workspace.')}>
         {config.microsoft && <MicrosoftButton />}
         {config.microsoft && <OrDivider />}
         <Link to="/register" className="btn btn-primary btn-block">
@@ -88,7 +89,7 @@ export default function Login() {
   }
 
   return (
-    <AuthShell title={t('Login to GetPaper')}>
+    <AuthShell title={t('Login to {product}', { product: getProductName() })}>
       {config.microsoft && <MicrosoftButton redirect={redirect} />}
       {config.microsoft && config.passwordLogin && <OrDivider />}
       {!config.passwordLogin && error && <div className="error-text">{error}</div>}

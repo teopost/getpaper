@@ -19,13 +19,26 @@ use crate::{
 };
 
 /// Visibility clause. Binds: $1 user id, $2 team id, $3 readable collection ids.
-const ACCESS: &str = "d.team_id = $2 AND d.deleted_at IS NULL \
-    AND (d.collection_id = ANY($3) OR (d.collection_id IS NULL AND d.created_by = $1)) \
-    AND (d.published_at IS NOT NULL OR d.created_by = $1)";
-/// Like ACCESS, but $2 is an array of workspaces (search across workspaces)
-const ACCESS_TEAMS: &str = "d.team_id = ANY($2) AND d.deleted_at IS NULL \
-    AND (d.collection_id = ANY($3) OR (d.collection_id IS NULL AND d.created_by = $1)) \
-    AND (d.published_at IS NOT NULL OR d.created_by = $1)";
+/// Documents visible to the user: readable collections ($3, of workspace $2 or of the workspaces in
+/// $2 when `many_teams`), their own collection-less drafts, published ones or their own.
+/// A key limited to some collections doesn't see collection-less documents.
+fn access_sql(auth: &Auth, many_teams: bool) -> String {
+    let team = if many_teams { "d.team_id = ANY($2)" } else { "d.team_id = $2" };
+    let own = if auth.key.as_ref().is_some_and(|k| k.collections.is_some()) {
+        ""
+    } else {
+        " OR (d.collection_id IS NULL AND d.created_by = $1)"
+    };
+    format!("{team} AND d.deleted_at IS NULL AND (d.collection_id = ANY($3){own}) AND (d.published_at IS NOT NULL OR d.created_by = $1)")
+}
+
+/// Drops documents outside the collections an API key is limited to.
+fn key_visible(auth: &Auth, docs: Vec<DocRow>) -> Vec<DocRow> {
+    match auth.key.as_ref().filter(|k| k.collections.is_some()) {
+        Some(k) => docs.into_iter().filter(|d| d.collection_id.is_some_and(|c| k.allows_collection(c))).collect(),
+        None => docs,
+    }
+}
 
 fn page(limit: Option<i64>, offset: Option<i64>) -> (i64, i64) {
     (limit.unwrap_or(25).clamp(1, 100), offset.unwrap_or(0).max(0))
@@ -58,8 +71,9 @@ pub async fn list(State(st): State<AppState>, auth: Auth, Json(b): Json<ListReq>
     };
     let dir = if b.direction.as_deref() == Some("ASC") { "ASC" } else { "DESC" };
     let (limit, offset) = page(b.limit, b.offset);
+    let access = access_sql(&auth, false);
     let sql = format!(
-        "{} WHERE {ACCESS} AND d.archived_at IS NULL AND d.published_at IS NOT NULL AND d.template = false \
+        "{} WHERE {access} AND d.archived_at IS NULL AND d.published_at IS NOT NULL AND d.template = false \
          AND ($4::uuid IS NULL OR d.collection_id = $4) AND ($5::uuid IS NULL OR d.parent_document_id = $5) \
          AND ($6::uuid IS NULL OR d.created_by = $6) ORDER BY {col} {dir}, d.id LIMIT $7 OFFSET $8",
         doc_select()
@@ -98,15 +112,16 @@ pub async fn drafts(State(st): State<AppState>, auth: Auth, Json(b): Json<PageRe
         .bind(offset)
         .fetch_all(&st.db)
         .await?;
-    ok(docs)
+    ok(key_visible(&auth, docs))
 }
 
 pub async fn viewed(State(st): State<AppState>, auth: Auth, Json(b): Json<PageReq>) -> ApiResult<Json<Value>> {
     let ids = readable_collection_ids(&st.db, &auth).await?;
     let (limit, offset) = page(b.limit, b.offset);
+    let access = access_sql(&auth, false);
     let sql = format!(
         "SELECT {DOC_COLUMNS} {DOC_FROM} JOIN views v ON v.document_id = d.id AND v.user_id = $1 \
-         WHERE {ACCESS} AND d.archived_at IS NULL AND d.template = false ORDER BY v.last_viewed_at DESC LIMIT $4 OFFSET $5"
+         WHERE {access} AND d.archived_at IS NULL AND d.template = false ORDER BY v.last_viewed_at DESC LIMIT $4 OFFSET $5"
     );
     let docs: Vec<DocRow> = sqlx::query_as(&sql)
         .bind(auth.user.id)
@@ -122,8 +137,9 @@ pub async fn viewed(State(st): State<AppState>, auth: Auth, Json(b): Json<PageRe
 pub async fn archived(State(st): State<AppState>, auth: Auth, Json(b): Json<PageReq>) -> ApiResult<Json<Value>> {
     let ids = readable_collection_ids(&st.db, &auth).await?;
     let (limit, offset) = page(b.limit, b.offset);
+    let access = access_sql(&auth, false);
     let sql = format!(
-        "{} WHERE {ACCESS} AND d.archived_at IS NOT NULL ORDER BY d.archived_at DESC LIMIT $4 OFFSET $5",
+        "{} WHERE {access} AND d.archived_at IS NOT NULL ORDER BY d.archived_at DESC LIMIT $4 OFFSET $5",
         doc_select()
     );
     let docs: Vec<DocRow> = sqlx::query_as(&sql)
@@ -152,7 +168,7 @@ pub async fn deleted(State(st): State<AppState>, auth: Auth, Json(b): Json<PageR
         .bind(offset)
         .fetch_all(&st.db)
         .await?;
-    ok(docs)
+    ok(key_visible(&auth, docs))
 }
 
 pub async fn templates(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Value>> {
@@ -169,7 +185,7 @@ pub async fn templates(State(st): State<AppState>, auth: Auth) -> ApiResult<Json
         .bind(&ids)
         .fetch_all(&st.db)
         .await?;
-    ok(docs)
+    ok(key_visible(&auth, docs))
 }
 
 // ---------------------------------------------------------------------------
@@ -557,8 +573,11 @@ pub async fn move_doc(State(st): State<AppState>, auth: Auth, Json(b): Json<Move
             let (c, _) = load_collection(&st.db, &auth, cid, Access::Write).await?;
             (c.id, None, c.team_id)
         };
-    if target_team != d.team_id {
-        return Err(ApiError::bad_request("Documents cannot be moved between workspaces"));
+    // to another workspace: the user must edit the document (checked above) and write the target
+    // (load_collection / load_doc, which check the role in the target workspace)
+    let other_workspace = target_team != d.team_id;
+    if other_workspace && d.template {
+        return Err(ApiError::bad_request("Templates cannot be moved to another workspace"));
     }
     let siblings: Vec<(Uuid,)> = sqlx::query_as(
         "SELECT id FROM documents WHERE collection_id = $1 AND parent_document_id IS NOT DISTINCT FROM $2 AND id <> $3 \
@@ -585,6 +604,24 @@ pub async fn move_doc(State(st): State<AppState>, auth: Auth, Json(b): Json<Move
         .bind(target_collection)
         .execute(&mut *tx)
         .await?;
+    if other_workspace {
+        // the whole subtree, its attachments and public links follow; links are revoked because the
+        // target workspace may not allow public sharing
+        let mut all = tree.clone();
+        all.push(d.id);
+        sqlx::query("UPDATE documents SET team_id = $2 WHERE id = ANY($1)").bind(&all).bind(target_team).execute(&mut *tx).await?;
+        sqlx::query("UPDATE attachments SET team_id = $2 WHERE document_id = ANY($1)")
+            .bind(&all)
+            .bind(target_team)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("UPDATE shares SET team_id = $2, revoked_at = COALESCE(revoked_at, now()) WHERE document_id = ANY($1)")
+            .bind(&all)
+            .bind(target_team)
+            .execute(&mut *tx)
+            .await?;
+        tracing::info!(document = %d.id, documents = all.len(), from = %d.team_id, to = %target_team, "document moved to another workspace");
+    }
     for (i, id) in order.iter().enumerate() {
         sqlx::query("UPDATE documents SET position = $2 WHERE id = $1")
             .bind(id)
@@ -802,19 +839,21 @@ pub async fn search(State(st): State<AppState>, auth: Auth, Json(b): Json<Search
     if q.is_empty() {
         return ok(Vec::<Value>::new());
     }
-    let (teams, ids) = if b.all_workspaces && auth.session_hash.is_some() {
-        readable_collection_ids_all_teams(&st.db, auth.user.id).await?
+    // API keys search the workspaces they are valid in
+    let (teams, ids) = if b.all_workspaces {
+        readable_collection_ids_all_teams(&st.db, &auth).await?
     } else {
         (vec![auth.team()?], readable_collection_ids(&st.db, &auth).await?)
     };
     let (limit, offset) = page(b.limit, b.offset);
+    let access = access_sql(&auth, true);
     let sql = format!(
         "SELECT {DOC_COLUMNS}, \
            ts_headline('simple', d.text, q, 'StartSel=⟪, StopSel=⟫, MaxFragments=2, MinWords=8, MaxWords=24, FragmentDelimiter=\" … \"') AS context, \
            (ts_rank(d.search_vector, q) + CASE WHEN d.title ILIKE $6 THEN 1.0 ELSE 0.0 END)::real AS ranking, \
            (SELECT c.name FROM collections c WHERE c.id = d.collection_id) AS collection_name \
          {DOC_FROM} CROSS JOIN websearch_to_tsquery('simple', $4) AS q \
-         WHERE {ACCESS_TEAMS} AND d.archived_at IS NULL AND d.template = false AND ($5::uuid IS NULL OR d.collection_id = $5) \
+         WHERE {access} AND d.archived_at IS NULL AND d.template = false AND ($5::uuid IS NULL OR d.collection_id = $5) \
            AND (d.search_vector @@ q OR d.title ILIKE $6 OR d.text ILIKE $6) \
          ORDER BY ranking DESC, d.updated_at DESC LIMIT $7 OFFSET $8"
     );

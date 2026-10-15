@@ -36,6 +36,8 @@ I dati stanno nei volumi Docker `pgdata` (PostgreSQL) e `uploads` (allegati).
 - **Collezioni** con icona e colore, permessi "modifica", "sola lettura" o "privata" con membri espliciti,
   riordino via drag & drop.
 - **Documenti annidati** con albero nella sidebar, drag & drop per spostare e riordinare, breadcrumb.
+- **Spostamento tra workspace**: da *Sposta* si sceglie anche il workspace di destinazione (tra quelli in cui si può
+  scrivere). Il documento passa con sottopagine, cronologia, commenti e allegati; i suoi link pubblici vengono revocati.
 - **Editor WYSIWYG** salvato in Markdown: menu `/`, toolbar di formattazione, scorciatoie Markdown, tabelle,
   checklist, blocchi di codice con evidenziazione, notice (`:::info`, `:::warning`, `:::tip`, `:::success`),
   immagini e allegati con incolla o trascina.
@@ -145,7 +147,7 @@ aziendale). Chi ha già un account e viene aggiunto a un workspace riceve un avv
 | --- | --- |
 | `SMTP_HOST`, `SMTP_PORT` | Server di posta (senza `SMTP_HOST` le email sono disattivate) |
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | Credenziali (per SendGrid: `apikey` e la chiave API) |
-| `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` | Mittente |
+| `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` | Mittente; senza `SMTP_FROM_NAME` il nome del mittente è il nome del prodotto |
 | `SMTP_SECURE` | `ssl` (porta 465), `starttls` (587) o `none`; se vuoto si deduce dalla porta |
 
 ## Superadmin e impostazioni generali
@@ -153,7 +155,9 @@ aziendale). Chi ha già un account e viene aggiunto a un workspace riceve un avv
 Il **superadmin** gestisce le impostazioni comuni a tutti i workspace dell'installazione, in
 **Impostazioni → Impostazioni generali** (la voce compare solo ai superadmin):
 
-- **Aspetto del marchio**: colore dell'header (la barra in alto; il colore del testo è scelto in automatico per il
+- **Aspetto del marchio**: nome del prodotto (se vuoto resta *GetPaper*; è mostrato nella scheda del browser, nella
+  pagina di accesso, accanto al logo, nei link pubblici, nelle email e nel documento di benvenuto dei nuovi workspace;
+  file di backup e server MCP mantengono il nome tecnico GetPaper), colore dell'header (la barra in alto; il colore del testo è scelto in automatico per il
   contrasto) e colore di accento (pulsanti, link). Valgono anche nelle pagine di accesso e nei link pubblici.
 - **Protezione dei dati**: abilita o disabilita i backup dei workspace, l'export Markdown (vault Obsidian e download
   dei singoli documenti) e i link pubblici. Il blocco è applicato dal server; disattivando i link pubblici quelli
@@ -190,8 +194,21 @@ API: `POST /api/workspace.export` con `{"format": "backup" | "obsidian"}`, rispo
 ## Server MCP (per LLM)
 
 Il backend espone un server [MCP](https://modelcontextprotocol.io) su `POST /mcp` (trasporto Streamable HTTP).
-L'autenticazione usa una chiave API personale, creata da **Impostazioni → API Keys & MCP**. La chiave vale per
-un solo workspace e l'LLM opera con i permessi del suo proprietario.
+L'autenticazione usa una chiave API personale, creata da **Impostazioni → API Keys & MCP**. Alla creazione si sceglie:
+
+- **Accesso**: *sola lettura* (l'LLM cerca e legge) oppure *lettura e scrittura*;
+- **Workspace**: solo quello corrente, alcuni, oppure tutti quelli dell'utente (anche futuri);
+- **Collezioni**: tutte oppure solo alcune (in quel caso l'LLM non vede altro, nemmeno le bozze senza collezione,
+  e non può creare collezioni);
+- **Scadenza**: nessuna, 30, 90, 180 giorni o 1 anno.
+
+Il permesso effettivo non supera mai quello dell'utente; con una chiave non si possono amministrare i workspace
+(membri, impostazioni), modificare le impostazioni generali né creare altre chiavi. Una chiave scaduta viene rifiutata.
+
+Una chiave valida in più workspace richiede una sola configurazione nel client: lo strumento `list_workspaces` elenca i
+workspace della chiave, ogni strumento accetta il parametro facoltativo `workspace` (nome o id; senza, si usa il
+workspace predefinito della chiave) e `search_documents` cerca in tutti con `all_workspaces: true`. Nelle API REST il
+workspace si sceglie con l'intestazione `X-Workspace: <id>`.
 
 ```bash
 claude mcp add --scope user --transport http getpaper http://localhost:3000/mcp \
@@ -209,7 +226,7 @@ Strumenti disponibili:
 
 | Area | Strumenti |
 | --- | --- |
-| Workspace | `workspace_info` |
+| Workspace | `list_workspaces`, `workspace_info` |
 | Collezioni | `list_collections`, `get_collection_tree`, `create_collection`, `update_collection` |
 | Lettura | `search_documents`, `list_documents`, `list_drafts`, `list_templates`, `get_document`, `list_revisions` |
 | Scrittura | `create_document`, `update_document` (anche `append_text`), `move_document`, `archive_document`, `delete_document`, `restore_document` |

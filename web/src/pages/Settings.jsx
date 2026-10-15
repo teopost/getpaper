@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Copy, Plus, Trash2, UserPlus, Check, Download, Mail, Send } from 'lucide-react';
-import { api, collectionUrl, copyToClipboard, docUrl, downloadFile, timeAgo, upload } from '../api';
+import { api, collectionUrl, copyToClipboard, docUrl, formatDate, downloadFile, timeAgo, upload } from '../api';
 import { useApp } from '../store';
 import Scene from '../components/Scene';
 import { Avatar, Button, ConfirmModal, Empty, Field, Modal, Spinner, Switch, TeamAvatar } from '../components/ui';
@@ -10,7 +10,7 @@ import { COLORS } from '../components/icons';
 import InviteModal from '../components/InviteModal';
 import NewWorkspaceModal from '../components/NewWorkspaceModal';
 import { LANGUAGES, t } from '../i18n';
-import { getDefaults } from '../prefs';
+import { DEFAULT_PRODUCT_NAME, getDefaults, getProductName } from '../prefs';
 
 function ColorPicker({ value, onChange }) {
   return (
@@ -593,41 +593,193 @@ function Shares() {
   );
 }
 
+const EXPIRY_OPTIONS = [
+  { value: '', label: 'No expiry' },
+  { value: '30', label: '30 days' },
+  { value: '90', label: '90 days' },
+  { value: '180', label: '180 days' },
+  { value: '365', label: '1 year' },
+];
+
+/** Form to create an API key with its limits: access, workspaces, collections, expiry */
+function NewApiKeyModal({ onClose, onCreated }) {
+  const { team } = useApp();
+  const toast = useToast();
+  const [workspaces, setWorkspaces] = useState(null);
+  const [name, setName] = useState('');
+  const [access, setAccess] = useState('read');
+  const [scope, setScope] = useState('current'); // current | all | some
+  const [chosen, setChosen] = useState([team.id]);
+  const [limitCollections, setLimitCollections] = useState(false);
+  const [collections, setCollections] = useState([]);
+  const [expiry, setExpiry] = useState('90');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api('apiKeys.collections', {})
+      .then(setWorkspaces)
+      .catch((e) => toast(e.message, 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectedTeams = scope === 'all' ? (workspaces || []).map((w) => w.id) : scope === 'current' ? [team.id] : chosen;
+  const toggle = (list, setList, id) => setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const visible = new Set((workspaces || []).filter((w) => selectedTeams.includes(w.id)).flatMap((w) => w.collections.map((c) => c.id)));
+      const created = await api('apiKeys.create', {
+        name,
+        access,
+        allWorkspaces: scope === 'all',
+        workspaceIds: scope === 'all' ? undefined : selectedTeams,
+        collectionIds: limitCollections ? collections.filter((c) => visible.has(c)) : undefined,
+        expiresInDays: expiry ? Number(expiry) : undefined,
+      });
+      onCreated(created);
+    } catch (err) {
+      toast(err.message, 'error');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={t('New API key')} onClose={onClose} width={600}>
+      <form className="form" onSubmit={submit}>
+        <Field label={t('Name')}>
+          <input autoFocus required value={name} placeholder={t('Key name, e.g. Claude Code')} onChange={(e) => setName(e.target.value)} />
+        </Field>
+
+        <Field group label={t('Access')} hint={t('A key never has more permissions than your account, and can’t administer workspaces.')}>
+          <div className="radio-group">
+            <label>
+              <input type="radio" checked={access === 'read'} onChange={() => setAccess('read')} />
+              <span>
+                {t('Read only')}
+                <span className="option-hint">{t('search and read documents')}</span>
+              </span>
+            </label>
+            <label>
+              <input type="radio" checked={access === 'write'} onChange={() => setAccess('write')} />
+              <span>
+                {t('Read and write')}
+                <span className="option-hint">{t('also create, edit and comment, as your role allows')}</span>
+              </span>
+            </label>
+          </div>
+        </Field>
+
+        <Field group label={t('Workspaces')}>
+          <div className="radio-group">
+            <label>
+              <input type="radio" checked={scope === 'current'} onChange={() => setScope('current')} /> {t('Only {name}', { name: team.name })}
+            </label>
+            <label>
+              <input type="radio" checked={scope === 'all'} onChange={() => setScope('all')} /> {t('All my workspaces, also future ones')}
+            </label>
+            <label>
+              <input type="radio" checked={scope === 'some'} onChange={() => setScope('some')} /> {t('Choose workspaces')}
+            </label>
+            {scope === 'some' && (
+              <div className="checkbox-list">
+                {(workspaces || []).map((w) => (
+                  <label key={w.id}>
+                    <input type="checkbox" checked={chosen.includes(w.id)} onChange={() => toggle(chosen, setChosen, w.id)} /> {w.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </Field>
+
+        <Field group label={t('Collections')}>
+          <div className="radio-group">
+            <label>
+              <input type="radio" checked={!limitCollections} onChange={() => setLimitCollections(false)} /> {t('All collections I can access')}
+            </label>
+            <label>
+              <input type="radio" checked={limitCollections} onChange={() => setLimitCollections(true)} /> {t('Only some collections')}
+            </label>
+            {limitCollections && (
+              <div className="checkbox-list">
+                {(workspaces || [])
+                  .filter((w) => selectedTeams.includes(w.id))
+                  .map((w) => (
+                    <div key={w.id}>
+                      {selectedTeams.length > 1 && <div className="muted small checkbox-group-title">{w.name}</div>}
+                      {w.collections.map((c) => (
+                        <label key={c.id}>
+                          <input type="checkbox" checked={collections.includes(c.id)} onChange={() => toggle(collections, setCollections, c.id)} />{' '}
+                          {c.name}
+                        </label>
+                      ))}
+                      {w.collections.length === 0 && <div className="muted small">{t('No collections')}</div>}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </Field>
+
+        <Field label={t('Expiry')}>
+          <select value={expiry} onChange={(e) => setExpiry(e.target.value)}>
+            {EXPIRY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {t(o.label)}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <div className="modal-actions">
+          <Button variant="secondary" type="button" onClick={onClose}>
+            {t('Cancel')}
+          </Button>
+          <Button
+            type="submit"
+            disabled={busy || !name.trim() || (scope === 'some' && chosen.length === 0) || (limitCollections && collections.length === 0)}
+          >
+            {t('Create key')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function keyScope(k) {
+  const workspaces = k.allWorkspaces ? t('All workspaces') : k.workspaces.map((w) => w.name).join(', ');
+  const collections = k.collections
+    ? t(k.collections.length === 1 ? '{count} collection' : '{count} collections', { count: k.collections.length })
+    : t('All collections');
+  return { workspaces, collections, collectionNames: k.collections?.map((c) => c.name).join(', ') };
+}
+
 function ApiKeys() {
   const [keys, setKeys] = useState(null);
-  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState(null);
   const toast = useToast();
-  const load = () => api('apiKeys.list').then(setKeys);
+  const load = () => api('apiKeys.list').then(setKeys).catch((e) => toast(e.message, 'error'));
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <>
-      <h1 className="page-title">{t('API Keys')}</h1>
-      <p className="page-subtitle muted">
-        {t(
-          'Create personal API keys to authenticate with the API and programmatically control your workspace’s data. API keys have the same permissions as your user account and are scoped to the current workspace.'
-        )}
-      </p>
-      <form
-        className="row gap"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          try {
-            setCreated(await api('apiKeys.create', { name }));
-            setName('');
-            load();
-          } catch (err) {
-            toast(err.message, 'error');
-          }
-        }}
-      >
-        <input placeholder={t('Key name, e.g. Development')} value={name} onChange={(e) => setName(e.target.value)} className="grow" required />
-        <Button type="submit" icon={<Plus size={16} />}>
+      <div className="row space-between">
+        <h1 className="page-title">{t('API Keys')}</h1>
+        <Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>
           {t('New API key')}
         </Button>
-      </form>
+      </div>
+      <p className="page-subtitle muted">
+        {t(
+          'Personal keys for the API and the MCP server. Each key can be read-only, valid in one or more workspaces, limited to some collections and set to expire. A key never has more permissions than your account.'
+        )}
+      </p>
       {created && (
         <div className="notice-bar info column">
           <div>
@@ -654,32 +806,61 @@ function ApiKeys() {
       <div className="table-wrap">
         <table className="table">
           <tbody>
-            {keys?.map((k) => (
-              <tr key={k.id}>
-                <td>
-                  <strong>{k.name}</strong> <span className="muted mono">…{k.last4}</span>
-                </td>
-                <td className="muted">{t('Created {time}', { time: timeAgo(k.createdAt) })}</td>
-                <td className="muted">{k.lastUsedAt ? t('Used {time}', { time: timeAgo(k.lastUsedAt) }) : t('Never used')}</td>
-                <td className="right">
-                  <Button
-                    variant="secondary"
-                    small
-                    icon={<Trash2 size={14} />}
-                    onClick={async () => {
-                      await api('apiKeys.delete', { id: k.id });
-                      load();
-                    }}
-                  >
-                    {t('Revoke')}
-                  </Button>
-                </td>
-              </tr>
-            ))}
+            {keys?.map((k) => {
+              const scope = keyScope(k);
+              return (
+                <tr key={k.id}>
+                  <td>
+                    <strong>{k.name}</strong> <span className="muted mono">…{k.last4}</span>
+                    <div className="small key-badges">
+                      <span className="badge">{k.access === 'read' ? t('Read only') : t('Read and write')}</span>
+                      {k.expired ? (
+                        <span className="badge badge-danger">{t('Expired')}</span>
+                      ) : k.expiresAt ? (
+                        <span className="muted">{t('Expires {date}', { date: formatDate(k.expiresAt) })}</span>
+                      ) : (
+                        <span className="muted">{t('No expiry')}</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="muted small">
+                    <div>{scope.workspaces}</div>
+                    <div title={scope.collectionNames || ''}>{scope.collections}</div>
+                  </td>
+                  <td className="muted small">
+                    <div>{t('Created {time}', { time: timeAgo(k.createdAt) })}</div>
+                    <div>{k.lastUsedAt ? t('Used {time}', { time: timeAgo(k.lastUsedAt) }) : t('Never used')}</div>
+                  </td>
+                  <td className="right">
+                    <Button
+                      variant="secondary"
+                      small
+                      icon={<Trash2 size={14} />}
+                      onClick={async () => {
+                        await api('apiKeys.delete', { id: k.id });
+                        load();
+                      }}
+                    >
+                      {t('Revoke')}
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
       {keys && keys.length === 0 && <Empty>{t('You haven’t created any API keys yet.')}</Empty>}
+      {creating && (
+        <NewApiKeyModal
+          onClose={() => setCreating(false)}
+          onCreated={(c) => {
+            setCreating(false);
+            setCreated(c);
+            load();
+          }}
+        />
+      )}
       <McpSection />
     </>
   );
@@ -752,7 +933,7 @@ const IMPORT_SOURCES = [
   },
   {
     value: 'getpaper',
-    label: 'GetPaper backup',
+    label: '{product} backup',
     steps: [
       'In the source instance open Settings → Export and download the backup (workspace admins only).',
       'Upload the ZIP here as it is: collections, documents, drafts, history, comments and attachments are restored with their dates.',
@@ -799,7 +980,7 @@ const IMPORT_FORMATS = {
   'confluence-xml': 'Confluence export (XML)',
   'confluence-html': 'Confluence export (HTML)',
   markdown: 'Markdown files',
-  'getpaper-backup': 'GetPaper backup',
+  'getpaper-backup': '{product} backup',
 };
 
 /** Server errors with a code the client can translate */
@@ -807,8 +988,8 @@ const IMPORT_ERRORS = {
   not_confluence_export:
     'This archive is not a Confluence export: it contains neither entities.xml (XML export) nor Confluence HTML pages. Export the space as XML or HTML and upload the ZIP as it is.',
   confluence_export: 'This archive is a Confluence export. Choose Confluence or automatic detection as the source.',
-  getpaper_backup: 'This archive is a GetPaper backup. Choose GetPaper backup or automatic detection as the source.',
-  not_getpaper_backup: 'This archive is not a GetPaper backup: getpaper-backup.json is missing.',
+  getpaper_backup: 'This archive is a {product} backup. Choose {product} backup or automatic detection as the source.',
+  not_getpaper_backup: 'This archive is not a {product} backup: getpaper-backup.json is missing.',
 };
 
 function ImportData() {
@@ -839,7 +1020,7 @@ function ImportData() {
       await refreshAllTrees();
       toast(t(r.documents === 1 ? 'Imported {count} document' : 'Imported {count} documents', { count: r.documents }));
     } catch (err) {
-      toast(IMPORT_ERRORS[err.code] ? t(IMPORT_ERRORS[err.code]) : err.message, 'error');
+      toast(IMPORT_ERRORS[err.code] ? t(IMPORT_ERRORS[err.code], { product: getProductName() }) : err.message, 'error');
     } finally {
       setBusy(false);
     }
@@ -854,7 +1035,7 @@ function ImportData() {
           <select value={source} onChange={(e) => setSource(e.target.value)}>
             {IMPORT_SOURCES.map((s) => (
               <option key={s.value} value={s.value}>
-                {t(s.label)}
+                {t(s.label, { product: getProductName() })}
               </option>
             ))}
           </select>
@@ -911,7 +1092,7 @@ function ImportData() {
       {result && (
         <div className="notice-bar info column">
           {result.format && (
-            <div className="small">{t('Recognised format: {format}', { format: t(IMPORT_FORMATS[result.format] || result.format) })}</div>
+            <div className="small">{t('Recognised format: {format}', { format: t(IMPORT_FORMATS[result.format] || result.format, { product: getProductName() }) })}</div>
           )}
           <div>
             {rich(t('Imported {documents} documents and {attachments} attachments into:'), {
@@ -980,8 +1161,8 @@ function ExportData() {
       <h1 className="page-title">{t('Export')}</h1>
       <p className="page-subtitle muted">{t('Download the content of the “{name}” workspace.', { name: team.name })}</p>
       <ExportCard
-        title={t('Backup for GetPaper')}
-        description={t('A complete copy of the workspace, to restore it in another GetPaper instance from Settings → Import.')}
+        title={t('Backup for {product}', { product: getProductName() })}
+        description={t('A complete copy of the workspace, to restore it in another {product} instance from Settings → Import.', { product: getProductName() })}
         items={[
           t('Collections with icons, colours and permissions, documents with their hierarchy, drafts, templates and archived documents.'),
           t('Creation and modification dates, version history, comments and members of private collections.'),
@@ -1080,6 +1261,33 @@ function ToggleSetting({ label, hint, checked, onChange }) {
   );
 }
 
+/** Text setting saved when the field loses focus or on Enter; empty = default (shown as placeholder) */
+function TextSetting({ label, hint, value, placeholder, maxLength, onChange }) {
+  const [text, setText] = useState(value || '');
+  useEffect(() => setText(value || ''), [value]);
+  const commit = () => {
+    const v = text.trim();
+    if (v !== (value || '')) onChange(v || null);
+  };
+  return (
+    <Field label={label} hint={hint}>
+      <input
+        value={text}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+          }
+        }}
+      />
+    </Field>
+  );
+}
+
 /** Installation-wide settings, superadmins only */
 function EmailCheck({ enabled, email }) {
   const toast = useToast();
@@ -1170,6 +1378,16 @@ function GeneralSettings() {
 
       <h2 className="section-title">{t('Branding')}</h2>
       <div className="form settings-form">
+        <TextSetting
+          label={t('Product name')}
+          hint={t('Shown in the browser tab, on the sign-in page, next to the logo and in emails. Leave empty to use {name}.', {
+            name: DEFAULT_PRODUCT_NAME,
+          })}
+          value={s.productName}
+          placeholder={DEFAULT_PRODUCT_NAME}
+          maxLength={40}
+          onChange={(v) => update({ productName: v })}
+        />
         <ColorSetting
           label={t('Header colour')}
           hint={t('Background of the top bar. The text colour is chosen automatically for contrast.')}
@@ -1290,7 +1508,7 @@ function McpSection() {
       <p className="muted">
         {rich(
           t(
-            'Connect an LLM client (Claude Code, Claude Desktop, Cursor, …) to this workspace through the Model Context Protocol. The assistant can search, read, write, organise, comment and share documents with the permissions of the API key owner. Create an API key above and use it in place of {placeholder}.'
+            'Connect an LLM client (Claude Code, Claude Desktop, Cursor, …) through the Model Context Protocol. The assistant works within the limits of the API key: read-only or read/write, its workspaces and collections. Create an API key above and use it in place of {placeholder}.'
           ),
           { placeholder: <code>&lt;API_KEY&gt;</code> }
         )}
@@ -1310,6 +1528,14 @@ function McpSection() {
           </Button>
         </div>
       </Field>
+      <p className="muted small">
+        {rich(
+          t(
+            'A key valid in several workspaces needs a single configuration: the assistant lists them with {listTool} and chooses one with the {param} argument of every tool; the search can cover all of them.'
+          ),
+          { listTool: <code>list_workspaces</code>, param: <code>workspace</code> }
+        )}
+      </p>
       <div className="field-label">Claude Code</div>
       <pre className="code-sample bordered">{cmd}</pre>
       <div className="field-label">{t('Other clients ({file})', { file: 'mcp.json' })}</div>

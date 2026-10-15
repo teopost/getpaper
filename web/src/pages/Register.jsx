@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { Button, Field } from '../components/ui';
 import { t } from '../i18n';
+import { getProductName } from '../prefs';
 import { AuthShell, MicrosoftButton, OrDivider } from './Login';
 
 export function RegisterForm({ inviteToken, defaultEmail = '', teamName }) {
@@ -66,7 +67,7 @@ export function RegisterForm({ inviteToken, defaultEmail = '', teamName }) {
 export default function Register() {
   const [config, setConfig] = useState(null);
   useEffect(() => {
-    document.title = t('Sign up - GetPaper');
+    document.title = t('Sign up - {product}', { product: getProductName() });
     api('auth.config').then(setConfig).catch(() => setConfig({ allowSignup: false }));
   }, []);
   if (!config) return null;

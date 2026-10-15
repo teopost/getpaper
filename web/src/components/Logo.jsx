@@ -1,4 +1,5 @@
 import React from 'react';
+import { DEFAULT_PRODUCT_NAME, getProductName } from '../prefs';
 
 /** GetPaper mark: a sheet of paper with a folded corner. The tile uses the current text colour. */
 export function LogoMark({ size = 40, className = '' }) {
@@ -14,13 +15,19 @@ export function LogoMark({ size = 40, className = '' }) {
   );
 }
 
-/** Mark and name, for the sign-in pages and public documents */
+/** Mark and product name, for the sign-in pages and public documents */
 export function LogoFull({ size = 40 }) {
   return (
     <span className="logo-full" style={{ fontSize: Math.round(size * 0.62) }}>
       <LogoMark size={size} />
       <span className="logo-wordmark">
-        Get<span>Paper</span>
+        {getProductName() === DEFAULT_PRODUCT_NAME ? (
+          <>
+            Get<span>Paper</span>
+          </>
+        ) : (
+          getProductName()
+        )}
       </span>
     </span>
   );

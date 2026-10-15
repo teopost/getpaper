@@ -36,8 +36,15 @@ export function applyPrefs(user) {
 
 let instance = { allowBackupExport: true, allowMarkdownExport: true, allowPublicSharing: true };
 
+export const DEFAULT_PRODUCT_NAME = 'GetPaper';
+
 export function getInstance() {
   return instance;
+}
+
+/** Name shown to people: the one set in the general settings, else GetPaper */
+export function getProductName() {
+  return instance.productName || DEFAULT_PRODUCT_NAME;
 }
 
 /** Black or white, whichever reads better on `hex` */
@@ -52,7 +59,10 @@ function contrastText(hex) {
 
 /** Stores the settings and applies the branding colours (CSS variables on <html>). */
 export function applyInstance(next) {
+  const before = getProductName();
   if (next) instance = { ...instance, ...next };
+  // the tab title of pages that don't set their own
+  if (document.title === before || document.title === DEFAULT_PRODUCT_NAME) document.title = getProductName();
   const root = document.documentElement;
   const set = (name, value) => (value ? root.style.setProperty(name, value) : root.style.removeProperty(name));
   const header = instance.headerColor;

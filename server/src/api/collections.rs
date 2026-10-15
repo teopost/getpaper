@@ -37,6 +37,18 @@ fn parse_permission(p: &str) -> ApiResult<Option<String>> {
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceReq {
+    team_id: Uuid,
+}
+
+/// Collections of another workspace of the user (e.g. targets when moving a document).
+pub async fn list_for_workspace(State(st): State<AppState>, auth: Auth, Json(b): Json<WorkspaceReq>) -> ApiResult<Json<Value>> {
+    let a = auth.for_team(&st.db, b.team_id).await?;
+    list(State(st), a).await
+}
+
 pub async fn list(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Value>> {
     let team = auth.team()?;
     let cols: Vec<Collection> =
@@ -55,6 +67,8 @@ pub async fn list(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Valu
     let mems: HashMap<Uuid, String> = mems.into_iter().collect();
     let result: Vec<CollectionOut> = cols
         .into_iter()
+        // an API key limited to some collections lists only those
+        .filter(|c| auth.key.as_ref().map_or(true, |k| k.allows_collection(c.id)))
         .filter_map(|c| {
             let a = compute_collection_access(auth.role(), &c, mems.get(&c.id).map(|s| s.as_str()));
             if a == Access::None {
@@ -88,6 +102,9 @@ pub struct CreateReq {
 
 pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<CreateReq>) -> ApiResult<Json<Value>> {
     auth.require_writer()?;
+    if auth.key.as_ref().is_some_and(|k| k.collections.is_some()) {
+        return Err(ApiError::forbidden("This API key is limited to some collections and can't create new ones"));
+    }
     let team = auth.team()?;
     let name = non_empty(&b.name, "Name")?;
     let permission = parse_permission(b.permission.as_deref().unwrap_or("read_write"))?;

@@ -5,6 +5,7 @@ import Editor from '../editor/Editor';
 import { Spinner } from '../components/ui';
 import { Logo } from './Login';
 import { t } from '../i18n';
+import { getProductName } from '../prefs';
 
 export default function SharedDoc() {
   const { shareId } = useParams();
@@ -65,7 +66,7 @@ export default function SharedDoc() {
         <Editor value={doc.text} editable={false} documentId={doc.id} />
       </article>
       <footer className="shared-footer">
-        {t('Powered by')} <strong>GetPaper</strong>
+        {t('Powered by')} <strong>{getProductName()}</strong>
       </footer>
     </div>
   );

@@ -18,6 +18,7 @@ use crate::{
 };
 
 const KEY: &str = "instance";
+pub const PRODUCT_NAME: &str = "GetPaper";
 
 fn yes() -> bool {
     true
@@ -35,6 +36,9 @@ pub struct InstanceSettings {
     /// public links to documents (/s/…); existing links stop working while disabled
     #[serde(default = "yes")]
     pub allow_public_sharing: bool,
+    /// shown instead of "GetPaper" (browser title, sign-in pages, logo, emails); None = GetPaper
+    #[serde(default)]
+    pub product_name: Option<String>,
     /// background of the top bar, "#rrggbb"
     #[serde(default)]
     pub header_color: Option<String>,
@@ -93,11 +97,22 @@ fn valid_choice(v: &Option<String>, allowed: &[&str], what: &str) -> ApiResult<(
 
 impl InstanceSettings {
     pub fn validate(&self) -> ApiResult<()> {
+        if let Some(n) = &self.product_name {
+            let len = n.chars().count();
+            if n.trim() != n || len == 0 || len > 40 || n.chars().any(|c| c.is_control()) {
+                return Err(ApiError::bad_request("The product name must be 1 to 40 characters"));
+            }
+        }
         valid_color(&self.header_color, "Header colour")?;
         valid_color(&self.accent_color, "Accent colour")?;
         valid_choice(&self.default_language, LANGUAGES, "Default language")?;
         valid_choice(&self.default_theme, THEMES, "Default theme")?;
         valid_choice(&self.default_content_width, CONTENT_WIDTHS, "Default document width")
+    }
+
+    /// The product name shown to people: the custom one, else GetPaper.
+    pub fn product_name(&self) -> String {
+        self.product_name.clone().unwrap_or_else(|| PRODUCT_NAME.into())
     }
 
     /// Defaults for users without a preference: these settings, else the environment.
@@ -115,6 +130,7 @@ impl InstanceSettings {
             "allowBackupExport": self.allow_backup_export,
             "allowMarkdownExport": self.allow_markdown_export,
             "allowPublicSharing": self.allow_public_sharing,
+            "productName": self.product_name,
             "headerColor": self.header_color,
             "accentColor": self.accent_color,
         })

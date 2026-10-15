@@ -3,6 +3,8 @@ use axum::{
     extract::FromRequestParts,
     http::{header, request::Parts, HeaderMap},
 };
+use std::sync::Arc;
+
 use uuid::Uuid;
 
 use crate::{
@@ -18,9 +20,39 @@ pub const COOKIE_NAME: &str = "accessToken";
 pub struct Auth {
     pub user: User,
     pub team_id: Option<Uuid>,
+    /// Role in `team_id`; for API keys already limited by the key (see `key_role`)
     pub role: Option<String>,
     /// Hash of the session token (None when authenticated with an API key)
     pub session_hash: Option<String>,
+    /// Limits of the API key used, None for browser sessions
+    pub key: Option<Arc<KeyScope>>,
+}
+
+/// What an API key allows besides the user's own permissions.
+#[derive(Debug)]
+pub struct KeyScope {
+    /// false: read-only (acts as a viewer)
+    pub write: bool,
+    /// workspaces the key can be used in; the first is the default one
+    pub teams: Vec<Uuid>,
+    /// when Some, only these collections are visible
+    pub collections: Option<Vec<Uuid>>,
+}
+
+impl KeyScope {
+    pub fn allows_collection(&self, id: Uuid) -> bool {
+        self.collections.as_ref().map_or(true, |c| c.contains(&id))
+    }
+}
+
+/// Role of a user acting through an API key: read-only keys act as viewers, the others keep the
+/// user's role for content. Workspace administration is never allowed with a key (`require_admin`).
+pub fn key_role(user_role: &str, key: &KeyScope) -> String {
+    if key.write {
+        user_role.into()
+    } else {
+        "viewer".into()
+    }
 }
 
 impl Auth {
@@ -38,6 +70,9 @@ impl Auth {
         matches!(self.role(), "admin" | "member")
     }
     pub fn require_admin(&self) -> ApiResult<()> {
+        if self.key.is_some() {
+            return Err(ApiError::forbidden("API keys can't administer the workspace"));
+        }
         if self.is_admin() {
             Ok(())
         } else {
@@ -45,11 +80,33 @@ impl Auth {
         }
     }
     pub fn require_superadmin(&self) -> ApiResult<()> {
-        if self.user.is_superadmin {
+        // the general settings can't be changed through an API key
+        if self.user.is_superadmin && self.key.is_none() {
             Ok(())
         } else {
             Err(ApiError::forbidden("Only superadmins can change the general settings"))
         }
+    }
+    /// The same user acting in another workspace (MCP `workspace` argument), with the role there.
+    pub async fn for_team(&self, db: &sqlx::PgPool, team: Uuid) -> ApiResult<Auth> {
+        if let Some(k) = &self.key {
+            if !k.teams.contains(&team) {
+                return Err(ApiError::forbidden("This API key can't be used in that workspace"));
+            }
+        }
+        let role: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2")
+            .bind(self.user.id)
+            .bind(team)
+            .fetch_optional(db)
+            .await?;
+        let role = role.ok_or_else(|| ApiError::forbidden("You are not a member of that workspace"))?.0;
+        let mut a = self.clone();
+        a.team_id = Some(team);
+        a.role = Some(match &self.key {
+            Some(k) => key_role(&role, k),
+            None => role,
+        });
+        Ok(a)
     }
     pub fn require_writer(&self) -> ApiResult<()> {
         if self.can_write() {
@@ -101,14 +158,64 @@ impl FromRequestParts<AppState> for Auth {
         let hash = sha256_hex(&token);
         let db = &st.db;
 
+        let mut key: Option<Arc<KeyScope>> = None;
         let (user_id, preferred_team, is_session): (Uuid, Option<Uuid>, bool) = if token.starts_with("ol_api_") {
-            let row: Option<(Uuid, Uuid)> =
-                sqlx::query_as("UPDATE api_keys SET last_used_at = now() WHERE secret_hash = $1 RETURNING user_id, team_id")
-                    .bind(&hash)
-                    .fetch_optional(db)
-                    .await?;
-            let (u, t) = row.ok_or_else(ApiError::unauthorized)?;
-            (u, Some(t), false)
+            let row: Option<(Uuid, Uuid, Uuid, String, bool, bool)> = sqlx::query_as(
+                "UPDATE api_keys SET last_used_at = now() WHERE secret_hash = $1 AND (expires_at IS NULL OR expires_at > now()) \
+                 RETURNING id, user_id, team_id, access, all_workspaces, collections_restricted",
+            )
+            .bind(&hash)
+            .fetch_optional(db)
+            .await?;
+            let (kid, u, default_team, access, all_workspaces, restricted) = row.ok_or_else(ApiError::unauthorized)?;
+            let mut teams: Vec<Uuid> = if all_workspaces {
+                sqlx::query_as::<_, (Uuid,)>("SELECT team_id FROM team_memberships WHERE user_id = $1 ORDER BY created_at")
+                    .bind(u)
+                    .fetch_all(db)
+                    .await?
+            } else {
+                sqlx::query_as::<_, (Uuid,)>(
+                    "SELECT k.team_id FROM api_key_workspaces k JOIN team_memberships m ON m.team_id = k.team_id AND m.user_id = $2 \
+                     WHERE k.api_key_id = $1",
+                )
+                .bind(kid)
+                .bind(u)
+                .fetch_all(db)
+                .await?
+            }
+            .into_iter()
+            .map(|r| r.0)
+            .collect();
+            // the default workspace first
+            if let Some(i) = teams.iter().position(|t| *t == default_team) {
+                teams.swap(0, i);
+            }
+            let collections = if restricted {
+                Some(
+                    sqlx::query_as::<_, (Uuid,)>("SELECT collection_id FROM api_key_collections WHERE api_key_id = $1")
+                        .bind(kid)
+                        .fetch_all(db)
+                        .await?
+                        .into_iter()
+                        .map(|r| r.0)
+                        .collect(),
+                )
+            } else {
+                None
+            };
+            // REST clients can pick the workspace with "X-Workspace: <id>"
+            let wanted = parts
+                .headers
+                .get("x-workspace")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| Uuid::parse_str(v.trim()).ok());
+            let team = match wanted {
+                Some(w) if teams.contains(&w) => w,
+                Some(_) => return Err(ApiError::forbidden("This API key can't be used in that workspace")),
+                None => *teams.first().ok_or_else(ApiError::unauthorized)?,
+            };
+            key = Some(Arc::new(KeyScope { write: access == "write", teams, collections }));
+            (u, Some(team), false)
         } else {
             let row: Option<(Uuid, Option<Uuid>)> =
                 sqlx::query_as("SELECT user_id, team_id FROM sessions WHERE token_hash = $1 AND expires_at > now()")
@@ -159,11 +266,16 @@ impl FromRequestParts<AppState> for Auth {
                 .await?;
         }
 
+        let role = match (&key, membership.as_ref()) {
+            (Some(k), Some(m)) => Some(key_role(&m.1, k)),
+            (_, m) => m.map(|m| m.1.clone()),
+        };
         Ok(Auth {
             user,
             team_id: membership.as_ref().map(|m| m.0),
-            role: membership.map(|m| m.1),
+            role,
             session_hash: if is_session { Some(hash) } else { None },
+            key,
         })
     }
 }

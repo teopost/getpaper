@@ -36,10 +36,11 @@ import { useApp } from '../store';
 import Editor from '../editor/Editor';
 import Scene from '../components/Scene';
 import { CollectionIcon, DocIcon } from '../components/icons';
-import { Avatar, Button, ConfirmModal, IconButton, Menu, Modal, Popover, Spinner, Switch } from '../components/ui';
+import { Avatar, Button, ConfirmModal, Field, IconButton, Menu, Modal, Popover, Spinner, Switch } from '../components/ui';
 import EmojiPicker from '../components/EmojiPicker';
 import { useToast } from '../components/Toast';
 import { t } from '../i18n';
+import { getProductName } from '../prefs';
 
 // ---------------------------------------------------------------------------
 // Share popover
@@ -132,16 +133,54 @@ function flatten(nodes, depth, exclude, out) {
 }
 
 function MoveModal({ doc, onClose, onMoved }) {
-  const { collections, trees } = useApp();
+  const { collections, trees, team, teams, switchTeam } = useApp();
   const toast = useToast();
   const [filter, setFilter] = useState('');
-  const writable = collections.filter((c) => c.access === 'write');
+  // target workspace: the current one, or another where the user can write
+  const [teamId, setTeamId] = useState(team.id);
+  const [other, setOther] = useState(null);
+  const targetTeams = teams.filter((w) => w.id === team.id || w.role !== 'viewer');
+  const elsewhere = teamId !== team.id;
+  useEffect(() => {
+    if (!elsewhere) {
+      setOther(null);
+      return;
+    }
+    let cancelled = false;
+    setOther(undefined);
+    (async () => {
+      try {
+        const cols = (await api('collections.listForWorkspace', { teamId })).filter((c) => c.access === 'write');
+        const tr = {};
+        await Promise.all(cols.map(async (c) => (tr[c.id] = await api('collections.documents', { id: c.id }))));
+        if (!cancelled) setOther({ collections: cols, trees: tr });
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId]);
+  const writable = elsewhere ? other?.collections || [] : collections.filter((c) => c.access === 'write');
+  const targetTrees = elsewhere ? other?.trees || {} : trees;
+  const targetName = targetTeams.find((w) => w.id === teamId)?.name;
+  // moving to another workspace asks for confirmation first
+  const [pending, setPending] = useState(null);
+  const choose = (target, label) => (elsewhere ? setPending({ target, label }) : move(target));
   const move = async (target) => {
     try {
-      await api('documents.move', { id: doc.id, ...target });
-      toast(t('Document moved'));
-      onMoved();
+      const moved = await api('documents.move', { id: doc.id, ...target });
       onClose();
+      if (elsewhere) {
+        toast(t('Document moved to {workspace}', { workspace: targetName }));
+        // follow the document to its new workspace
+        await switchTeam(teamId, docUrl(moved));
+      } else {
+        toast(t('Document moved'));
+        onMoved();
+      }
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -149,14 +188,36 @@ function MoveModal({ doc, onClose, onMoved }) {
   const f = filter.toLowerCase();
   return (
     <Modal title={t('Move “{title}”', { title: doc.title || t('Untitled') })} onClose={onClose} width={520}>
+      {targetTeams.length > 1 && (
+        <div className="move-workspace">
+          <Field label={t('Workspace')}>
+            <select value={teamId} onChange={(e) => setTeamId(e.target.value)}>
+              {targetTeams.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.id === team.id ? t('{name} (current)', { name: w.name }) : w.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
+      {elsewhere && (
+        <div className="notice-bar info column move-notice">
+          {t('The document and its nested documents, history, comments and attachments move to {workspace}. Its public links are revoked.', {
+            workspace: targetName,
+          })}
+        </div>
+      )}
       <input autoFocus placeholder={t('Filter…')} value={filter} onChange={(e) => setFilter(e.target.value)} />
       <div className="move-list">
+        {elsewhere && other === undefined && <Spinner />}
+        {elsewhere && other && writable.length === 0 && <div className="muted small">{t('No collection you can write to in this workspace.')}</div>}
         {writable.map((c) => {
-          const items = flatten(trees[c.id] || [], 1, doc.id, []).filter((n) => !f || (n.title || '').toLowerCase().includes(f));
+          const items = flatten(targetTrees[c.id] || [], 1, doc.id, []).filter((n) => !f || (n.title || '').toLowerCase().includes(f));
           if (f && !c.name.toLowerCase().includes(f) && items.length === 0) return null;
           return (
             <div key={c.id}>
-              <button className="move-item" onClick={() => move({ collectionId: c.id })}>
+              <button className="move-item" onClick={() => choose({ collectionId: c.id }, c.name)}>
                 <CollectionIcon collection={c} size={16} /> <strong>{c.name}</strong>
               </button>
               {items.map((n) => (
@@ -164,7 +225,7 @@ function MoveModal({ doc, onClose, onMoved }) {
                   key={n.id}
                   className="move-item"
                   style={{ paddingLeft: 12 + n.depth * 18 }}
-                  onClick={() => move({ parentDocumentId: n.id })}
+                  onClick={() => choose({ parentDocumentId: n.id }, `${c.name} / ${n.title || t('Untitled')}`)}
                 >
                   {n.emoji ? <span>{n.emoji}</span> : <FileText size={15} className="muted" />} {n.title || t('Untitled')}
                 </button>
@@ -173,6 +234,18 @@ function MoveModal({ doc, onClose, onMoved }) {
           );
         })}
       </div>
+      {pending && (
+        <ConfirmModal
+          title={t('Move to another workspace?')}
+          message={t(
+            '“{title}” and its nested documents will be moved to {workspace} ({target}), with history, comments and attachments. Only members of {workspace} will be able to see them, and their public links will be revoked.',
+            { title: doc.title || t('Untitled'), workspace: targetName, target: pending.label }
+          )}
+          confirmLabel={t('Move')}
+          onConfirm={() => move(pending.target)}
+          onClose={() => setPending(null)}
+        />
+      )}
     </Modal>
   );
 }
@@ -477,7 +550,7 @@ export default function DocumentPage() {
       setConflict(null);
       setSaveState('saved');
       setActiveDoc({ collectionId: d.document.collectionId, ids: [...d.path.map((p) => p.id), d.document.id] });
-      document.title = `${d.document.title || t('Untitled')} - GetPaper`;
+      document.title = `${d.document.title || t('Untitled')} - ${getProductName()}`;
     } catch (e) {
       setError(e);
     }

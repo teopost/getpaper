@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
+import { getProductName } from '../prefs';
 
 /** Page shell with a sticky header (title/breadcrumb on the left, actions on the right). */
 export default function Scene({ title, headerTitle, actions, children, wide, centered = true }) {
   useEffect(() => {
-    if (typeof title === 'string') document.title = `${title} - GetPaper`;
+    if (typeof title === 'string') document.title = `${title} - ${getProductName()}`;
   }, [title]);
   return (
     <div className="scene">

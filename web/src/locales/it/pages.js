@@ -49,12 +49,12 @@ export default {
   // Login / Register / Invite
   'Continue with Microsoft': 'Continua con Microsoft',
   or: 'oppure',
-  'Login - GetPaper': 'Accedi - GetPaper',
-  'Welcome to GetPaper': 'Benvenuto in GetPaper',
+  'Login - {product}': 'Accedi - {product}',
+  'Welcome to {product}': 'Benvenuto in {product}',
   "Let's get started by creating the first account and workspace.":
     'Iniziamo creando il primo account e il primo workspace.',
   'Create account': 'Crea account',
-  'Login to GetPaper': 'Accedi a GetPaper',
+  'Login to {product}': 'Accedi a {product}',
   Email: 'Email',
   Password: 'Password',
   'Signing in…': 'Accesso in corso…',
@@ -69,7 +69,7 @@ export default {
   'Creating account…': 'Creazione account…',
   'Join {name}': 'Unisciti a {name}',
   'Join workspace': 'Unisciti al workspace',
-  'Sign up - GetPaper': 'Registrati - GetPaper',
+  'Sign up - {product}': 'Registrati - {product}',
   'Create an account': 'Crea un account',
   'Accounts are created automatically the first time you sign in with Microsoft.':
     'Gli account vengono creati automaticamente al primo accesso con Microsoft.',

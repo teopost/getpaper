@@ -95,6 +95,7 @@ pub fn router() -> Router<AppState> {
         .route("/invites.accept", post(invites::accept))
         // collections
         .route("/collections.list", post(collections::list))
+        .route("/collections.listForWorkspace", post(collections::list_for_workspace))
         .route("/collections.info", post(collections::info))
         .route("/collections.create", post(collections::create))
         .route("/collections.update", post(collections::update))
@@ -148,5 +149,6 @@ pub fn router() -> Router<AppState> {
         .route("/apiKeys.list", post(api_keys::list))
         .route("/apiKeys.create", post(api_keys::create))
         .route("/apiKeys.delete", post(api_keys::delete))
+        .route("/apiKeys.collections", post(api_keys::collections))
         .layer(middleware::from_fn(read_body_first))
 }
