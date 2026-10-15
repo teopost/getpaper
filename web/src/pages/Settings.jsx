@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { Copy, Plus, Trash2, UserPlus, Check } from 'lucide-react';
-import { api, collectionUrl, copyToClipboard, docUrl, timeAgo, upload } from '../api';
+import { Copy, Plus, Trash2, UserPlus, Check, Download, Mail, Send } from 'lucide-react';
+import { api, collectionUrl, copyToClipboard, docUrl, downloadFile, timeAgo, upload } from '../api';
 import { useApp } from '../store';
 import Scene from '../components/Scene';
-import { Avatar, Button, ConfirmModal, Empty, Field, Modal, Switch, TeamAvatar } from '../components/ui';
+import { Avatar, Button, ConfirmModal, Empty, Field, Modal, Spinner, Switch, TeamAvatar } from '../components/ui';
 import { useToast } from '../components/Toast';
 import { COLORS } from '../components/icons';
 import InviteModal from '../components/InviteModal';
 import NewWorkspaceModal from '../components/NewWorkspaceModal';
+import { LANGUAGES, t } from '../i18n';
+import { getDefaults } from '../prefs';
 
 function ColorPicker({ value, onChange }) {
   return (
@@ -26,6 +28,80 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
+const THEMES = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+const CONTENT_WIDTHS = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'wide', label: 'Wide' },
+  { value: 'full', label: 'Full width' },
+];
+
+/** Select for a personal preference; the empty value means "use the installation default". */
+function PreferenceSelect({ value, options, fallback, onChange }) {
+  const def = options.find((o) => o.value === fallback);
+  return (
+    <select value={value || ''} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{t('Default ({value})', { value: def ? t(def.label) : fallback })}</option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {t(o.label)}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** Language, appearance and document width. Saved on change and applied immediately. */
+function Preferences() {
+  const { user, refreshAuth } = useApp();
+  const toast = useToast();
+  const defaults = getDefaults();
+  const save = async (field, value) => {
+    try {
+      await api('users.update', { [field]: value });
+      await refreshAuth();
+      toast(t('Preferences saved'));
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+  return (
+    <>
+      <h2 className="section-title">{t('Preferences')}</h2>
+      <div className="form settings-form">
+        <Field label={t('Language')}>
+          <PreferenceSelect value={user.language} options={LANGUAGES} fallback={defaults.language} onChange={(v) => save('language', v)} />
+        </Field>
+        <Field label={t('Appearance')}>
+          <PreferenceSelect value={user.theme} options={THEMES} fallback={defaults.theme} onChange={(v) => save('theme', v)} />
+        </Field>
+        <Field
+          label={t('Document width')}
+          hint={t('Width of the text column. Documents set to full width always use the whole page.')}
+        >
+          <PreferenceSelect
+            value={user.contentWidth}
+            options={CONTENT_WIDTHS}
+            fallback={defaults.contentWidth}
+            onChange={(v) => save('contentWidth', v)}
+          />
+        </Field>
+      </div>
+    </>
+  );
+}
+
+/** Renders a translated string, replacing {placeholders} with React nodes (e.g. <strong>, <code>). */
+function rich(text, nodes) {
+  return text.split(/(\{\w+\})/).map((part, i) => {
+    const m = part.match(/^\{(\w+)\}$/);
+    return <React.Fragment key={i}>{m && m[1] in nodes ? nodes[m[1]] : part}</React.Fragment>;
+  });
+}
+
 function Profile() {
   const { user, auth, refreshAuth } = useApp();
   const hasPassword = auth.hasPassword;
@@ -36,8 +112,8 @@ function Profile() {
   const [next, setNext] = useState('');
   return (
     <>
-      <h1 className="page-title">Profile</h1>
-      <p className="page-subtitle muted">Manage how you appear to other members of the workspace.</p>
+      <h1 className="page-title">{t('Profile')}</h1>
+      <p className="page-subtitle muted">{t('Manage how you appear to other members of the workspace.')}</p>
       <form
         className="form settings-form"
         onSubmit={async (e) => {
@@ -45,7 +121,7 @@ function Profile() {
           try {
             await api('users.update', { name, color });
             await refreshAuth();
-            toast('Profile saved');
+            toast(t('Profile saved'));
           } catch (err) {
             toast(err.message, 'error');
           }
@@ -55,50 +131,56 @@ function Profile() {
           <Avatar name={name} color={color} size={56} />
           <ColorPicker value={color} onChange={setColor} />
         </div>
-        <Field label="Name">
+        <Field label={t('Name')}>
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>
-        <Field label="Email">
+        <Field label={t('Email')}>
           <input value={user.email} disabled />
         </Field>
         <div>
-          <Button type="submit">Save</Button>
+          <Button type="submit">{t('Save')}</Button>
         </div>
       </form>
 
-      <h2 className="section-title">Password</h2>
-      {!hasPassword && (
-        <p className="muted">You sign in with Microsoft. You can optionally set a password as well.</p>
+      <Preferences />
+
+      {auth.passwordLogin !== false && (
+        <>
+          <h2 className="section-title">{t('Password')}</h2>
+          {!hasPassword && (
+            <p className="muted">{t('You sign in with Microsoft. You can optionally set a password as well.')}</p>
+          )}
+          <form
+            className="form settings-form"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await api('users.changePassword', { currentPassword: current, newPassword: next });
+                setCurrent('');
+                setNext('');
+                await refreshAuth();
+                toast(hasPassword ? t('Password changed') : t('Password set'));
+              } catch (err) {
+                toast(err.message, 'error');
+              }
+            }}
+          >
+            {hasPassword && (
+              <Field label={t('Current password')}>
+                <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoComplete="current-password" />
+              </Field>
+            )}
+            <Field label={t('New password')} hint={t('At least 8 characters.')}>
+              <input type="password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} autoComplete="new-password" />
+            </Field>
+            <div>
+              <Button type="submit" variant="secondary">
+                {hasPassword ? t('Change password') : t('Set password')}
+              </Button>
+            </div>
+          </form>
+        </>
       )}
-      <form
-        className="form settings-form"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          try {
-            await api('users.changePassword', { currentPassword: current, newPassword: next });
-            setCurrent('');
-            setNext('');
-            await refreshAuth();
-            toast(hasPassword ? 'Password changed' : 'Password set');
-          } catch (err) {
-            toast(err.message, 'error');
-          }
-        }}
-      >
-        {hasPassword && (
-          <Field label="Current password">
-            <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required autoComplete="current-password" />
-          </Field>
-        )}
-        <Field label="New password" hint="At least 8 characters.">
-          <input type="password" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} autoComplete="new-password" />
-        </Field>
-        <div>
-          <Button type="submit" variant="secondary">
-            {hasPassword ? 'Change password' : 'Set password'}
-          </Button>
-        </div>
-      </form>
     </>
   );
 }
@@ -116,8 +198,8 @@ function Workspace() {
   if (!isAdmin) return <Navigate to="/settings/members" replace />;
   return (
     <>
-      <h1 className="page-title">Details</h1>
-      <p className="page-subtitle muted">These settings affect the way that your workspace appears to everyone on the team.</p>
+      <h1 className="page-title">{t('Details')}</h1>
+      <p className="page-subtitle muted">{t('These settings affect the way that your workspace appears to everyone on the team.')}</p>
       <form
         className="form settings-form"
         onSubmit={async (e) => {
@@ -125,7 +207,7 @@ function Workspace() {
           try {
             await api('teams.update', { name, color, sharing, defaultUserRole: defaultRole, allowedDomains });
             await refreshAuth();
-            toast('Settings saved');
+            toast(t('Settings saved'));
           } catch (err) {
             toast(err.message, 'error');
           }
@@ -135,44 +217,47 @@ function Workspace() {
           <TeamAvatar team={{ name, color }} size={56} />
           <ColorPicker value={color} onChange={setColor} />
         </div>
-        <Field label="Name">
+        <Field label={t('Name')}>
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>
         <div className="field row space-between">
           <div>
-            <div className="field-label">Public document sharing</div>
-            <div className="field-hint">When enabled, documents can be shared publicly on the internet by any member.</div>
+            <div className="field-label">{t('Public document sharing')}</div>
+            <div className="field-hint">{t('When enabled, documents can be shared publicly on the internet by any member.')}</div>
           </div>
           <Switch checked={sharing} onChange={setSharing} />
         </div>
         <Field
-          label="Allowed domains"
-          hint="People signing in with Microsoft whose email belongs to one of these domains join this workspace automatically, with the default role. Separate multiple domains with commas."
+          label={t('Allowed domains')}
+          hint={t(
+            'People signing in with Microsoft whose email belongs to one of these domains join this workspace automatically, with the default role. Separate multiple domains with commas.'
+          )}
         >
-          <input value={allowedDomains} onChange={(e) => setAllowedDomains(e.target.value)} placeholder="e.g. horsa.it, vidata.it" />
+          <input value={allowedDomains} onChange={(e) => setAllowedDomains(e.target.value)} placeholder={t('e.g. {example}', { example: 'horsa.it, vidata.it' })} />
         </Field>
-        <Field label="Default role" hint="The role new members get when joining automatically.">
+        <Field label={t('Default role')} hint={t('The role new members get when joining automatically.')}>
           <select value={defaultRole} onChange={(e) => setDefaultRole(e.target.value)}>
-            <option value="member">Editor</option>
-            <option value="viewer">Viewer</option>
-            <option value="admin">Admin</option>
+            <option value="member">{t('Editor')}</option>
+            <option value="viewer">{t('Viewer')}</option>
+            <option value="admin">{t('Admin')}</option>
           </select>
         </Field>
         <div>
-          <Button type="submit">Save</Button>
+          <Button type="submit">{t('Save')}</Button>
         </div>
       </form>
 
-      <h2 className="section-title danger-text">Danger zone</h2>
+      <h2 className="section-title danger-text">{t('Danger zone')}</h2>
       <p className="muted">
-        Deleting the workspace permanently removes all of its collections, documents and memberships. Your account and
-        other workspaces are not affected.
+        {t(
+          'Deleting the workspace permanently removes all of its collections, documents and memberships. Your account and other workspaces are not affected.'
+        )}
       </p>
       <Button variant="danger" onClick={() => setDeleting(true)}>
-        Delete workspace…
+        {t('Delete workspace…')}
       </Button>
       {deleting && (
-        <Modal title="Delete workspace" onClose={() => setDeleting(false)}>
+        <Modal title={t('Delete workspace')} onClose={() => setDeleting(false)}>
           <form
             className="form"
             onSubmit={async (e) => {
@@ -186,15 +271,15 @@ function Workspace() {
             }}
           >
             <p className="modal-text">
-              Type <strong>{team.name}</strong> to confirm. This action cannot be undone.
+              {rich(t('Type {name} to confirm. This action cannot be undone.'), { name: <strong>{team.name}</strong> })}
             </p>
             <input autoFocus value={confirmName} onChange={(e) => setConfirmName(e.target.value)} />
             <div className="modal-actions">
               <Button variant="secondary" type="button" onClick={() => setDeleting(false)}>
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button variant="danger" type="submit" disabled={confirmName.trim() !== team.name.trim()}>
-                Delete workspace
+                {t('Delete workspace')}
               </Button>
             </div>
           </form>
@@ -204,50 +289,86 @@ function Workspace() {
   );
 }
 
+// English labels; translated with t() where rendered.
 const ROLE_LABEL = { admin: 'Admin', member: 'Editor', viewer: 'Viewer' };
 
 function Members() {
-  const { user, isAdmin, canWrite } = useApp();
+  const { user, isAdmin, canWrite, auth } = useApp();
   const toast = useToast();
   const [members, setMembers] = useState(null);
   const [invites, setInvites] = useState([]);
+  const [sendingAll, setSendingAll] = useState(false);
+  const [confirmSendAll, setConfirmSendAll] = useState(false);
+  const sendInvite = async (i) => {
+    try {
+      await api('invites.send', { id: i.id });
+      toast(t('Invitation email sent to {email}', { email: i.email }));
+      api('invites.list').then(setInvites);
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
+  const sendAll = async () => {
+    setConfirmSendAll(false);
+    setSendingAll(true);
+    let sent = 0;
+    const failed = [];
+    for (const i of invites) {
+      try {
+        await api('invites.send', { id: i.id });
+        sent++;
+      } catch (err) {
+        failed.push(`${i.email}: ${err.message}`);
+      }
+    }
+    setSendingAll(false);
+    api('invites.list').then(setInvites);
+    if (failed.length) toast(t('{sent} emails sent, {failed} failed: {errors}', { sent, failed: failed.length, errors: failed.join('; ') }), 'error');
+    else toast(t('{sent} emails sent', { sent }));
+  };
   const [query, setQuery] = useState('');
   const [inviting, setInviting] = useState(false);
   const [removing, setRemoving] = useState(null);
 
   const load = () => {
-    api('users.list', { query }).then(setMembers);
-    if (canWrite) api('invites.list').then(setInvites);
+    api('users.list', { query })
+      .then(setMembers)
+      .catch((err) => toast(err.message, 'error'));
+    if (canWrite)
+      api('invites.list')
+        .then((list) => setInvites(Array.isArray(list) ? list : []))
+        .catch((err) => toast(err.message, 'error'));
   };
   useEffect(() => {
-    const t = setTimeout(load, 200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(load, 200);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   return (
     <>
       <div className="row space-between">
-        <h1 className="page-title">Members</h1>
+        <h1 className="page-title">{t('Members')}</h1>
         {canWrite && (
           <Button icon={<UserPlus size={16} />} onClick={() => setInviting(true)}>
-            Invite people…
+            {t('Invite people…')}
           </Button>
         )}
       </div>
       <p className="page-subtitle muted">
-        Everyone that has signed into this workspace. Admins can manage roles; editors can create and edit documents;
-        viewers have read-only access.
+        {t(
+          'Everyone that has signed into this workspace. Admins can manage roles; editors can create and edit documents; viewers have read-only access.'
+        )}
       </p>
-      <input placeholder="Filter…" value={query} onChange={(e) => setQuery(e.target.value)} className="filter-input" />
+      <input placeholder={t('Filter…')} value={query} onChange={(e) => setQuery(e.target.value)} className="filter-input" />
       <div className="table-wrap">
         <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Last active</th>
-              <th>Role</th>
+              <th>{t('Name')}</th>
+              <th>{t('Email')}</th>
+              <th>{t('Last active')}</th>
+              <th>{t('Role')}</th>
               <th />
             </tr>
           </thead>
@@ -257,11 +378,16 @@ function Members() {
                 <td>
                   <span className="row gap-sm">
                     <Avatar name={m.name} color={m.color} size={28} />
-                    {m.name} {m.id === user.id && <span className="muted">(you)</span>}
+                    {m.name} {m.id === user.id && <span className="muted">{t('(you)')}</span>}
+                    {m.isSuperadmin && (
+                      <span className="badge badge-accent" title={t('Manages the general settings of the installation')}>
+                        {t('Superadmin')}
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td className="muted">{m.email}</td>
-                <td className="muted">{m.lastActiveAt ? timeAgo(m.lastActiveAt) : 'Never'}</td>
+                <td className="muted">{m.lastActiveAt ? timeAgo(m.lastActiveAt) : t('Never')}</td>
                 <td>
                   {isAdmin ? (
                     <select
@@ -269,25 +395,25 @@ function Members() {
                       onChange={async (e) => {
                         try {
                           await api('users.updateRole', { id: m.id, role: e.target.value });
-                          toast('Role updated');
+                          toast(t('Role updated'));
                           load();
                         } catch (err) {
                           toast(err.message, 'error');
                         }
                       }}
                     >
-                      <option value="admin">Admin</option>
-                      <option value="member">Editor</option>
-                      <option value="viewer">Viewer</option>
+                      <option value="admin">{t('Admin')}</option>
+                      <option value="member">{t('Editor')}</option>
+                      <option value="viewer">{t('Viewer')}</option>
                     </select>
                   ) : (
-                    <span className="badge">{ROLE_LABEL[m.role]}</span>
+                    <span className="badge">{t(ROLE_LABEL[m.role])}</span>
                   )}
                 </td>
                 <td className="right">
                   {(isAdmin || m.id === user.id) && (
                     <Button variant="secondary" small onClick={() => setRemoving(m)}>
-                      {m.id === user.id ? 'Leave' : 'Remove'}
+                      {m.id === user.id ? t('Leave') : t('Remove')}
                     </Button>
                   )}
                 </td>
@@ -299,27 +425,45 @@ function Members() {
 
       {invites.length > 0 && (
         <>
-          <h2 className="section-title">Pending invites</h2>
+          <div className="row space-between">
+            <h2 className="section-title">{t('Pending invites')}</h2>
+            {auth.email && (
+              <Button variant="secondary" small icon={<Mail size={14} />} disabled={sendingAll} onClick={() => setConfirmSendAll(true)}>
+                {sendingAll ? t('Sending…') : t('Email all pending invites')}
+              </Button>
+            )}
+          </div>
           <div className="table-wrap">
             <table className="table">
               <tbody>
                 {invites.map((i) => (
                   <tr key={i.id}>
                     <td>{i.email}</td>
-                    <td className="muted">{ROLE_LABEL[i.role]}</td>
-                    <td className="muted">Invited {timeAgo(i.createdAt)}</td>
+                    <td className="muted">{t(ROLE_LABEL[i.role])}</td>
+                    <td className="muted">
+                      {t('Invited {time}', { time: timeAgo(i.createdAt) })}
+                      <div className="small">
+                        {i.emailSentAt ? t('Email sent {time}', { time: timeAgo(i.emailSentAt) }) : t('Email not sent yet')}
+                      </div>
+                    </td>
                     <td className="right">
                       <span className="row gap-sm justify-end">
+                        {auth.email && (
+                          <Button variant="secondary" small icon={<Mail size={14} />} onClick={() => sendInvite(i)}>
+                            {i.emailSentAt ? t('Send again') : t('Send email')}
+                          </Button>
+                        )}
                         <Button
                           variant="secondary"
                           small
                           icon={<Copy size={14} />}
                           onClick={async () => {
-                            await copyToClipboard(i.link);
-                            toast('Invite link copied');
+                            const { link } = await api('invites.link', { id: i.id });
+                            await copyToClipboard(link);
+                            toast(t('Invite link copied'));
                           }}
                         >
-                          Copy link
+                          {t('Copy link')}
                         </Button>
                         <Button
                           variant="secondary"
@@ -329,7 +473,7 @@ function Members() {
                             load();
                           }}
                         >
-                          Revoke
+                          {t('Revoke')}
                         </Button>
                       </span>
                     </td>
@@ -341,15 +485,26 @@ function Members() {
         </>
       )}
       {inviting && <InviteModal onClose={() => setInviting(false)} onInvited={load} />}
+      {confirmSendAll && (
+        <ConfirmModal
+          title={t('Email all pending invites')}
+          confirmLabel={t('Send {count} emails', { count: invites.length })}
+          message={t('Each of the {count} people with a pending invite receives the invitation email, also those who already got it.', {
+            count: invites.length,
+          })}
+          onConfirm={sendAll}
+          onClose={() => setConfirmSendAll(false)}
+        />
+      )}
       {removing && (
         <ConfirmModal
-          title={removing.id === user.id ? 'Leave workspace' : 'Remove member'}
+          title={removing.id === user.id ? t('Leave workspace') : t('Remove member')}
           danger
-          confirmLabel={removing.id === user.id ? 'Leave' : 'Remove'}
+          confirmLabel={removing.id === user.id ? t('Leave') : t('Remove')}
           message={
             removing.id === user.id
-              ? 'You will lose access to this workspace and its documents.'
-              : `${removing.name} will lose access to this workspace. Their documents are kept.`
+              ? t('You will lose access to this workspace and its documents.')
+              : t('{name} will lose access to this workspace. Their documents are kept.', { name: removing.name })
           }
           onClose={() => setRemoving(null)}
           onConfirm={async () => {
@@ -376,18 +531,20 @@ function Shares() {
   }, []);
   return (
     <>
-      <h1 className="page-title">Shared Links</h1>
-      <p className="page-subtitle muted">Documents that have been shared publicly are listed below. Anyone with the link can access them.</p>
-      {shares && shares.length === 0 && <Empty>No documents have been shared yet.</Empty>}
+      <h1 className="page-title">{t('Shared Links')}</h1>
+      <p className="page-subtitle muted">
+        {t('Documents that have been shared publicly are listed below. Anyone with the link can access them.')}
+      </p>
+      {shares && shares.length === 0 && <Empty>{t('No documents have been shared yet.')}</Empty>}
       {shares && shares.length > 0 && (
         <div className="table-wrap">
           <table className="table">
             <thead>
               <tr>
-                <th>Document</th>
-                <th>Shared by</th>
-                <th>Views</th>
-                <th>Last accessed</th>
+                <th>{t('Document')}</th>
+                <th>{t('Shared by')}</th>
+                <th>{t('Views')}</th>
+                <th>{t('Last accessed')}</th>
                 <th />
               </tr>
             </thead>
@@ -395,11 +552,11 @@ function Shares() {
               {shares.map((s) => (
                 <tr key={s.id}>
                   <td>
-                    <Link to={docUrl({ title: s.documentTitle, urlId: s.documentUrlId })}>{s.documentTitle || 'Untitled'}</Link>
+                    <Link to={docUrl({ title: s.documentTitle, urlId: s.documentUrlId })}>{s.documentTitle || t('Untitled')}</Link>
                   </td>
                   <td className="muted">{s.createdByName}</td>
                   <td className="muted">{s.views}</td>
-                  <td className="muted">{s.lastAccessedAt ? timeAgo(s.lastAccessedAt) : 'Never'}</td>
+                  <td className="muted">{s.lastAccessedAt ? timeAgo(s.lastAccessedAt) : t('Never')}</td>
                   <td className="right">
                     <span className="row gap-sm justify-end">
                       <Button
@@ -408,21 +565,21 @@ function Shares() {
                         icon={<Copy size={14} />}
                         onClick={async () => {
                           await copyToClipboard(s.url);
-                          toast('Link copied');
+                          toast(t('Link copied'));
                         }}
                       >
-                        Copy
+                        {t('Copy')}
                       </Button>
                       <Button
                         variant="secondary"
                         small
                         onClick={async () => {
                           await api('shares.revoke', { id: s.id });
-                          toast('Share revoked');
+                          toast(t('Share revoked'));
                           load();
                         }}
                       >
-                        Revoke
+                        {t('Revoke')}
                       </Button>
                     </span>
                   </td>
@@ -447,10 +604,11 @@ function ApiKeys() {
   }, []);
   return (
     <>
-      <h1 className="page-title">API Keys</h1>
+      <h1 className="page-title">{t('API Keys')}</h1>
       <p className="page-subtitle muted">
-        Create personal API keys to authenticate with the API and programmatically control your workspace’s data. API keys
-        have the same permissions as your user account and are scoped to the current workspace.
+        {t(
+          'Create personal API keys to authenticate with the API and programmatically control your workspace’s data. API keys have the same permissions as your user account and are scoped to the current workspace.'
+        )}
       </p>
       <form
         className="row gap"
@@ -465,15 +623,15 @@ function ApiKeys() {
           }
         }}
       >
-        <input placeholder="Key name, e.g. Development" value={name} onChange={(e) => setName(e.target.value)} className="grow" required />
+        <input placeholder={t('Key name, e.g. Development')} value={name} onChange={(e) => setName(e.target.value)} className="grow" required />
         <Button type="submit" icon={<Plus size={16} />}>
-          New API key
+          {t('New API key')}
         </Button>
       </form>
       {created && (
         <div className="notice-bar info column">
           <div>
-            Copy your new key <strong>{created.name}</strong> now, you won’t be able to see it again:
+            {rich(t('Copy your new key {name} now, you won’t be able to see it again:'), { name: <strong>{created.name}</strong> })}
           </div>
           <div className="row gap">
             <input readOnly value={created.secret} className="grow mono" onFocus={(e) => e.target.select()} />
@@ -482,10 +640,10 @@ function ApiKeys() {
               icon={<Copy size={14} />}
               onClick={async () => {
                 await copyToClipboard(created.secret);
-                toast('API key copied');
+                toast(t('API key copied'));
               }}
             >
-              Copy
+              {t('Copy')}
             </Button>
           </div>
           <pre className="code-sample">{`curl -X POST ${window.location.origin}/api/documents.list \\
@@ -501,8 +659,8 @@ function ApiKeys() {
                 <td>
                   <strong>{k.name}</strong> <span className="muted mono">…{k.last4}</span>
                 </td>
-                <td className="muted">Created {timeAgo(k.createdAt)}</td>
-                <td className="muted">{k.lastUsedAt ? `Used ${timeAgo(k.lastUsedAt)}` : 'Never used'}</td>
+                <td className="muted">{t('Created {time}', { time: timeAgo(k.createdAt) })}</td>
+                <td className="muted">{k.lastUsedAt ? t('Used {time}', { time: timeAgo(k.lastUsedAt) }) : t('Never used')}</td>
                 <td className="right">
                   <Button
                     variant="secondary"
@@ -513,7 +671,7 @@ function ApiKeys() {
                       load();
                     }}
                   >
-                    Revoke
+                    {t('Revoke')}
                   </Button>
                 </td>
               </tr>
@@ -521,7 +679,7 @@ function ApiKeys() {
           </tbody>
         </table>
       </div>
-      {keys && keys.length === 0 && <Empty>You haven’t created any API keys yet.</Empty>}
+      {keys && keys.length === 0 && <Empty>{t('You haven’t created any API keys yet.')}</Empty>}
       <McpSection />
     </>
   );
@@ -533,32 +691,34 @@ function Workspaces() {
   return (
     <>
       <div className="row space-between">
-        <h1 className="page-title">Workspaces</h1>
+        <h1 className="page-title">{t('Workspaces')}</h1>
         <Button icon={<Plus size={16} />} onClick={() => setCreating(true)}>
-          New workspace
+          {t('New workspace')}
         </Button>
       </div>
       <p className="page-subtitle muted">
-        Each workspace is a completely separate knowledge base with its own members, collections, permissions and
-        settings. Use the workspace switcher at the top of the sidebar to move between them.
+        {t(
+          'Each workspace is a completely separate knowledge base with its own members, collections, permissions and settings. Use the workspace switcher at the top of the sidebar to move between them.'
+        )}
       </p>
       <div className="workspace-grid">
-        {teams.map((t) => (
-          <div key={t.id} className={`workspace-card ${t.id === team.id ? 'current' : ''}`}>
-            <TeamAvatar team={t} size={40} />
+        {teams.map((w) => (
+          <div key={w.id} className={`workspace-card ${w.id === team.id ? 'current' : ''}`}>
+            <TeamAvatar team={w} size={40} />
             <div className="grow">
-              <div className="workspace-name">{t.name}</div>
+              <div className="workspace-name">{w.name}</div>
               <div className="muted small">
-                {ROLE_LABEL[t.role]} · {t.memberCount} member{t.memberCount === 1 ? '' : 's'}
+                {t(ROLE_LABEL[w.role])} ·{' '}
+                {t(w.memberCount === 1 ? '{count} member' : '{count} members', { count: w.memberCount })}
               </div>
             </div>
-            {t.id === team.id ? (
+            {w.id === team.id ? (
               <span className="badge success">
-                <Check size={12} /> Current
+                <Check size={12} /> {t('Current')}
               </span>
             ) : (
-              <Button variant="secondary" small onClick={() => switchTeam(t.id)}>
-                Switch
+              <Button variant="secondary" small onClick={() => switchTeam(w.id)}>
+                {t('Switch')}
               </Button>
             )}
           </div>
@@ -569,15 +729,99 @@ function Workspaces() {
   );
 }
 
+/** Import sources: the server recognises Confluence exports by their content; the others are folders of Markdown. */
+const IMPORT_SOURCES = [
+  {
+    value: 'auto',
+    label: 'Automatic detection',
+    steps: [
+      'Upload a Markdown, HTML or text file, or a ZIP archive containing them.',
+      'Confluence exports (XML or HTML) are recognised automatically; any other ZIP is imported as folders of Markdown files.',
+      'Choose a specific source to see how to export from that tool.',
+    ],
+  },
+  {
+    value: 'confluence',
+    label: 'Confluence',
+    steps: [
+      'In Confluence open the space, then Space settings → Export space (Server/Data Center: Space tools → Content Tools → Export).',
+      'Choose XML (recommended: it keeps creation and modification dates) or HTML and export the whole space.',
+      'Upload the ZIP as it is, without extracting it.',
+      'Each space becomes a collection with its page tree, attachments and links between pages. Drafts, deleted pages, comments, version history and authors are not imported.',
+    ],
+  },
+  {
+    value: 'getpaper',
+    label: 'GetPaper backup',
+    steps: [
+      'In the source instance open Settings → Export and download the backup (workspace admins only).',
+      'Upload the ZIP here as it is: collections, documents, drafts, history, comments and attachments are restored with their dates.',
+      'Authors are matched by email with the members of this workspace; content of anyone else is attributed to you. Nothing already in this workspace is changed.',
+    ],
+  },
+  {
+    value: 'outline',
+    label: 'Outline',
+    steps: [
+      'In Outline open Settings → Export, choose Markdown and export all collections.',
+      'Upload the ZIP you receive by email or download: every collection becomes a collection here, with nested documents and attachments.',
+    ],
+  },
+  {
+    value: 'notion',
+    label: 'Notion',
+    steps: [
+      'In Notion open Settings → Workspace → Export all workspace content (or ••• → Export on a page), choose Markdown & CSV and include subpages and files.',
+      'Upload the ZIP: page IDs are removed from titles and links between pages are rewritten. Databases are imported as their pages.',
+    ],
+  },
+  {
+    value: 'obsidian',
+    label: 'Obsidian',
+    steps: [
+      'Compress your vault folder into a ZIP and upload it; hidden folders such as .obsidian are ignored.',
+      'Folders become collections and nested documents; {wikiLinks}, embedded images and callouts are converted.',
+    ],
+  },
+  {
+    value: 'markdown',
+    label: 'Markdown / other',
+    steps: [
+      'Wiki.js, GitBook, BookStack and other tools: export as Markdown and upload the ZIP, or upload single .md, .html or .txt files.',
+      'Top-level folders become collections, nested folders become nested documents.',
+      'A document {file} and a folder {folder} are merged; {index} or {readme} inside a folder becomes the folder’s content.',
+      'Images and other files are uploaded as attachments; relative links and {wikiLinks} are rewritten.',
+    ],
+  },
+];
+
+const IMPORT_FORMATS = {
+  'confluence-xml': 'Confluence export (XML)',
+  'confluence-html': 'Confluence export (HTML)',
+  markdown: 'Markdown files',
+  'getpaper-backup': 'GetPaper backup',
+};
+
+/** Server errors with a code the client can translate */
+const IMPORT_ERRORS = {
+  not_confluence_export:
+    'This archive is not a Confluence export: it contains neither entities.xml (XML export) nor Confluence HTML pages. Export the space as XML or HTML and upload the ZIP as it is.',
+  confluence_export: 'This archive is a Confluence export. Choose Confluence or automatic detection as the source.',
+  getpaper_backup: 'This archive is a GetPaper backup. Choose GetPaper backup or automatic detection as the source.',
+  not_getpaper_backup: 'This archive is not a GetPaper backup: getpaper-backup.json is missing.',
+};
+
 function ImportData() {
   const { collections, refreshAllTrees } = useApp();
   const toast = useToast();
+  const [source, setSource] = useState('auto');
   const [file, setFile] = useState(null);
   const [target, setTarget] = useState('');
   const [publish, setPublish] = useState(true);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const writable = collections.filter((c) => c.access === 'write');
+  const current = IMPORT_SOURCES.find((s) => s.value === source);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -587,14 +831,15 @@ function ImportData() {
     try {
       const r = await upload('collections.import', {
         file,
+        source,
         collectionId: target || undefined,
         publish: publish ? 'true' : 'false',
       });
       setResult(r);
       await refreshAllTrees();
-      toast(`Imported ${r.documents} documents`);
+      toast(t(r.documents === 1 ? 'Imported {count} document' : 'Imported {count} documents', { count: r.documents }));
     } catch (err) {
-      toast(err.message, 'error');
+      toast(IMPORT_ERRORS[err.code] ? t(IMPORT_ERRORS[err.code]) : err.message, 'error');
     } finally {
       setBusy(false);
     }
@@ -602,65 +847,426 @@ function ImportData() {
 
   return (
     <>
-      <h1 className="page-title">Import</h1>
-      <p className="page-subtitle muted">
-        Import Markdown, HTML or text files, or a ZIP archive containing them. Exports from Outline, Notion, Obsidian,
-        Wiki.js, GitBook and BookStack (Markdown format) are supported.
-      </p>
-      <ul className="import-help muted">
-        <li>Top-level folders become collections, nested folders become nested documents.</li>
-        <li>
-          A document <code>Page.md</code> and a folder <code>Page/</code> are merged; <code>index.md</code> or{' '}
-          <code>README.md</code> inside a folder becomes the folder&apos;s content.
-        </li>
-        <li>Images and other files are uploaded as attachments; relative links and <code>[[wiki links]]</code> are rewritten.</li>
-      </ul>
+      <h1 className="page-title">{t('Import')}</h1>
+      <p className="page-subtitle muted">{t('Import documents from another wiki, or from Markdown, HTML and text files.')}</p>
       <form className="form settings-form" onSubmit={submit}>
-        <Field label="File">
+        <Field label={t('Source')}>
+          <select value={source} onChange={(e) => setSource(e.target.value)}>
+            {IMPORT_SOURCES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {t(s.label)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <ol className="import-help muted">
+          {current.steps.map((step) => (
+            <li key={step}>
+              {rich(t(step), {
+                file: <code>Page.md</code>,
+                folder: <code>Page/</code>,
+                index: <code>index.md</code>,
+                readme: <code>README.md</code>,
+                wikiLinks: <code>[[wiki links]]</code>,
+              })}
+            </li>
+          ))}
+        </ol>
+        <Field label={t('File')}>
           <input
             type="file"
             accept=".zip,.md,.markdown,.txt,.html,.htm"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
         </Field>
-        <Field label="Destination">
+        <Field label={t('Destination')}>
           <select value={target} onChange={(e) => setTarget(e.target.value)}>
-            <option value="">New collections (one per top-level folder)</option>
+            <option value="">
+              {source === 'confluence'
+                ? t('New collections (one per space)')
+                : source === 'getpaper'
+                  ? t('The collections of the backup')
+                  : t('New collections (one per top-level folder)')}
+            </option>
             {writable.map((c) => (
               <option key={c.id} value={c.id}>
-                Into “{c.name}”
+                {t('Into “{name}”', { name: c.name })}
               </option>
             ))}
           </select>
         </Field>
         <div className="field row space-between">
           <div>
-            <div className="field-label">Publish imported documents</div>
-            <div className="field-hint">When disabled, documents are imported as your private drafts.</div>
+            <div className="field-label">{t('Publish imported documents')}</div>
+            <div className="field-hint">{t('When disabled, documents are imported as your private drafts.')}</div>
           </div>
           <Switch checked={publish} onChange={setPublish} />
         </div>
         <div>
           <Button type="submit" disabled={!file || busy}>
-            {busy ? 'Importing…' : 'Import'}
+            {busy ? t('Importing…') : t('Import')}
           </Button>
         </div>
       </form>
       {result && (
         <div className="notice-bar info column">
+          {result.format && (
+            <div className="small">{t('Recognised format: {format}', { format: t(IMPORT_FORMATS[result.format] || result.format) })}</div>
+          )}
           <div>
-            Imported <strong>{result.documents}</strong> documents and <strong>{result.attachments}</strong> attachments into:
+            {rich(t('Imported {documents} documents and {attachments} attachments into:'), {
+              documents: <strong>{result.documents}</strong>,
+              attachments: <strong>{result.attachments}</strong>,
+            })}
           </div>
           <ul className="import-result">
             {result.collections.map((c) => (
               <li key={c.id}>
-                <Link to={collectionUrl(c)}>{c.name}</Link> {c.created ? '(new collection)' : ''}
+                <Link to={collectionUrl(c)}>{c.name}</Link> {c.created ? t('(new collection)') : ''}
               </li>
             ))}
           </ul>
-          {result.skipped.length > 0 && <div className="small">Skipped: {result.skipped.join(', ')}</div>}
+          {result.skipped.length > 0 && (
+            <div className="small">{t('Skipped: {files}', { files: result.skipped.join(', ') })}</div>
+          )}
         </div>
       )}
+    </>
+  );
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function ExportCard({ title, description, items, button, format, disabled, note }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await downloadFile('workspace.export', { format });
+      toast(t('Downloaded {name} ({size})', { name: r.name, size: formatSize(r.size) }));
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="export-card">
+      <h2 className="section-title">{title}</h2>
+      <p className="muted">{description}</p>
+      <ul className="import-help muted">
+        {items.map((i) => (
+          <li key={i}>{rich(i, { file: <code>getpaper-backup.json</code>, wikiLinks: <code>[[wiki links]]</code>, callout: <code>{'> [!info]'}</code> })}</li>
+        ))}
+      </ul>
+      {note && <p className="muted small">{note}</p>}
+      <Button onClick={run} disabled={busy || disabled}>
+        <Download size={16} /> {busy ? t('Preparing the archive…') : button}
+      </Button>
+    </div>
+  );
+}
+
+function ExportData() {
+  const { isAdmin, team, instance } = useApp();
+  const backupOff = instance.allowBackupExport === false;
+  const markdownOff = instance.allowMarkdownExport === false;
+  return (
+    <>
+      <h1 className="page-title">{t('Export')}</h1>
+      <p className="page-subtitle muted">{t('Download the content of the “{name}” workspace.', { name: team.name })}</p>
+      <ExportCard
+        title={t('Backup for GetPaper')}
+        description={t('A complete copy of the workspace, to restore it in another GetPaper instance from Settings → Import.')}
+        items={[
+          t('Collections with icons, colours and permissions, documents with their hierarchy, drafts, templates and archived documents.'),
+          t('Creation and modification dates, version history, comments and members of private collections.'),
+          t('All attachments. The data is in {file}, the files in the attachments folder.'),
+          t('When restoring, authors are matched by email with the members of the target workspace; content of anyone else is attributed to whoever restores it.'),
+        ]}
+        note={
+          backupOff
+            ? t('This export has been disabled by the administrator.')
+            : isAdmin
+              ? null
+              : t('Only workspace admins can download a backup.')
+        }
+        disabled={!isAdmin || backupOff}
+        button={t('Download backup')}
+        format="backup"
+      />
+      <ExportCard
+        title={t('Obsidian vault (Markdown)')}
+        description={t('The published documents you can read, as Markdown files ready to be opened as an Obsidian vault.')}
+        items={[
+          t('A folder for each collection; nested documents are a file plus a folder with the same name.'),
+          t('Links between documents become {wikiLinks}, images and files are in the _attachments folder.'),
+          t('Notices become Obsidian callouts ({callout}); creation and modification dates are in the front matter.'),
+          t('Drafts, templates, archived documents, comments and history are not included.'),
+        ]}
+        note={markdownOff ? t('This export has been disabled by the administrator.') : null}
+        disabled={markdownOff}
+        button={t('Download vault')}
+        format="obsidian"
+      />
+    </>
+  );
+}
+
+const PRESET_COLORS = ['#c8102e', '#e4002b', '#d97706', '#15803d', '#0f766e', '#1d4ed8', '#4338ca', '#111827'];
+
+/** Optional colour: picker, hex field, presets and reset. `null` = default look. */
+function ColorSetting({ label, hint, value, onChange }) {
+  const [text, setText] = useState(value || '');
+  useEffect(() => setText(value || ''), [value]);
+  const commit = (v) => {
+    const c = v.trim().toLowerCase();
+    if (c === (value || '')) return;
+    if (c === '') onChange(null);
+    else if (/^#[0-9a-f]{6}$/.test(c)) onChange(c);
+  };
+  return (
+    <Field label={label} hint={hint}>
+      <div className="color-setting">
+        <input type="color" value={value || '#ffffff'} onChange={(e) => onChange(e.target.value)} aria-label={label} />
+        <input
+          className="color-hex"
+          value={text}
+          placeholder={t('Default')}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commit(e.currentTarget.value);
+            }
+          }}
+        />
+        <div className="color-presets">
+          {PRESET_COLORS.map((c) => (
+            <button
+              type="button"
+              key={c}
+              className={`color-choice ${value === c ? 'selected' : ''}`}
+              style={{ background: c }}
+              title={c}
+              onClick={() => onChange(c)}
+            />
+          ))}
+        </div>
+        {value && (
+          <Button variant="secondary" onClick={() => onChange(null)}>
+            {t('Reset')}
+          </Button>
+        )}
+      </div>
+    </Field>
+  );
+}
+
+function ToggleSetting({ label, hint, checked, onChange }) {
+  return (
+    <div className="field row space-between">
+      <div>
+        <div className="field-label">{label}</div>
+        {hint && <div className="field-hint">{hint}</div>}
+      </div>
+      <Switch checked={checked} onChange={onChange} />
+    </div>
+  );
+}
+
+/** Installation-wide settings, superadmins only */
+function EmailCheck({ enabled, email }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const run = async (checkOnly) => {
+    setBusy(true);
+    try {
+      const r = await api('instance.testEmail', { checkOnly });
+      toast(checkOnly ? t('Connected to {host}:{port}', { host: r.host, port: r.port }) : t('Test email sent to {email}', { email: r.sentTo }));
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!enabled) {
+    return (
+      <p className="muted">
+        {t('Email is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD and SMTP_FROM_EMAIL in the server configuration to send invitation emails.')}
+      </p>
+    );
+  }
+  return (
+    <>
+      <p className="muted">{t('Invitation emails are sent with the mail server set in the server configuration.')}</p>
+      <div className="row gap">
+        <Button variant="secondary" disabled={busy} onClick={() => run(true)}>
+          {t('Check connection')}
+        </Button>
+        <Button variant="secondary" icon={<Send size={14} />} disabled={busy} onClick={() => run(false)}>
+          {t('Send a test email to {email}', { email })}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function GeneralSettings() {
+  const { isSuperadmin, refreshAuth, user, auth } = useApp();
+  const toast = useToast();
+  const [data, setData] = useState(null);
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    if (isSuperadmin) api('instance.info').then(setData).catch((e) => toast(e.message, 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuperadmin]);
+
+  if (!isSuperadmin) return <Empty>{t('Only superadmins can change the general settings.')}</Empty>;
+  if (!data) return <Spinner />;
+  const s = data.settings;
+  const env = data.environmentDefaults;
+
+  const update = async (patch) => {
+    try {
+      setData(await api('instance.update', patch));
+      await refreshAuth();
+      toast(t('Settings saved'));
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const changeSuperadmins = async (method, body) => {
+    try {
+      setData(await api(method, body));
+      setEmail('');
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const choice = (options, current, fallback, field) => (
+    <select value={current || ''} onChange={(e) => update({ [field]: e.target.value || null })}>
+      <option value="">
+        {t('Server default ({value})', { value: t(options.find((o) => o.value === fallback)?.label || fallback) })}
+      </option>
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {t(o.label)}
+        </option>
+      ))}
+    </select>
+  );
+
+  return (
+    <>
+      <h1 className="page-title">{t('General settings')}</h1>
+      <p className="page-subtitle muted">{t('These settings apply to every workspace of this installation.')}</p>
+
+      <h2 className="section-title">{t('Branding')}</h2>
+      <div className="form settings-form">
+        <ColorSetting
+          label={t('Header colour')}
+          hint={t('Background of the top bar. The text colour is chosen automatically for contrast.')}
+          value={s.headerColor}
+          onChange={(v) => update({ headerColor: v })}
+        />
+        <ColorSetting
+          label={t('Accent colour')}
+          hint={t('Buttons, links and selections.')}
+          value={s.accentColor}
+          onChange={(v) => update({ accentColor: v })}
+        />
+      </div>
+
+      <h2 className="section-title">{t('Data protection')}</h2>
+      <div className="form settings-form">
+        <ToggleSetting
+          label={t('Workspace backups')}
+          hint={t('Workspace admins can download a full backup from Settings → Export.')}
+          checked={s.allowBackupExport}
+          onChange={(v) => update({ allowBackupExport: v })}
+        />
+        <ToggleSetting
+          label={t('Markdown export')}
+          hint={t('Members can download the Obsidian vault and single documents as Markdown.')}
+          checked={s.allowMarkdownExport}
+          onChange={(v) => update({ allowMarkdownExport: v })}
+        />
+        <ToggleSetting
+          label={t('Public links')}
+          hint={t('Documents can be published to the internet. When disabled, existing links stop working until it is enabled again.')}
+          checked={s.allowPublicSharing}
+          onChange={(v) => update({ allowPublicSharing: v })}
+        />
+      </div>
+
+      <h2 className="section-title">{t('Email')}</h2>
+      <EmailCheck enabled={!!auth.email} email={user.email} />
+
+      <h2 className="section-title">{t('Defaults for users')}</h2>
+      <p className="muted">{t('Used when a user has not chosen their own preference in their profile.')}</p>
+      <div className="form settings-form">
+        <Field label={t('Language')}>{choice(LANGUAGES, s.defaultLanguage, env.language, 'defaultLanguage')}</Field>
+        <Field label={t('Appearance')}>{choice(THEMES, s.defaultTheme, env.theme, 'defaultTheme')}</Field>
+        <Field label={t('Document width')}>
+          {choice(CONTENT_WIDTHS, s.defaultContentWidth, env.contentWidth, 'defaultContentWidth')}
+        </Field>
+      </div>
+
+      <h2 className="section-title">{t('Superadmins')}</h2>
+      <p className="muted">
+        {t('Superadmins manage these settings. They don’t get access to workspaces they are not members of.')}
+      </p>
+      <div className="superadmin-list">
+        {data.superadmins.map((u) => (
+          <div key={u.id} className="row space-between superadmin-row">
+            <div className="row gap">
+              <Avatar name={u.name} color={u.color} size={28} />
+              <div>
+                <div>
+                  {u.name} {u.id === user.id && <span className="muted">({t('you')})</span>}
+                </div>
+                <div className="muted small">{u.email}</div>
+              </div>
+            </div>
+            {u.fromEnvironment ? (
+              <span className="muted small" title={t('Set in the server configuration')}>
+                SUPERADMIN_EMAILS
+              </span>
+            ) : (
+              data.superadmins.length > 1 && (
+                <Button variant="secondary" onClick={() => changeSuperadmins('instance.removeSuperadmin', { id: u.id })}>
+                  {t('Remove')}
+                </Button>
+              )
+            )}
+          </div>
+        ))}
+      </div>
+      <form
+        className="row gap superadmin-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (email.trim()) changeSuperadmins('instance.addSuperadmin', { email });
+        }}
+      >
+        <input
+          type="email"
+          className="grow"
+          placeholder={t('Email of an existing account')}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Button type="submit" disabled={!email.trim()}>
+          {t('Add superadmin')}
+        </Button>
+      </form>
     </>
   );
 }
@@ -668,10 +1274,10 @@ function ImportData() {
 function McpSection() {
   const toast = useToast();
   const endpoint = `${window.location.origin}/mcp`;
-  const cmd = `claude mcp add --transport http horsa-codex ${endpoint} --header "Authorization: Bearer <API_KEY>"`;
+  const cmd = `claude mcp add --transport http getpaper ${endpoint} --header "Authorization: Bearer <API_KEY>"`;
   const json = `{
   "mcpServers": {
-    "horsa-codex": {
+    "getpaper": {
       "type": "http",
       "url": "${endpoint}",
       "headers": { "Authorization": "Bearer <API_KEY>" }
@@ -680,13 +1286,16 @@ function McpSection() {
 }`;
   return (
     <>
-      <h2 className="section-title">MCP server</h2>
+      <h2 className="section-title">{t('MCP server')}</h2>
       <p className="muted">
-        Connect an LLM client (Claude Code, Claude Desktop, Cursor, …) to this workspace through the Model Context
-        Protocol. The assistant can search, read, write, organise, comment and share documents with the permissions of
-        the API key owner. Create an API key above and use it in place of <code>&lt;API_KEY&gt;</code>.
+        {rich(
+          t(
+            'Connect an LLM client (Claude Code, Claude Desktop, Cursor, …) to this workspace through the Model Context Protocol. The assistant can search, read, write, organise, comment and share documents with the permissions of the API key owner. Create an API key above and use it in place of {placeholder}.'
+          ),
+          { placeholder: <code>&lt;API_KEY&gt;</code> }
+        )}
       </p>
-      <Field label="Endpoint (Streamable HTTP)">
+      <Field label={t('Endpoint (Streamable HTTP)')}>
         <div className="row gap">
           <input readOnly value={endpoint} className="grow mono" />
           <Button
@@ -694,21 +1303,22 @@ function McpSection() {
             icon={<Copy size={14} />}
             onClick={async () => {
               await copyToClipboard(endpoint);
-              toast('Copied');
+              toast(t('Copied'));
             }}
           >
-            Copy
+            {t('Copy')}
           </Button>
         </div>
       </Field>
       <div className="field-label">Claude Code</div>
       <pre className="code-sample bordered">{cmd}</pre>
-      <div className="field-label">Other clients (mcp.json)</div>
+      <div className="field-label">{t('Other clients ({file})', { file: 'mcp.json' })}</div>
       <pre className="code-sample bordered">{json}</pre>
     </>
   );
 }
 
+// Titles are kept in English here and translated with t() at render time.
 const SECTIONS = {
   profile: { title: 'Profile', component: Profile },
   workspace: { title: 'Details', component: Workspace },
@@ -717,6 +1327,8 @@ const SECTIONS = {
   'api-keys': { title: 'API Keys', component: ApiKeys },
   workspaces: { title: 'Workspaces', component: Workspaces },
   import: { title: 'Import', component: ImportData },
+  export: { title: 'Export', component: ExportData },
+  general: { title: 'General settings', component: GeneralSettings },
 };
 
 export default function Settings() {
@@ -725,7 +1337,7 @@ export default function Settings() {
   if (!s) return <Navigate to="/settings/profile" replace />;
   const C = s.component;
   return (
-    <Scene title={s.title} headerTitle={<span className="header-title">Settings</span>}>
+    <Scene title={t(s.title)} headerTitle={<span className="header-title">{t('Settings')}</span>}>
       <C />
     </Scene>
   );

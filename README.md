@@ -1,4 +1,4 @@
-# Horsa Codex
+# GetPaper
 
 Wiki / knowledge base ispirata a [Outline](https://github.com/outline/outline), con backend in **Rust** e
 **workspace multipli** inclusi (in Outline sono una funzione a pagamento).
@@ -19,6 +19,13 @@ Variabili utili (file `.env` accanto a `docker-compose.yml` oppure in ambiente):
 | `PORT` | `3000` | Porta esposta sull'host |
 | `ALLOW_SIGNUP` | `true` | Con `false` ci si registra solo tramite invito (il primo utente può sempre registrarsi) |
 | `IMPORT_MAX_MB` | `500` | Dimensione massima di un archivio ZIP da importare |
+| `SUPERADMIN_EMAILS` | | Account sempre superadmin, separati da virgola (vedi sotto) |
+| `DEFAULT_LANGUAGE` | `en` | Lingua dell'interfaccia per chi non l'ha scelta: `en`, `it` |
+| `DEFAULT_THEME` | `system` | Aspetto per chi non l'ha scelto: `system`, `light`, `dark` |
+| `DEFAULT_CONTENT_WIDTH` | `normal` | Larghezza del testo nei documenti: `normal`, `wide`, `full` |
+
+Ogni utente può sovrascrivere lingua, aspetto e larghezza del testo in **Impostazioni → Profile → Preferenze**.
+I valori `DEFAULT_*` valgono anche per le pagine di login e i link pubblici.
 
 I dati stanno nei volumi Docker `pgdata` (PostgreSQL) e `uploads` (allegati).
 
@@ -37,7 +44,7 @@ I dati stanno nei volumi Docker `pgdata` (PostgreSQL) e `uploads` (allegati).
 - **Ricerca full-text** in PostgreSQL con evidenziazione dei risultati e filtro per collezione.
 - **Condivisione pubblica** dei documenti tramite link (`/s/...`).
 - **Membri e ruoli** (admin, editor, viewer), inviti tramite link, chiavi API personali.
-- Import ed export Markdown, tema chiaro e scuro automatico.
+- Import ed export Markdown, interfaccia in inglese e italiano, tema chiaro, scuro o automatico.
 
 ## Accesso con Microsoft (SSO)
 
@@ -55,6 +62,7 @@ Il login usa Microsoft Entra ID (Azure AD) tramite OpenID Connect, con authoriza
 | `MICROSOFT_ALLOWED_DOMAINS` | Facoltativo: solo questi domini email possono entrare (es. `horsa.it,vidata.it`) |
 | `MICROSOFT_AUTO_PROVISION` | `true` (default): crea l'account al primo accesso. Con `false` entra solo chi è invitato |
 | `PASSWORD_LOGIN` | `false` per consentire solo l'accesso Microsoft |
+| `MICROSOFT_CALLBACK_PATH` | Percorso del redirect URI: `/auth/microsoft/callback` (predefinito) oppure `/auth/azure.callback`, lo stesso di Outline, per riusare senza modifiche la app registration di un'istanza Outline sullo stesso dominio |
 
 Comportamento:
 
@@ -90,8 +98,94 @@ Wiki.js, GitBook e BookStack.
 - Immagini e altri file diventano allegati. I link relativi tra documenti, i link agli allegati e i
   `[[wiki link]]` di Obsidian vengono riscritti.
 - Una cartella contenitore unica (es. `export/…`) viene ignorata automaticamente.
+- I file HTML vengono convertiti in Markdown.
 
-API: `POST /api/collections.import` (multipart: `file`, `collectionId` opzionale, `publish`).
+### Confluence
+
+Si importa l'export **XML** o **HTML** di uno spazio (Cloud: *Impostazioni spazio → Esporta spazio*;
+Server/Data Center: *Space tools → Content Tools → Export*). Lo ZIP si carica così com'è; l'importer
+riconosce il formato automaticamente.
+
+- **XML** (consigliato, contiene `entities.xml`): vengono importate solo le pagine correnti (non bozze, cestino e
+  versioni storiche), con gerarchia, ordine e **date di creazione e modifica** originali. Le menzioni diventano
+  `@nome` (dall'account Confluence). `entities.xml` non è soggetto al limite `MAX_UPLOAD_MB` dei singoli file.
+- **HTML**: più spazi si possono importare insieme mettendo le cartelle nello stesso ZIP.
+
+- Ogni spazio diventa una collezione (con una collezione di destinazione, le pagine finiscono al suo interno).
+- La gerarchia viene ricostruita dai breadcrumb di ogni pagina, l'ordine dall'albero delle pagine in `index.html`.
+- Link tra pagine, immagini e allegati vengono riscritti. Gli allegati elencati nella sezione *Attachments* ma non
+  mostrati nel testo vengono aggiunti in fondo alla pagina. Icone e fogli di stile dell'export vengono scartati.
+- Macro convertite: pannelli info/note/warning/tip → notice, blocchi di codice (con linguaggio), expand, liste di
+  attività, tabelle, stati, emoticon, menzioni (come testo). Indice (TOC) e macro dinamiche vengono omessi.
+- Link a pagine di altri spazi (non presenti nell'export) restano come testo.
+- Non vengono importati: autori (le pagine risultano create da chi importa), commenti, cronologia delle versioni,
+  etichette e permessi. L'export PDF non è supportato.
+
+Nel campo **Origine** si sceglie lo strumento di provenienza (Confluence, Outline, Notion, Obsidian, Markdown) per
+vedere le istruzioni di esportazione; con *Rilevamento automatico* (predefinito) il formato viene riconosciuto dal
+contenuto dello ZIP. Se l'origine scelta non corrisponde all'archivio, l'import viene rifiutato con un messaggio chiaro.
+Il risultato indica il formato riconosciuto.
+
+API: `POST /api/collections.import` (multipart: `file`, `source` opzionale tra `auto`, `confluence`, `outline`, `notion`,
+`obsidian`, `markdown`, `collectionId` opzionale, `publish`). La risposta contiene `format`
+(`confluence-xml`, `confluence-html` o `markdown`).
+
+## Email di invito
+
+Con un server SMTP configurato, gli inviti vengono spediti per email: un messaggio nella lingua di chi invita, con
+workspace, ruolo e il pulsante *Accetta l'invito* (con l'accesso Microsoft attivo indica di entrare con l'account
+aziendale). Chi ha già un account e viene aggiunto a un workspace riceve un avviso.
+
+- In **Impostazioni → Membri → Invita** la casella *Invia l'invito per email* (attiva di default).
+- Negli inviti in sospeso: *Invia email* / *Invia di nuovo*, la data dell'ultimo invio e *Invia email a tutti gli inviti
+  in attesa*.
+- In **Impostazioni generali → Email** (superadmin): *Verifica connessione* e *Invia un'email di prova* a sé stessi.
+
+| Variabile | Descrizione |
+| --- | --- |
+| `SMTP_HOST`, `SMTP_PORT` | Server di posta (senza `SMTP_HOST` le email sono disattivate) |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | Credenziali (per SendGrid: `apikey` e la chiave API) |
+| `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` | Mittente |
+| `SMTP_SECURE` | `ssl` (porta 465), `starttls` (587) o `none`; se vuoto si deduce dalla porta |
+
+## Superadmin e impostazioni generali
+
+Il **superadmin** gestisce le impostazioni comuni a tutti i workspace dell'installazione, in
+**Impostazioni → Impostazioni generali** (la voce compare solo ai superadmin):
+
+- **Aspetto del marchio**: colore dell'header (la barra in alto; il colore del testo è scelto in automatico per il
+  contrasto) e colore di accento (pulsanti, link). Valgono anche nelle pagine di accesso e nei link pubblici.
+- **Protezione dei dati**: abilita o disabilita i backup dei workspace, l'export Markdown (vault Obsidian e download
+  dei singoli documenti) e i link pubblici. Il blocco è applicato dal server; disattivando i link pubblici quelli
+  esistenti smettono di funzionare finché non vengono riattivati.
+- **Valori predefiniti per gli utenti**: lingua, aspetto e larghezza dei documenti. Hanno la precedenza sulle
+  variabili `DEFAULT_*`, che restano il valore di partenza.
+- **Superadmin**: elenco, aggiunta per email (l'account deve esistere) e rimozione (ne resta sempre almeno uno).
+
+Il primo account creato è superadmin. I superadmin hanno il badge *Superadmin* nell'elenco **Membri** e sono elencati
+in **Impostazioni generali → Superadmin**. Con `SUPERADMIN_EMAILS` (separati da virgola) si possono indicare account che
+sono sempre superadmin, ad esempio per recuperare l'accesso. Essere superadmin non dà accesso ai workspace di cui non
+si è membri.
+
+## Export
+
+Da **Impostazioni → Esporta**:
+
+- **Backup per GetPaper** (solo amministratori): ZIP con `getpaper-backup.json` e la cartella `attachments/`.
+  Contiene collezioni (icona, colore, permessi, membri delle collezioni private), documenti con gerarchia, bozze,
+  modelli e archiviati, date, cronologia delle revisioni, commenti e allegati. Si ripristina in un'altra istanza da
+  **Impostazioni → Import** (origine *Backup GetPaper* o rilevamento automatico) nel workspace corrente:
+  - gli autori vengono abbinati per email ai membri del workspace di destinazione; il resto viene attribuito a chi
+    ripristina;
+  - id e link restano gli stessi se liberi; se sono già usati (es. ripristino nella stessa istanza) vengono rigenerati
+    e i link interni riscritti;
+  - non sono inclusi: utenti e ruoli, impostazioni del workspace, link pubblici, preferiti, chiavi API.
+- **Vault Obsidian**: i documenti pubblicati leggibili dall'utente come file Markdown. Una cartella per collezione,
+  documenti annidati come `Pagina.md` + `Pagina/`, link interni come `[[wiki link]]`, allegati in `_attachments/`,
+  notice come callout (`> [!info]`), date e titolo originale nel front matter. Reimportando il vault (origine
+  *Obsidian*) callout e titoli vengono riconvertiti.
+
+API: `POST /api/workspace.export` con `{"format": "backup" | "obsidian"}`, risponde con lo ZIP.
 
 ## Server MCP (per LLM)
 
@@ -100,14 +194,14 @@ L'autenticazione usa una chiave API personale, creata da **Impostazioni → API 
 un solo workspace e l'LLM opera con i permessi del suo proprietario.
 
 ```bash
-claude mcp add --scope user --transport http horsa-codex http://localhost:3000/mcp \
+claude mcp add --scope user --transport http getpaper http://localhost:3000/mcp \
   --header "Authorization: Bearer ol_api_..."
 ```
 
 Per altri client (Claude Desktop, Cursor, …):
 
 ```json
-{ "mcpServers": { "horsa-codex": { "type": "http", "url": "http://localhost:3000/mcp",
+{ "mcpServers": { "getpaper": { "type": "http", "url": "http://localhost:3000/mcp",
   "headers": { "Authorization": "Bearer ol_api_..." } } } }
 ```
 

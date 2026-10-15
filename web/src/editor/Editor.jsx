@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BubbleMenu, EditorContent, useEditor } from '@tiptap/react';
+import { BubbleMenu, EditorContent, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
@@ -15,6 +15,13 @@ import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
+import apache from 'highlight.js/lib/languages/apache';
+import dockerfile from 'highlight.js/lib/languages/dockerfile';
+import dos from 'highlight.js/lib/languages/dos';
+import groovy from 'highlight.js/lib/languages/groovy';
+import nginx from 'highlight.js/lib/languages/nginx';
+import powershell from 'highlight.js/lib/languages/powershell';
+import properties from 'highlight.js/lib/languages/properties';
 import { Markdown } from 'tiptap-markdown';
 import {
   Bold,
@@ -46,9 +53,20 @@ import {
   X,
 } from 'lucide-react';
 import { uploadFile } from '../api';
+import { t, getLanguage } from '../i18n';
 import { Notice, createSlashCommand } from './extensions';
+import CodeBlockView from './CodeBlockView';
 
 const lowlight = createLowlight(common);
+// languages common in ops documentation that are not in lowlight's default set
+lowlight.register({ apache, dockerfile, dos, groovy, nginx, powershell, properties });
+
+/** Code block with language picker, copy button and line wrapping toggle */
+const CodeBlock = CodeBlockLowlight.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(CodeBlockView);
+  },
+});
 
 function pickFile(accept) {
   return new Promise((resolve) => {
@@ -77,7 +95,7 @@ async function insertFiles(editor, files, documentId, pos) {
           .run();
       }
     } catch (e) {
-      window.alert(`Upload failed: ${e.message}`);
+      window.alert(t('Upload failed: {error}', { error: e.message }));
     }
   }
 }
@@ -85,19 +103,19 @@ async function insertFiles(editor, files, documentId, pos) {
 function slashItems(documentId) {
   const run = (fn) => ({ editor, range }) => fn(editor.chain().focus().deleteRange(range), editor);
   return [
-    { section: 'Text', title: 'Big heading', keywords: 'h1 title', icon: <Heading1 size={16} />, shortcut: '#', command: run((c) => c.setNode('heading', { level: 1 }).run()) },
-    { section: 'Text', title: 'Medium heading', keywords: 'h2 subtitle', icon: <Heading2 size={16} />, shortcut: '##', command: run((c) => c.setNode('heading', { level: 2 }).run()) },
-    { section: 'Text', title: 'Small heading', keywords: 'h3', icon: <Heading3 size={16} />, shortcut: '###', command: run((c) => c.setNode('heading', { level: 3 }).run()) },
-    { section: 'Lists', title: 'Todo list', keywords: 'checkbox task checklist', icon: <ListTodo size={16} />, shortcut: '[ ]', command: run((c) => c.toggleTaskList().run()) },
-    { section: 'Lists', title: 'Bulleted list', keywords: 'ul unordered', icon: <List size={16} />, shortcut: '-', command: run((c) => c.toggleBulletList().run()) },
-    { section: 'Lists', title: 'Ordered list', keywords: 'ol numbered', icon: <ListOrdered size={16} />, shortcut: '1.', command: run((c) => c.toggleOrderedList().run()) },
-    { section: 'Blocks', title: 'Table', keywords: 'grid', icon: <TableIcon size={16} />, command: run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()) },
-    { section: 'Blocks', title: 'Quote', keywords: 'blockquote citation', icon: <Quote size={16} />, shortcut: '>', command: run((c) => c.toggleBlockquote().run()) },
-    { section: 'Blocks', title: 'Code block', keywords: 'pre snippet', icon: <Braces size={16} />, shortcut: '```', command: run((c) => c.toggleCodeBlock().run()) },
-    { section: 'Blocks', title: 'Divider', keywords: 'hr horizontal rule line', icon: <Minus size={16} />, shortcut: '---', command: run((c) => c.setHorizontalRule().run()) },
+    { section: t('Text'), title: t('Big heading'), titleEn: 'Big heading', keywords: 'h1 title', icon: <Heading1 size={16} />, shortcut: '#', command: run((c) => c.setNode('heading', { level: 1 }).run()) },
+    { section: t('Text'), title: t('Medium heading'), titleEn: 'Medium heading', keywords: 'h2 subtitle', icon: <Heading2 size={16} />, shortcut: '##', command: run((c) => c.setNode('heading', { level: 2 }).run()) },
+    { section: t('Text'), title: t('Small heading'), titleEn: 'Small heading', keywords: 'h3', icon: <Heading3 size={16} />, shortcut: '###', command: run((c) => c.setNode('heading', { level: 3 }).run()) },
+    { section: t('Lists'), title: t('Todo list'), titleEn: 'Todo list', keywords: 'checkbox task checklist', icon: <ListTodo size={16} />, shortcut: '[ ]', command: run((c) => c.toggleTaskList().run()) },
+    { section: t('Lists'), title: t('Bulleted list'), titleEn: 'Bulleted list', keywords: 'ul unordered', icon: <List size={16} />, shortcut: '-', command: run((c) => c.toggleBulletList().run()) },
+    { section: t('Lists'), title: t('Ordered list'), titleEn: 'Ordered list', keywords: 'ol numbered', icon: <ListOrdered size={16} />, shortcut: '1.', command: run((c) => c.toggleOrderedList().run()) },
+    { section: t('Blocks'), title: t('Table'), titleEn: 'Table', keywords: 'grid', icon: <TableIcon size={16} />, command: run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()) },
+    { section: t('Blocks'), title: t('Quote'), titleEn: 'Quote', keywords: 'blockquote citation', icon: <Quote size={16} />, shortcut: '>', command: run((c) => c.toggleBlockquote().run()) },
+    { section: t('Blocks'), title: t('Code block'), titleEn: 'Code block', keywords: 'pre snippet', icon: <Braces size={16} />, shortcut: '```', command: run((c) => c.toggleCodeBlock().run()) },
+    { section: t('Blocks'), title: t('Divider'), titleEn: 'Divider', keywords: 'hr horizontal rule line', icon: <Minus size={16} />, shortcut: '---', command: run((c) => c.setHorizontalRule().run()) },
     {
-      section: 'Blocks',
-      title: 'Image',
+      section: t('Blocks'),
+      title: t('Image'), titleEn: 'Image',
       keywords: 'picture photo upload',
       icon: <ImageIcon size={16} />,
       command: ({ editor, range }) => {
@@ -106,8 +124,8 @@ function slashItems(documentId) {
       },
     },
     {
-      section: 'Blocks',
-      title: 'File attachment',
+      section: t('Blocks'),
+      title: t('File attachment'), titleEn: 'File attachment',
       keywords: 'upload attachment',
       icon: <Paperclip size={16} />,
       command: ({ editor, range }) => {
@@ -115,17 +133,17 @@ function slashItems(documentId) {
         pickFile().then((f) => f && insertFiles(editor, [f], documentId));
       },
     },
-    { section: 'Notices', title: 'Info notice', keywords: 'callout', icon: <Info size={16} />, shortcut: ':::', command: run((c) => c.setNotice('info').run()) },
-    { section: 'Notices', title: 'Warning notice', keywords: 'callout alert', icon: <AlertTriangle size={16} />, command: run((c) => c.setNotice('warning').run()) },
-    { section: 'Notices', title: 'Tip notice', keywords: 'callout hint', icon: <Lightbulb size={16} />, command: run((c) => c.setNotice('tip').run()) },
-    { section: 'Notices', title: 'Success notice', keywords: 'callout done', icon: <CheckCircle2 size={16} />, command: run((c) => c.setNotice('success').run()) },
+    { section: t('Notices'), title: t('Info notice'), titleEn: 'Info notice', keywords: 'callout', icon: <Info size={16} />, shortcut: ':::', command: run((c) => c.setNotice('info').run()) },
+    { section: t('Notices'), title: t('Warning notice'), titleEn: 'Warning notice', keywords: 'callout alert', icon: <AlertTriangle size={16} />, command: run((c) => c.setNotice('warning').run()) },
+    { section: t('Notices'), title: t('Tip notice'), titleEn: 'Tip notice', keywords: 'callout hint', icon: <Lightbulb size={16} />, command: run((c) => c.setNotice('tip').run()) },
+    { section: t('Notices'), title: t('Success notice'), titleEn: 'Success notice', keywords: 'callout done', icon: <CheckCircle2 size={16} />, command: run((c) => c.setNotice('success').run()) },
     {
-      section: 'Other',
-      title: 'Current date',
+      section: t('Other'),
+      title: t('Current date'), titleEn: 'Current date',
       keywords: 'today time',
       icon: <Calendar size={16} />,
       command: run((c) =>
-        c.insertContent(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })).run()
+        c.insertContent(new Date().toLocaleDateString(getLanguage(), { year: 'numeric', month: 'long', day: 'numeric' })).run()
       ),
     },
   ];
@@ -180,7 +198,7 @@ function FormattingMenu({ editor }) {
             <input
               ref={inputRef}
               value={href}
-              placeholder="Paste or type a link…"
+              placeholder={t('Paste or type a link…')}
               onChange={(e) => setHref(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -190,11 +208,11 @@ function FormattingMenu({ editor }) {
                 if (e.key === 'Escape') setLinkMode(false);
               }}
             />
-            <B title="Apply" onClick={applyLink}>
+            <B title={t('Apply')} onClick={applyLink}>
               <Check size={16} />
             </B>
             <B
-              title="Remove link"
+              title={t('Remove link')}
               onClick={() => {
                 editor.chain().focus().extendMarkRange('link').unsetLink().run();
                 setLinkMode(false);
@@ -202,56 +220,56 @@ function FormattingMenu({ editor }) {
             >
               <Trash2 size={16} />
             </B>
-            <B title="Cancel" onClick={() => setLinkMode(false)}>
+            <B title={t('Cancel')} onClick={() => setLinkMode(false)}>
               <X size={16} />
             </B>
           </div>
         ) : (
           <>
-            <B title="Bold" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
+            <B title={t('Bold')} active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
               <Bold size={16} />
             </B>
-            <B title="Italic" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
+            <B title={t('Italic')} active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
               <Italic size={16} />
             </B>
-            <B title="Underline" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+            <B title={t('Underline')} active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
               <UnderlineIcon size={16} />
             </B>
-            <B title="Strikethrough" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
+            <B title={t('Strikethrough')} active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
               <Strikethrough size={16} />
             </B>
-            <B title="Highlight" active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}>
+            <B title={t('Highlight')} active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}>
               <Highlighter size={16} />
             </B>
-            <B title="Code" active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
+            <B title={t('Code')} active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
               <Code size={16} />
             </B>
             <span className="fmt-sep" />
-            <B title="Heading" active={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+            <B title={t('Heading')} active={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
               <Heading1 size={16} />
             </B>
-            <B title="Subheading" active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+            <B title={t('Subheading')} active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
               <Heading2 size={16} />
             </B>
-            <B title="Small heading" active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+            <B title={t('Small heading')} active={editor.isActive('heading', { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
               <Heading3 size={16} />
             </B>
-            <B title="Quote" active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
+            <B title={t('Quote')} active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
               <Quote size={16} />
             </B>
             <span className="fmt-sep" />
-            <B title="Checklist" active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()}>
+            <B title={t('Checklist')} active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()}>
               <ListTodo size={16} />
             </B>
-            <B title="Bulleted list" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+            <B title={t('Bulleted list')} active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
               <List size={16} />
             </B>
-            <B title="Ordered list" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+            <B title={t('Ordered list')} active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
               <ListOrdered size={16} />
             </B>
             <span className="fmt-sep" />
             <B
-              title="Link"
+              title={t('Link')}
               active={editor.isActive('link')}
               onClick={() => {
                 setHref(editor.getAttributes('link').href || '');
@@ -288,14 +306,14 @@ function TableMenu({ editor }) {
       shouldShow={({ editor, state }) => editor.isEditable && editor.isActive('table') && state.selection.empty}
     >
       <div className="formatting-menu">
-        <B title="Add row above" onClick={() => editor.chain().focus().addRowBefore().run()}>+ Row ↑</B>
-        <B title="Add row below" onClick={() => editor.chain().focus().addRowAfter().run()}>+ Row ↓</B>
-        <B title="Add column left" onClick={() => editor.chain().focus().addColumnBefore().run()}>+ Col ←</B>
-        <B title="Add column right" onClick={() => editor.chain().focus().addColumnAfter().run()}>+ Col →</B>
+        <B title={t('Add row above')} onClick={() => editor.chain().focus().addRowBefore().run()}>{t('+ Row ↑')}</B>
+        <B title={t('Add row below')} onClick={() => editor.chain().focus().addRowAfter().run()}>{t('+ Row ↓')}</B>
+        <B title={t('Add column left')} onClick={() => editor.chain().focus().addColumnBefore().run()}>{t('+ Col ←')}</B>
+        <B title={t('Add column right')} onClick={() => editor.chain().focus().addColumnAfter().run()}>{t('+ Col →')}</B>
         <span className="fmt-sep" />
-        <B title="Delete row" onClick={() => editor.chain().focus().deleteRow().run()}>− Row</B>
-        <B title="Delete column" onClick={() => editor.chain().focus().deleteColumn().run()}>− Col</B>
-        <B title="Delete table" danger onClick={() => editor.chain().focus().deleteTable().run()}>
+        <B title={t('Delete row')} onClick={() => editor.chain().focus().deleteRow().run()}>{t('− Row')}</B>
+        <B title={t('Delete column')} onClick={() => editor.chain().focus().deleteColumn().run()}>{t('− Col')}</B>
+        <B title={t('Delete table')} danger onClick={() => editor.chain().focus().deleteTable().run()}>
           <Trash2 size={14} />
         </B>
       </div>
@@ -311,7 +329,7 @@ export default function Editor({
   value,
   onChange,
   editable = true,
-  placeholder = "Type '/' to insert, or start writing…",
+  placeholder = t("Type '/' to insert, or start writing…"),
   documentId,
   autoFocus,
   onReady,
@@ -326,7 +344,7 @@ export default function Editor({
     () => [
       StarterKit.configure({ codeBlock: false, heading: { levels: [1, 2, 3, 4] } }),
       Placeholder.configure({
-        placeholder: ({ node }) => (node.type.name === 'heading' ? 'Heading' : placeholder),
+        placeholder: ({ node }) => (node.type.name === 'heading' ? t('Heading') : placeholder),
         includeChildren: false,
       }),
       Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: null } }),
@@ -339,7 +357,7 @@ export default function Editor({
       TableCell,
       Highlight,
       Underline,
-      CodeBlockLowlight.configure({ lowlight }),
+      CodeBlock.configure({ lowlight }),
       Notice,
       createSlashCommand(() => slashItems(documentId)),
       Markdown.configure({

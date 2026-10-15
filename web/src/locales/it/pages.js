@@ -1,0 +1,128 @@
+export default {
+  // Collection
+  'Imported {count} document': '{count} documento importato',
+  'Imported {count} documents': '{count} documenti importati',
+  Private: 'Privata',
+  'Search in collection': 'Cerca nella collezione',
+  'New doc': 'Nuovo documento',
+  More: 'Altro',
+  'New document': 'Nuovo documento',
+  'Import…': 'Importa…',
+  'Edit…': 'Modifica…',
+  Export: 'Esporta',
+  'Delete…': 'Elimina…',
+  'Add a description…': 'Aggiungi una descrizione…',
+  'Recently updated': 'Aggiornati di recente',
+  'Recently published': 'Pubblicati di recente',
+  'Least recently updated': 'Aggiornati meno di recente',
+  'Collections are a place to organize documents. Get started by creating a new one!':
+    'Le collezioni servono a organizzare i documenti. Inizia creandone uno nuovo!',
+  'Create a document': 'Crea un documento',
+  'Delete collection': 'Elimina collezione',
+  'I’m sure – Delete': 'Sono sicuro – Elimina',
+  'Are you sure you want to delete the {name} collection? All of its documents will be moved to the trash.':
+    'Vuoi davvero eliminare la collezione {name}? Tutti i suoi documenti verranno spostati nel cestino.',
+  'Collection deleted': 'Collezione eliminata',
+  // Lists (drafts, archive, trash)
+  Drafts: 'Bozze',
+  'Documents you have started but not yet published. Only you can see them.':
+    'Documenti che hai iniziato ma non ancora pubblicato. Solo tu puoi vederli.',
+  'You’ve not got any drafts at the moment.': 'Al momento non hai bozze.',
+  Archive: 'Archivio',
+  'Archived documents are hidden from the sidebar and search, but can be restored at any time.':
+    'I documenti archiviati sono nascosti dalla barra laterale e dalla ricerca, ma possono essere ripristinati in qualsiasi momento.',
+  'The document archive is empty at the moment.': 'Al momento l’archivio è vuoto.',
+  'Document restored': 'Documento ripristinato',
+  Restore: 'Ripristina',
+  'No collection available to restore into': 'Nessuna collezione disponibile in cui ripristinare',
+  Trash: 'Cestino',
+  'Deleted documents are kept here for 30 days before being removed permanently.':
+    'I documenti eliminati vengono conservati qui per 30 giorni prima di essere rimossi definitivamente.',
+  'Trash is empty at the moment.': 'Al momento il cestino è vuoto.',
+  Delete: 'Elimina',
+  'Permanently delete': 'Elimina definitivamente',
+  'Delete forever': 'Elimina per sempre',
+  '“{title}” and its nested documents will be permanently deleted. This cannot be undone.':
+    '“{title}” e i documenti annidati verranno eliminati definitivamente. L’operazione non può essere annullata.',
+  Untitled: 'Senza titolo',
+  'Document permanently deleted': 'Documento eliminato definitivamente',
+  // Login / Register / Invite
+  'Continue with Microsoft': 'Continua con Microsoft',
+  or: 'oppure',
+  'Login - GetPaper': 'Accedi - GetPaper',
+  'Welcome to GetPaper': 'Benvenuto in GetPaper',
+  "Let's get started by creating the first account and workspace.":
+    'Iniziamo creando il primo account e il primo workspace.',
+  'Create account': 'Crea account',
+  'Login to GetPaper': 'Accedi a GetPaper',
+  Email: 'Email',
+  Password: 'Password',
+  'Signing in…': 'Accesso in corso…',
+  'Continue with email': 'Continua con l’email',
+  'Don’t have an account?': 'Non hai un account?',
+  'Sign up': 'Registrati',
+  'Full name': 'Nome e cognome',
+  'At least 8 characters.': 'Almeno 8 caratteri.',
+  'Workspace name': 'Nome del workspace',
+  'You can create more workspaces later.': 'Potrai creare altri workspace in seguito.',
+  'e.g. Acme Inc.': 'es. Acme S.p.A.',
+  'Creating account…': 'Creazione account…',
+  'Join {name}': 'Unisciti a {name}',
+  'Join workspace': 'Unisciti al workspace',
+  'Sign up - GetPaper': 'Registrati - GetPaper',
+  'Create an account': 'Crea un account',
+  'Accounts are created automatically the first time you sign in with Microsoft.':
+    'Gli account vengono creati automaticamente al primo accesso con Microsoft.',
+  'Sign ups are disabled': 'Le registrazioni sono disattivate',
+  'Ask a workspace admin to send you an invite link.':
+    'Chiedi a un amministratore del workspace di inviarti un link di invito.',
+  'Back to login': 'Torna all’accesso',
+  'Create the first account': 'Crea il primo account',
+  'A new workspace will be created for you.': 'Verrà creato un nuovo workspace per te.',
+  'Sign up with Microsoft': 'Registrati con Microsoft',
+  'Already have an account?': 'Hai già un account?',
+  'Log in': 'Accedi',
+  'Invite not valid': 'Invito non valido',
+  'Go home': 'Torna alla home',
+  '{inviter} invited you to collaborate in the {name} workspace.':
+    '{inviter} ti ha invitato a collaborare nel workspace {name}.',
+  'Signed in as': 'Accesso effettuato come',
+  'Joining…': 'Accesso al workspace…',
+  'Join with Microsoft': 'Unisciti con Microsoft',
+  // Search
+  Search: 'Cerca',
+  'Search…': 'Cerca…',
+  'Any collection': 'Tutte le collezioni',
+  'No documents found for your search filters.': 'Nessun documento trovato con i filtri di ricerca impostati.',
+  '{count} result': '{count} risultato',
+  '{count} results': '{count} risultati',
+  'Search titles and content across all collections you have access to. Use quotes for exact phrases and {code} to exclude terms.':
+    'Cerca nei titoli e nei contenuti di tutte le collezioni a cui hai accesso. Usa le virgolette per le frasi esatte e {code} per escludere termini.',
+  // Home
+  'New document in…': 'Nuovo documento in…',
+  'New draft (no collection)': 'Nuova bozza (senza collezione)',
+  Home: 'Home',
+  'Welcome back to {name}.': 'Bentornato in {name}.',
+  'Recently viewed': 'Visti di recente',
+  'Created by me': 'Creati da me',
+  'Documents you’ve recently viewed will be here for easy access.':
+    'I documenti che hai visto di recente compariranno qui per un accesso rapido.',
+  'No documents yet. Create one to get started!': 'Ancora nessun documento. Creane uno per iniziare!',
+  // SharedDoc
+  'Not found': 'Non trovato',
+  'Last updated {time}': 'Ultimo aggiornamento {time}',
+  'Powered by': 'Realizzato con',
+  // NoWorkspace
+  'No workspace': 'Nessun workspace',
+  'Hi {name}, you are not a member of any workspace yet. Create a new one, or ask someone to invite you.':
+    'Ciao {name}, non sei ancora membro di nessun workspace. Creane uno nuovo o chiedi a qualcuno di invitarti.',
+  'Create workspace': 'Crea workspace',
+  'Log out': 'Esci',
+  // Templates
+  Templates: 'Modelli',
+  'New template': 'Nuovo modello',
+  'Templates help your team create consistent and accurate documentation. They are available to everyone in the workspace when creating a new document.':
+    'I modelli aiutano il tuo team a creare documentazione coerente e accurata. Sono disponibili per tutti nel workspace quando si crea un nuovo documento.',
+  'There are no templates just yet.': 'Non ci sono ancora modelli.',
+  'Search all workspaces': 'Cerca in tutti i workspace',
+};

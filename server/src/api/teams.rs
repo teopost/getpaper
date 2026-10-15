@@ -87,7 +87,7 @@ pub async fn create_team(db: &PgPool, user: &User, name: &str) -> ApiResult<Team
     let did = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO documents (id, url_id, team_id, collection_id, title, emoji, text, created_by, updated_by, published_at, position) \
-         VALUES ($1, $2, $3, $4, 'Welcome to Horsa Codex', '👋', $5, $6, $6, now(), 1)",
+         VALUES ($1, $2, $3, $4, 'Welcome to GetPaper', '👋', $5, $6, $6, now(), 1)",
     )
     .bind(did)
     .bind(new_url_id())

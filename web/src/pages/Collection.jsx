@@ -9,6 +9,7 @@ import { CollectionIcon } from '../components/icons';
 import { Button, IconButton, Menu, Spinner, Tabs, Empty, ConfirmModal } from '../components/ui';
 import CollectionModal from '../components/CollectionModal';
 import { useToast } from '../components/Toast';
+import { t } from '../i18n';
 import Editor from '../editor/Editor';
 
 export default function CollectionPage() {
@@ -101,7 +102,7 @@ export default function CollectionPage() {
         }
       }
       await refreshTree(collection.id);
-      if (total) toast(`Imported ${total} document${total === 1 ? '' : 's'}`);
+      if (total) toast(t(total === 1 ? 'Imported {count} document' : 'Imported {count} documents', { count: total }));
       if (last && total === 1) navigate(docUrl(last));
       else load();
     };
@@ -120,33 +121,33 @@ export default function CollectionPage() {
         <span className="breadcrumb">
           <CollectionIcon collection={collection} size={16} />
           <span>{collection.name}</span>
-          {!collection.permission && <Lock size={13} className="muted" title="Private" />}
+          {!collection.permission && <Lock size={13} className="muted" title={t('Private')} />}
         </span>
       }
       actions={
         <>
-          <IconButton title="Search in collection" onClick={() => navigate(`/search?collectionId=${collection.id}`)}>
+          <IconButton title={t('Search in collection')} onClick={() => navigate(`/search?collectionId=${collection.id}`)}>
             <SearchIcon size={18} />
           </IconButton>
           {canWrite && (
             <Button icon={<Plus size={16} />} onClick={() => createDoc({ collectionId: collection.id })}>
-              New doc
+              {t('New doc')}
             </Button>
           )}
           <Menu
             align="right"
             trigger={
-              <IconButton title="More">
+              <IconButton title={t('More')}>
                 <MoreHorizontal size={18} />
               </IconButton>
             }
             items={[
-              canWrite && { label: 'New document', icon: <Plus size={16} />, onClick: () => createDoc({ collectionId: collection.id }) },
-              canWrite && { label: 'Import…', icon: <Upload size={16} />, onClick: importFile },
-              canWrite && { label: 'Edit…', icon: <Pencil size={16} />, onClick: () => setEditing(true) },
-              { label: 'Export', icon: <Download size={16} />, onClick: exportCollection },
+              canWrite && { label: t('New document'), icon: <Plus size={16} />, onClick: () => createDoc({ collectionId: collection.id }) },
+              canWrite && { label: t('Import…'), icon: <Upload size={16} />, onClick: importFile },
+              canWrite && { label: t('Edit…'), icon: <Pencil size={16} />, onClick: () => setEditing(true) },
+              { label: t('Export'), icon: <Download size={16} />, onClick: exportCollection },
               canDelete && { separator: true },
-              canDelete && { label: 'Delete…', icon: <Trash2 size={16} />, danger: true, onClick: () => setConfirmDelete(true) },
+              canDelete && { label: t('Delete…'), icon: <Trash2 size={16} />, danger: true, onClick: () => setConfirmDelete(true) },
             ]}
           />
         </>
@@ -163,25 +164,25 @@ export default function CollectionPage() {
           editable={canWrite}
           onChange={saveDescription}
           documentId={undefined}
-          placeholder={canWrite ? 'Add a description…' : ''}
+          placeholder={canWrite ? t('Add a description…') : ''}
         />
       </div>
       <Tabs
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: 'updated', label: 'Recently updated' },
-          { value: 'published', label: 'Recently published' },
-          { value: 'old', label: 'Least recently updated' },
+          { value: 'updated', label: t('Recently updated') },
+          { value: 'published', label: t('Recently published') },
+          { value: 'old', label: t('Least recently updated') },
           { value: 'alpha', label: 'A–Z' },
         ]}
       />
       {docs && docs.length === 0 ? (
         <Empty>
-          <p>Collections are a place to organize documents. Get started by creating a new one!</p>
+          <p>{t('Collections are a place to organize documents. Get started by creating a new one!')}</p>
           {canWrite && (
             <Button icon={<Plus size={16} />} onClick={() => createDoc({ collectionId: collection.id })}>
-              Create a document
+              {t('Create a document')}
             </Button>
           )}
         </Empty>
@@ -199,16 +200,16 @@ export default function CollectionPage() {
       )}
       {confirmDelete && (
         <ConfirmModal
-          title="Delete collection"
+          title={t('Delete collection')}
           danger
-          confirmLabel="I’m sure – Delete"
-          message={`Are you sure you want to delete the ${collection.name} collection? All of its documents will be moved to the trash.`}
+          confirmLabel={t('I’m sure – Delete')}
+          message={t('Are you sure you want to delete the {name} collection? All of its documents will be moved to the trash.', { name: collection.name })}
           onClose={() => setConfirmDelete(false)}
           onConfirm={async () => {
             await api('collections.delete', { id: collection.id });
             await refreshCollections();
             await refreshAllTrees();
-            toast('Collection deleted');
+            toast(t('Collection deleted'));
             navigate('/');
           }}
         />

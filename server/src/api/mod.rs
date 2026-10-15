@@ -1,10 +1,16 @@
 pub mod api_keys;
 pub mod attachments;
+pub mod backup_restore;
+pub mod client_log;
 pub mod collections;
 pub mod comments;
 pub mod documents;
+pub mod export;
 pub mod import;
+pub mod import_confluence;
+pub mod import_confluence_xml;
 pub mod mcp;
+pub mod instance;
 pub mod invites;
 pub mod revisions;
 pub mod session;
@@ -14,13 +20,48 @@ pub mod stars;
 pub mod teams;
 pub mod users;
 
-use axum::{extract::DefaultBodyLimit, routing::post, Router};
+use axum::{
+    body::Body,
+    extract::{DefaultBodyLimit, Request},
+    http::{header, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+    routing::post,
+    Router,
+};
 
 use crate::AppState;
+
+/// Reads the whole request body before the handler runs. Handlers that ignore the body (e.g.
+/// invites.list) would otherwise answer an `Expect: 100-continue` request without "100 Continue"
+/// and close the connection; Microsoft Entra application proxy then cut longer answers short.
+/// Uploads (multipart) are read by their handlers and are left alone.
+async fn read_body_first(req: Request, next: Next) -> Response {
+    let multipart = req
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("multipart/"));
+    if multipart {
+        return next.run(req).await;
+    }
+    let (parts, body) = req.into_parts();
+    match axum::body::to_bytes(body, 32 * 1024 * 1024).await {
+        Ok(bytes) => next.run(Request::from_parts(parts, Body::from(bytes))).await,
+        Err(_) => (StatusCode::PAYLOAD_TOO_LARGE, "Request body too large").into_response(),
+    }
+}
 
 pub fn router() -> Router<AppState> {
     let import_limit: usize = std::env::var("IMPORT_MAX_MB").ok().and_then(|v| v.parse().ok()).unwrap_or(500);
     Router::new()
+        .route("/workspace.export", post(export::export))
+        .route("/client.error", post(client_log::log))
+        .route("/instance.info", post(instance::info))
+        .route("/instance.update", post(instance::update))
+        .route("/instance.addSuperadmin", post(instance::add_superadmin))
+        .route("/instance.removeSuperadmin", post(instance::remove_superadmin))
+        .route("/instance.testEmail", post(instance::test_email))
         .route(
             "/collections.import",
             post(import::import).layer(DefaultBodyLimit::max(import_limit * 1024 * 1024)),
@@ -48,6 +89,8 @@ pub fn router() -> Router<AppState> {
         .route("/invites.create", post(invites::create))
         .route("/invites.list", post(invites::list))
         .route("/invites.revoke", post(invites::revoke))
+        .route("/invites.send", post(invites::send))
+        .route("/invites.link", post(invites::link))
         .route("/invites.info", post(invites::info))
         .route("/invites.accept", post(invites::accept))
         // collections
@@ -105,4 +148,5 @@ pub fn router() -> Router<AppState> {
         .route("/apiKeys.list", post(api_keys::list))
         .route("/apiKeys.create", post(api_keys::create))
         .route("/apiKeys.delete", post(api_keys::delete))
+        .layer(middleware::from_fn(read_body_first))
 }

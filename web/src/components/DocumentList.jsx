@@ -4,23 +4,36 @@ import { Star } from 'lucide-react';
 import { api, docUrl, timeAgo } from '../api';
 import { useApp } from '../store';
 import { CollectionIcon, DocIcon } from './icons';
-import { Empty } from './ui';
+import { Empty, TeamAvatar } from './ui';
+import { t } from '../i18n';
 
 export function docMeta(doc, user, collections, { showCollection = true } = {}) {
-  const who = doc.updatedBy === user.id ? 'You' : doc.updatedByName;
-  let verb;
-  if (doc.deletedAt) verb = `deleted ${timeAgo(doc.deletedAt)}`;
-  else if (doc.archivedAt) verb = `archived ${timeAgo(doc.archivedAt)}`;
-  else if (!doc.publishedAt) verb = `saved ${timeAgo(doc.updatedAt)}`;
-  else if (doc.createdAt === doc.updatedAt) verb = `created ${timeAgo(doc.createdAt)}`;
-  else verb = `updated ${timeAgo(doc.updatedAt)}`;
+  const you = doc.updatedBy === user.id;
+  let action, date;
+  if (doc.deletedAt) [action, date] = ['deleted', doc.deletedAt];
+  else if (doc.archivedAt) [action, date] = ['archived', doc.archivedAt];
+  else if (!doc.publishedAt) [action, date] = ['saved', doc.updatedAt];
+  else if (doc.createdAt === doc.updatedAt) [action, date] = ['created', doc.createdAt];
+  else [action, date] = ['updated', doc.updatedAt];
+  const vars = { name: doc.updatedByName, time: timeAgo(date) };
+  const text = {
+    deleted: you ? t('You deleted {time}', vars) : t('{name} deleted {time}', vars),
+    archived: you ? t('You archived {time}', vars) : t('{name} archived {time}', vars),
+    saved: you ? t('You saved {time}', vars) : t('{name} saved {time}', vars),
+    created: you ? t('You created {time}', vars) : t('{name} created {time}', vars),
+    updated: you ? t('You updated {time}', vars) : t('{name} updated {time}', vars),
+  }[action];
   const collection = showCollection && collections.find((c) => c.id === doc.collectionId);
-  return { text: `${who} ${verb}`, collection };
+  return { text, collection };
 }
 
-export function DocumentListItem({ doc, actions, context, showCollection = true, onStarChange }) {
-  const { user, collections, refreshStarred } = useApp();
-  const meta = docMeta(doc, user, collections, { showCollection });
+/**
+ * `workspace` is set for search results from another workspace: the item shows the workspace and
+ * collection name and switches workspace before opening the document.
+ */
+export function DocumentListItem({ doc, actions, context, showCollection = true, onStarChange, workspace, collectionName }) {
+  const { user, collections, refreshStarred, switchTeam } = useApp();
+  const meta = docMeta(doc, user, collections, { showCollection: showCollection && !workspace });
   const toggleStar = async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -29,15 +42,25 @@ export function DocumentListItem({ doc, actions, context, showCollection = true,
     onStarChange?.();
   };
   return (
-    <Link to={docUrl(doc)} className="doc-list-item">
+    <Link
+      to={docUrl(doc)}
+      className="doc-list-item"
+      onClick={
+        workspace &&
+        ((e) => {
+          e.preventDefault();
+          switchTeam(workspace.id, docUrl(doc));
+        })
+      }
+    >
       <div className="doc-list-main">
         <div className="doc-list-title">
           <DocIcon doc={doc} size={18} />
-          <span className="title-text">{doc.title || 'Untitled'}</span>
-          {!doc.publishedAt && !doc.template && <span className="badge">Draft</span>}
-          {doc.template && <span className="badge">Template</span>}
-          {!doc.deletedAt && doc.publishedAt && (
-            <button className={`star-btn ${doc.isStarred ? 'starred' : ''}`} onClick={toggleStar} title="Star">
+          <span className="title-text">{doc.title || t('Untitled')}</span>
+          {!doc.publishedAt && !doc.template && <span className="badge">{t('Draft')}</span>}
+          {doc.template && <span className="badge">{t('Template')}</span>}
+          {!doc.deletedAt && doc.publishedAt && !workspace && (
+            <button className={`star-btn ${doc.isStarred ? 'starred' : ''}`} onClick={toggleStar} title={t('Star')}>
               <Star size={15} fill={doc.isStarred ? 'currentColor' : 'none'} />
             </button>
           )}
@@ -49,9 +72,18 @@ export function DocumentListItem({ doc, actions, context, showCollection = true,
           {meta.text}
           {meta.collection && (
             <>
-              {' · in '}
+              {` · ${t('in')} `}
               <span className="meta-collection">
                 <CollectionIcon collection={meta.collection} size={12} /> {meta.collection.name}
+              </span>
+            </>
+          )}
+          {workspace && (
+            <>
+              {` · ${t('in')} `}
+              <span className="meta-collection">
+                <TeamAvatar team={workspace} size={14} /> {workspace.name}
+                {collectionName && ` / ${collectionName}`}
               </span>
             </>
           )}
@@ -66,7 +98,7 @@ export function DocumentListItem({ doc, actions, context, showCollection = true,
   );
 }
 
-export default function DocumentList({ docs, empty = 'No documents yet', renderActions, showCollection, onStarChange }) {
+export default function DocumentList({ docs, empty = t('No documents yet'), renderActions, showCollection, onStarChange }) {
   if (!docs) return null;
   if (docs.length === 0) return <Empty>{empty}</Empty>;
   return (

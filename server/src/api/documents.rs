@@ -13,13 +13,17 @@ use crate::{
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     models::{doc_select, Access, DocRow, DOC_COLUMNS, DOC_FROM},
-    perm::{descendant_ids, find_doc, load_collection, load_doc, readable_collection_ids},
+    perm::{descendant_ids, find_doc, load_collection, load_doc, readable_collection_ids, readable_collection_ids_all_teams},
     util::{new_url_id, parse_id, IdRef},
     AppState,
 };
 
 /// Visibility clause. Binds: $1 user id, $2 team id, $3 readable collection ids.
 const ACCESS: &str = "d.team_id = $2 AND d.deleted_at IS NULL \
+    AND (d.collection_id = ANY($3) OR (d.collection_id IS NULL AND d.created_by = $1)) \
+    AND (d.published_at IS NOT NULL OR d.created_by = $1)";
+/// Like ACCESS, but $2 is an array of workspaces (search across workspaces)
+const ACCESS_TEAMS: &str = "d.team_id = ANY($2) AND d.deleted_at IS NULL \
     AND (d.collection_id = ANY($3) OR (d.collection_id IS NULL AND d.created_by = $1)) \
     AND (d.published_at IS NOT NULL OR d.created_by = $1)";
 
@@ -233,6 +237,9 @@ async fn collection_link(db: &PgPool, id: Option<Uuid>) -> ApiResult<Option<Coll
 
 pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<InfoReq>) -> ApiResult<Json<Value>> {
     if let Some(share_id) = &b.share_id {
+        if !st.settings().allow_public_sharing {
+            return Err(ApiError::not_found("This link is no longer valid"));
+        }
         let share: Option<(Uuid, String, Uuid)> = match parse_id(share_id) {
             IdRef::Uuid(u) => sqlx::query_as("SELECT id, url_id, document_id FROM shares WHERE id = $1 AND revoked_at IS NULL")
                 .bind(u)
@@ -770,6 +777,9 @@ pub async fn delete(State(st): State<AppState>, auth: Auth, Json(b): Json<Delete
 pub struct SearchReq {
     query: String,
     collection_id: Option<Uuid>,
+    /// Search every workspace the user belongs to (session only: API keys stay in their workspace)
+    #[serde(default)]
+    all_workspaces: bool,
     limit: Option<i64>,
     offset: Option<i64>,
 }
@@ -780,6 +790,7 @@ struct SearchRow {
     document: DocRow,
     context: String,
     ranking: f32,
+    collection_name: Option<String>,
 }
 
 fn escape_like(s: &str) -> String {
@@ -791,20 +802,25 @@ pub async fn search(State(st): State<AppState>, auth: Auth, Json(b): Json<Search
     if q.is_empty() {
         return ok(Vec::<Value>::new());
     }
-    let ids = readable_collection_ids(&st.db, &auth).await?;
+    let (teams, ids) = if b.all_workspaces && auth.session_hash.is_some() {
+        readable_collection_ids_all_teams(&st.db, auth.user.id).await?
+    } else {
+        (vec![auth.team()?], readable_collection_ids(&st.db, &auth).await?)
+    };
     let (limit, offset) = page(b.limit, b.offset);
     let sql = format!(
         "SELECT {DOC_COLUMNS}, \
            ts_headline('simple', d.text, q, 'StartSel=⟪, StopSel=⟫, MaxFragments=2, MinWords=8, MaxWords=24, FragmentDelimiter=\" … \"') AS context, \
-           (ts_rank(d.search_vector, q) + CASE WHEN d.title ILIKE $6 THEN 1.0 ELSE 0.0 END)::real AS ranking \
+           (ts_rank(d.search_vector, q) + CASE WHEN d.title ILIKE $6 THEN 1.0 ELSE 0.0 END)::real AS ranking, \
+           (SELECT c.name FROM collections c WHERE c.id = d.collection_id) AS collection_name \
          {DOC_FROM} CROSS JOIN websearch_to_tsquery('simple', $4) AS q \
-         WHERE {ACCESS} AND d.archived_at IS NULL AND d.template = false AND ($5::uuid IS NULL OR d.collection_id = $5) \
+         WHERE {ACCESS_TEAMS} AND d.archived_at IS NULL AND d.template = false AND ($5::uuid IS NULL OR d.collection_id = $5) \
            AND (d.search_vector @@ q OR d.title ILIKE $6 OR d.text ILIKE $6) \
          ORDER BY ranking DESC, d.updated_at DESC LIMIT $7 OFFSET $8"
     );
     let rows: Vec<SearchRow> = sqlx::query_as(&sql)
         .bind(auth.user.id)
-        .bind(auth.team()?)
+        .bind(&teams)
         .bind(&ids)
         .bind(q)
         .bind(b.collection_id)
@@ -815,12 +831,17 @@ pub async fn search(State(st): State<AppState>, auth: Auth, Json(b): Json<Search
         .await?;
     let out: Vec<Value> = rows
         .into_iter()
-        .map(|r| json!({ "context": r.context, "ranking": r.ranking, "document": r.document }))
+        .map(|r| {
+            json!({ "context": r.context, "ranking": r.ranking, "document": r.document, "collectionName": r.collection_name })
+        })
         .collect();
     ok(out)
 }
 
 pub async fn export(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
+    if !st.settings().allow_markdown_export {
+        return Err(ApiError::forbidden("Downloading documents has been disabled by the administrator"));
+    }
     let (d, _) = load_doc(&st.db, &auth, &b.id, Access::Read).await?;
     let title = match &d.emoji {
         Some(e) => format!("{e} {}", d.title),

@@ -9,9 +9,27 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
+import { installErrorReporting } from './errorReport';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
-);
+installErrorReporting();
+import { api } from './api';
+import { applyInstance, applyPrefs, setDefaults } from './prefs';
+
+// installation defaults (language, theme) are needed before the first render, also on public pages
+api('auth.config')
+  .then((c) => {
+    setDefaults(c.defaults);
+    applyInstance(c.instance);
+  })
+  .catch(() => {})
+  .finally(() => {
+    applyPrefs(null);
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <ErrorBoundary>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ErrorBoundary>
+    );
+  });

@@ -42,6 +42,9 @@ pub async fn config(State(st): State<AppState>) -> ApiResult<Json<Value>> {
         "isFirstUser": count == 0,
         "passwordLogin": st.cfg.password_login,
         "microsoft": st.cfg.microsoft.is_some(),
+        "email": st.cfg.smtp.is_some(),
+        "defaults": st.defaults(),
+        "instance": st.settings().public(),
     }))
 }
 
@@ -120,13 +123,15 @@ pub async fn register(State(st): State<AppState>, Json(b): Json<RegisterReq>) ->
     }
 
     let user: User = sqlx::query_as(
-        "INSERT INTO users (id, name, email, password_hash, color) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        "INSERT INTO users (id, name, email, password_hash, color, is_superadmin) \
+         VALUES ($1, $2, $3, $4, $5, NOT EXISTS (SELECT 1 FROM users) OR $3 = ANY($6)) RETURNING *",
     )
     .bind(Uuid::new_v4())
     .bind(&name)
     .bind(&email)
     .bind(hash_password(&b.password)?)
     .bind(random_color())
+    .bind(&st.cfg.superadmin_emails)
     .fetch_one(&st.db)
     .await?;
 
@@ -171,5 +176,9 @@ pub async fn info(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Valu
         "team": team,
         "role": auth.role,
         "teams": teams,
+        "passwordLogin": st.cfg.password_login,
+        "email": st.cfg.smtp.is_some(),
+        "defaults": st.defaults(),
+        "instance": st.settings().public(),
     }))
 }

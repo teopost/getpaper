@@ -19,15 +19,15 @@ RUN touch src/main.rs && cargo build --release
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd -r -u 1001 -m horsa-codex \
-    && mkdir -p /data/uploads && chown -R horsa-codex /data
+    && useradd -r -u 1001 -m getpaper \
+    && mkdir -p /data/uploads && chown -R getpaper /data
 WORKDIR /app
-COPY --from=server /app/target/release/horsa-codex /app/horsa-codex
+COPY --from=server /app/target/release/getpaper /app/getpaper
 COPY --from=web /web/dist /app/public
 ENV STATIC_DIR=/app/public \
     UPLOAD_DIR=/data/uploads \
     PORT=3000
-USER horsa-codex
+USER getpaper
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s CMD curl -fsS -X POST http://localhost:3000/api/auth.config || exit 1
-CMD ["/app/horsa-codex"]
+CMD ["/app/getpaper"]

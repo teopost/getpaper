@@ -1,8 +1,9 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { ChevronLeft, User, Building2, Users, Globe, Key, Layers, Upload } from 'lucide-react';
+import { ChevronLeft, User, Building2, Users, Globe, Key, Layers, Upload, Download, SlidersHorizontal } from 'lucide-react';
 import { useApp } from '../store';
 import { TeamAvatar } from './ui';
+import { t } from '../i18n';
 
 function Item({ to, icon, children }) {
   return (
@@ -14,20 +15,20 @@ function Item({ to, icon, children }) {
 }
 
 export default function SettingsSidebar() {
-  const { team, isAdmin } = useApp();
+  const { team, isAdmin, isSuperadmin } = useApp();
   return (
     <aside className="sidebar">
       <Link to="/" className="settings-back">
-        <ChevronLeft size={18} /> Return to App
+        <ChevronLeft size={18} /> {t('Return to App')}
       </Link>
       <div className="sidebar-scroll">
         <div className="sidebar-section">
-          <div className="sidebar-heading">Account</div>
+          <div className="sidebar-heading">{t('Account')}</div>
           <Item to="/settings/profile" icon={<User size={18} />}>
-            Profile
+            {t('Profile')}
           </Item>
           <Item to="/settings/api-keys" icon={<Key size={18} />}>
-            API Keys & MCP
+            {t('API Keys & MCP')}
           </Item>
         </div>
         <div className="sidebar-section">
@@ -38,25 +39,36 @@ export default function SettingsSidebar() {
           </div>
           {isAdmin && (
             <Item to="/settings/workspace" icon={<Building2 size={18} />}>
-              Details
+              {t('Details')}
             </Item>
           )}
           <Item to="/settings/members" icon={<Users size={18} />}>
-            Members
+            {t('Members')}
           </Item>
           <Item to="/settings/shares" icon={<Globe size={18} />}>
-            Shared Links
+            {t('Shared Links')}
           </Item>
           <Item to="/settings/import" icon={<Upload size={18} />}>
-            Import
+            {t('Import')}
+          </Item>
+          <Item to="/settings/export" icon={<Download size={18} />}>
+            {t('Export')}
           </Item>
         </div>
         <div className="sidebar-section">
-          <div className="sidebar-heading">Workspaces</div>
+          <div className="sidebar-heading">{t('Workspaces')}</div>
           <Item to="/settings/workspaces" icon={<Layers size={18} />}>
-            All workspaces
+            {t('All workspaces')}
           </Item>
         </div>
+        {isSuperadmin && (
+          <div className="sidebar-section">
+            <div className="sidebar-heading">{t('Installation')}</div>
+            <Item to="/settings/general" icon={<SlidersHorizontal size={18} />}>
+              {t('General settings')}
+            </Item>
+          </div>
+        )}
       </div>
     </aside>
   );

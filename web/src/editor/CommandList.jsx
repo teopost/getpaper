@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { t } from '../i18n';
 
 const CommandList = forwardRef(function CommandList({ items, command }, ref) {
   const [selected, setSelected] = useState(0);
@@ -35,7 +36,7 @@ const CommandList = forwardRef(function CommandList({ items, command }, ref) {
     },
   }));
 
-  if (!items.length) return <div className="command-list empty-commands">No results</div>;
+  if (!items.length) return <div className="command-list empty-commands">{t('No results')}</div>;
 
   return (
     <div className="command-list" ref={listRef}>

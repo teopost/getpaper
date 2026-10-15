@@ -6,6 +6,39 @@ import { useApp } from '../store';
 import { useToast } from './Toast';
 import { Button, Field, Modal, Switch, Avatar } from './ui';
 import { COLLECTION_ICONS, COLORS } from './icons';
+import { t } from '../i18n';
+
+// English labels for the icon picker tooltips (translated where rendered).
+const ICON_LABELS = {
+  collection: 'Collection',
+  book: 'Book',
+  home: 'House',
+  star: 'Five-pointed star',
+  code: 'Code',
+  briefcase: 'Briefcase',
+  cloud: 'Cloud',
+  coffee: 'Coffee',
+  database: 'Database',
+  flag: 'Flag',
+  globe: 'Globe',
+  heart: 'Heart',
+  lightbulb: 'Lightbulb',
+  rocket: 'Rocket',
+  settings: 'Gear',
+  users: 'Users',
+  tool: 'Tool',
+  calendar: 'Calendar',
+  camera: 'Camera',
+  leaf: 'Leaf',
+  palette: 'Palette',
+  shield: 'Shield',
+  zap: 'Lightning',
+  academic: 'Education',
+  music: 'Music',
+  map: 'Map',
+  package: 'Package',
+  lock: 'Lock',
+};
 
 function MembersEditor({ collection }) {
   const { auth } = useApp();
@@ -32,12 +65,12 @@ function MembersEditor({ collection }) {
   const candidates = all.filter((u) => !members.some((m) => m.id === u.id));
   return (
     <div className="members-editor">
-      <div className="field-label">Members with access</div>
+      <div className="field-label">{t('Members with access')}</div>
       {members.map((m) => (
         <div key={m.id} className="member-row">
           <Avatar name={m.name} color={m.color} size={24} />
           <span className="member-name">
-            {m.name} {m.id === auth.user.id && <span className="muted">(you)</span>}
+            {m.name} {m.id === auth.user.id && <span className="muted">{t('(you)')}</span>}
           </span>
           <select
             value={m.permission}
@@ -46,12 +79,12 @@ function MembersEditor({ collection }) {
               load();
             }}
           >
-            <option value="read_write">Can edit</option>
-            <option value="read">View only</option>
+            <option value="read_write">{t('Can edit')}</option>
+            <option value="read">{t('View only')}</option>
           </select>
           <button
             className="icon-btn"
-            title="Remove"
+            title={t('Remove')}
             onClick={async () => {
               await api('collections.removeUser', { id: collection.id, userId: m.id });
               load();
@@ -61,11 +94,11 @@ function MembersEditor({ collection }) {
           </button>
         </div>
       ))}
-      {members.length === 0 && <div className="muted small">No individual members yet.</div>}
+      {members.length === 0 && <div className="muted small">{t('No individual members yet.')}</div>}
       {candidates.length > 0 && (
         <div className="row gap">
           <select value={selected} onChange={(e) => setSelected(e.target.value)} className="grow">
-            <option value="">Add a member…</option>
+            <option value="">{t('Add a member…')}</option>
             {candidates.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name} ({u.email})
@@ -73,7 +106,7 @@ function MembersEditor({ collection }) {
             ))}
           </select>
           <Button variant="secondary" onClick={add} disabled={!selected}>
-            Add
+            {t('Add')}
           </Button>
         </div>
       )}
@@ -102,7 +135,7 @@ export default function CollectionModal({ collection, onClose }) {
       if (collection) {
         await api('collections.update', { id: collection.id, name, description, color, icon, permission, sharing });
         await refreshCollections();
-        toast('Collection updated');
+        toast(t('Collection updated'));
         onClose();
       } else {
         const c = await api('collections.create', { name, description, color, icon, permission });
@@ -119,15 +152,15 @@ export default function CollectionModal({ collection, onClose }) {
   };
 
   return (
-    <Modal title={collection ? 'Edit collection' : 'New collection'} onClose={onClose} width={540}>
+    <Modal title={collection ? t('Edit collection') : t('New collection')} onClose={onClose} width={540}>
       <form onSubmit={submit} className="form">
         <p className="modal-text">
-          Collections are used to group documents and choose permissions.
+          {t('Collections are used to group documents and choose permissions.')}
         </p>
-        <Field label="Name">
-          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Engineering" required />
+        <Field label={t('Name')}>
+          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('e.g. Engineering')} required />
         </Field>
-        <Field label="Icon">
+        <Field label={t('Icon')}>
           <div className="icon-picker">
             {Object.entries(COLLECTION_ICONS).map(([key, Icon]) => (
               <button
@@ -135,7 +168,7 @@ export default function CollectionModal({ collection, onClose }) {
                 key={key}
                 className={`icon-choice ${icon === key ? 'selected' : ''}`}
                 onClick={() => setIcon(key)}
-                title={key}
+                title={t(ICON_LABELS[key] || key)}
               >
                 <Icon size={18} color={color} />
               </button>
@@ -153,35 +186,35 @@ export default function CollectionModal({ collection, onClose }) {
             ))}
           </div>
         </Field>
-        <Field label="Description">
+        <Field label={t('Description')}>
           <textarea
             rows={2}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="What is this collection about? (optional)"
+            placeholder={t('What is this collection about? (optional)')}
           />
         </Field>
         <Field
-          label="Permission"
+          label={t('Permission')}
           hint={
             permission === 'private'
-              ? 'Only members added to this collection and workspace admins can see it.'
+              ? t('Only members added to this collection and workspace admins can see it.')
               : permission === 'read'
-              ? 'Everyone in the workspace can view, only members added explicitly can edit.'
-              : 'Everyone in the workspace can view and edit documents.'
+              ? t('Everyone in the workspace can view, only members added explicitly can edit.')
+              : t('Everyone in the workspace can view and edit documents.')
           }
         >
           <select value={permission} onChange={(e) => setPermission(e.target.value)}>
-            <option value="read_write">Workspace members can view and edit</option>
-            <option value="read">Workspace members can view</option>
-            <option value="private">Private (no default access)</option>
+            <option value="read_write">{t('Workspace members can view and edit')}</option>
+            <option value="read">{t('Workspace members can view')}</option>
+            <option value="private">{t('Private (no default access)')}</option>
           </select>
         </Field>
         {collection && (
           <div className="field row space-between">
             <div>
-              <div className="field-label">Public document sharing</div>
-              <div className="field-hint">Allow documents in this collection to be shared publicly on the internet.</div>
+              <div className="field-label">{t('Public document sharing')}</div>
+              <div className="field-hint">{t('Allow documents in this collection to be shared publicly on the internet.')}</div>
             </div>
             <Switch checked={sharing} onChange={setSharing} />
           </div>
@@ -189,10 +222,10 @@ export default function CollectionModal({ collection, onClose }) {
         {collection && (permission !== 'read_write') && <MembersEditor collection={collection} />}
         <div className="modal-actions">
           <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
+            {t('Cancel')}
           </Button>
           <Button type="submit" disabled={busy || !name.trim()}>
-            {collection ? 'Save' : busy ? 'Creating…' : 'Create'}
+            {collection ? t('Save') : busy ? t('Creating…') : t('Create')}
           </Button>
         </div>
       </form>

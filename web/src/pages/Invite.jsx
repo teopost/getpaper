@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { Button, Spinner } from '../components/ui';
+import { t } from '../i18n';
 import { AuthShell, MicrosoftButton, OrDivider } from './Login';
 import { RegisterForm } from './Register';
 
@@ -23,9 +24,9 @@ export default function Invite() {
 
   if (error) {
     return (
-      <AuthShell title="Invite not valid" subtitle={error}>
+      <AuthShell title={t('Invite not valid')} subtitle={error}>
         <Link to="/" className="btn btn-secondary btn-block">
-          Go home
+          {t('Go home')}
         </Link>
       </AuthShell>
     );
@@ -50,28 +51,28 @@ export default function Invite() {
 
   return (
     <AuthShell
-      title={`Join ${invite.teamName}`}
-      subtitle={`${invite.inviterName} invited you to collaborate in the ${invite.teamName} workspace.`}
+      title={t('Join {name}', { name: invite.teamName })}
+      subtitle={t('{inviter} invited you to collaborate in the {name} workspace.', { inviter: invite.inviterName, name: invite.teamName })}
     >
       {me ? (
         <>
           <p className="auth-subtitle">
-            Signed in as <strong>{me.user.email}</strong>
+            {t('Signed in as')} <strong>{me.user.email}</strong>
           </p>
           <Button className="btn-block" onClick={accept} disabled={busy}>
-            {busy ? 'Joining…' : `Join ${invite.teamName}`}
+            {busy ? t('Joining…') : t('Join {name}', { name: invite.teamName })}
           </Button>
         </>
       ) : (
         <>
-          {config.microsoft && <MicrosoftButton invite={token} label={`Join with Microsoft`} />}
+          {config.microsoft && <MicrosoftButton invite={token} label={t('Join with Microsoft')} />}
           {config.microsoft && config.passwordLogin && <OrDivider />}
           {config.passwordLogin && (
             <>
               <RegisterForm inviteToken={token} defaultEmail={invite.email} teamName={invite.teamName} />
               <p className="auth-footer">
-                Already have an account?{' '}
-                <Link to={`/login?redirect=${encodeURIComponent(`/invite/${token}`)}`}>Log in</Link>
+                {t('Already have an account?')}{' '}
+                <Link to={`/login?redirect=${encodeURIComponent(`/invite/${token}`)}`}>{t('Log in')}</Link>
               </p>
             </>
           )}

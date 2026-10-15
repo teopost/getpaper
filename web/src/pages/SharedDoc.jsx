@@ -4,6 +4,7 @@ import { api, timeAgo } from '../api';
 import Editor from '../editor/Editor';
 import { Spinner } from '../components/ui';
 import { Logo } from './Login';
+import { t } from '../i18n';
 
 export default function SharedDoc() {
   const { shareId } = useParams();
@@ -29,7 +30,7 @@ export default function SharedDoc() {
     api('documents.info', { shareId })
       .then((d) => {
         setData(d);
-        document.title = d.document.title || 'Untitled';
+        document.title = d.document.title || t('Untitled');
       })
       .catch((e) => setError(e.message));
   }, [shareId]);
@@ -37,7 +38,7 @@ export default function SharedDoc() {
   if (error)
     return (
       <div className="centered-page">
-        <h2>Not found</h2>
+        <h2>{t('Not found')}</h2>
         <p className="muted">{error}</p>
       </div>
     );
@@ -58,13 +59,13 @@ export default function SharedDoc() {
       <article className={`document ${doc.fullWidth ? 'full-width' : ''}`}>
         <h1 className="document-title-static">
           {doc.emoji && <span className="title-emoji">{doc.emoji}</span>}
-          {doc.title || 'Untitled'}
+          {doc.title || t('Untitled')}
         </h1>
-        <div className="document-meta">Last updated {timeAgo(doc.updatedAt)}</div>
+        <div className="document-meta">{t('Last updated {time}', { time: timeAgo(doc.updatedAt) })}</div>
         <Editor value={doc.text} editable={false} documentId={doc.id} />
       </article>
       <footer className="shared-footer">
-        Powered by <strong>Horsa Codex</strong>
+        {t('Powered by')} <strong>GetPaper</strong>
       </footer>
     </div>
   );

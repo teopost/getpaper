@@ -13,6 +13,11 @@ pub struct User {
     pub password_hash: String,
     pub color: String,
     pub avatar_url: Option<String>,
+    pub content_width: Option<String>,
+    pub language: Option<String>,
+    pub theme: Option<String>,
+    /// manages the installation settings
+    pub is_superadmin: bool,
     pub created_at: DateTime<Utc>,
     pub last_active_at: Option<DateTime<Utc>>,
 }

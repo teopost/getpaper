@@ -24,7 +24,7 @@ use crate::{
 
 const SUPPORTED_VERSIONS: &[&str] = &["2025-06-18", "2025-03-26", "2024-11-05"];
 
-const INSTRUCTIONS: &str = "Horsa Codex is a team wiki (Outline compatible). Content is organised in collections; \
+const INSTRUCTIONS: &str = "GetPaper is a team wiki (Outline compatible). Content is organised in collections; \
 documents can be nested and are written in Markdown (GitHub flavoured, plus notice blocks `:::info … :::`, \
 `:::warning`, `:::tip`, `:::success`). Start with list_collections or search_documents. Documents can be referenced \
 by id, urlId or full URL; collections by id, urlId or name. New documents are published by default; pass \
@@ -52,7 +52,7 @@ pub async fn handle(State(st): State<AppState>, auth: Result<Auth, ApiError>, _h
         Err(_) => {
             return (
                 StatusCode::UNAUTHORIZED,
-                [(header::WWW_AUTHENTICATE, "Bearer realm=\"horsa-codex\"")],
+                [(header::WWW_AUTHENTICATE, "Bearer realm=\"getpaper\"")],
                 Json(rpc_error(Value::Null, -32001, "Authentication required: send an API key as 'Authorization: Bearer ol_api_…'")),
             )
                 .into_response()
@@ -98,7 +98,7 @@ async fn dispatch(st: &AppState, auth: &Auth, msg: Value) -> Option<Value> {
                 json!({
                     "protocolVersion": version,
                     "capabilities": { "tools": { "listChanged": false } },
-                    "serverInfo": { "name": "horsa-codex", "title": "Horsa Codex wiki", "version": env!("CARGO_PKG_VERSION") },
+                    "serverInfo": { "name": "getpaper", "title": "GetPaper wiki", "version": env!("CARGO_PKG_VERSION") },
                     "instructions": INSTRUCTIONS,
                 }),
             )

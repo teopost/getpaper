@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { t } from '../i18n';
 
 export function Spinner({ size = 20 }) {
   return <div className="spinner" style={{ width: size, height: size }} />;
@@ -59,7 +60,7 @@ export function Modal({ title, onClose, children, width = 480 }) {
       <div className="modal" style={{ maxWidth: width }}>
         <div className="modal-header">
           <h2>{title}</h2>
-          <IconButton title="Close" onClick={onClose}>
+          <IconButton title={t('Close')} onClick={onClose}>
             <X size={18} />
           </IconButton>
         </div>
@@ -238,9 +239,9 @@ export function Switch({ checked, onChange, disabled }) {
 export function Tabs({ tabs, value, onChange }) {
   return (
     <div className="tabs">
-      {tabs.map((t) => (
-        <button key={t.value} className={`tab ${value === t.value ? 'active' : ''}`} onClick={() => onChange(t.value)}>
-          {t.label}
+      {tabs.map((tab) => (
+        <button key={tab.value} className={`tab ${value === tab.value ? 'active' : ''}`} onClick={() => onChange(tab.value)}>
+          {tab.label}
         </button>
       ))}
     </div>
@@ -261,14 +262,14 @@ export function Field({ label, hint, children }) {
   );
 }
 
-export function ConfirmModal({ title, message, confirmLabel = 'Confirm', danger, onConfirm, onClose }) {
+export function ConfirmModal({ title, message, confirmLabel = t('Confirm'), danger, onConfirm, onClose }) {
   const [busy, setBusy] = useState(false);
   return (
     <Modal title={title} onClose={onClose}>
       <p className="modal-text">{message}</p>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          {t('Cancel')}
         </Button>
         <Button
           variant={danger ? 'danger' : 'primary'}
@@ -283,7 +284,7 @@ export function ConfirmModal({ title, message, confirmLabel = 'Confirm', danger,
             }
           }}
         >
-          {busy ? 'Working…' : confirmLabel}
+          {busy ? t('Working…') : confirmLabel}
         </Button>
       </div>
     </Modal>

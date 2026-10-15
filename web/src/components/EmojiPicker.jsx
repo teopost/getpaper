@@ -1,5 +1,6 @@
 import React from 'react';
 import { EMOJIS } from './icons';
+import { t } from '../i18n';
 
 export default function EmojiPicker({ onSelect, onRemove }) {
   return (
@@ -13,7 +14,7 @@ export default function EmojiPicker({ onSelect, onRemove }) {
       </div>
       {onRemove && (
         <button className="emoji-remove" onClick={onRemove}>
-          Remove icon
+          {t('Remove icon')}
         </button>
       )}
     </div>

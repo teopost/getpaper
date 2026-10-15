@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api';
 import { Button, Field } from '../components/ui';
+import { t } from '../i18n';
 import { AuthShell, MicrosoftButton, OrDivider } from './Login';
 
 export function RegisterForm({ inviteToken, defaultEmail = '', teamName }) {
@@ -33,13 +34,13 @@ export function RegisterForm({ inviteToken, defaultEmail = '', teamName }) {
 
   return (
     <form onSubmit={submit} className="form">
-      <Field label="Full name">
+      <Field label={t('Full name')}>
         <input autoFocus value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
       </Field>
-      <Field label="Email">
+      <Field label={t('Email')}>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
       </Field>
-      <Field label="Password" hint="At least 8 characters.">
+      <Field label={t('Password')} hint={t('At least 8 characters.')}>
         <input
           type="password"
           value={password}
@@ -50,13 +51,13 @@ export function RegisterForm({ inviteToken, defaultEmail = '', teamName }) {
         />
       </Field>
       {!inviteToken && (
-        <Field label="Workspace name" hint="You can create more workspaces later.">
-          <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} placeholder="e.g. Acme Inc." />
+        <Field label={t('Workspace name')} hint={t('You can create more workspaces later.')}>
+          <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} placeholder={t('e.g. Acme Inc.')} />
         </Field>
       )}
       {error && <div className="error-text">{error}</div>}
       <Button type="submit" disabled={busy} className="btn-block">
-        {busy ? 'Creating account…' : inviteToken ? `Join ${teamName || 'workspace'}` : 'Create account'}
+        {busy ? t('Creating account…') : inviteToken ? (teamName ? t('Join {name}', { name: teamName }) : t('Join workspace')) : t('Create account')}
       </Button>
     </form>
   );
@@ -65,40 +66,40 @@ export function RegisterForm({ inviteToken, defaultEmail = '', teamName }) {
 export default function Register() {
   const [config, setConfig] = useState(null);
   useEffect(() => {
-    document.title = 'Sign up - Horsa Codex';
+    document.title = t('Sign up - GetPaper');
     api('auth.config').then(setConfig).catch(() => setConfig({ allowSignup: false }));
   }, []);
   if (!config) return null;
   if (!config.passwordLogin && config.microsoft) {
     return (
-      <AuthShell title="Create an account" subtitle="Accounts are created automatically the first time you sign in with Microsoft.">
+      <AuthShell title={t('Create an account')} subtitle={t('Accounts are created automatically the first time you sign in with Microsoft.')}>
         <MicrosoftButton />
       </AuthShell>
     );
   }
   if (!config.allowSignup) {
     return (
-      <AuthShell title="Sign ups are disabled" subtitle="Ask a workspace admin to send you an invite link.">
+      <AuthShell title={t('Sign ups are disabled')} subtitle={t('Ask a workspace admin to send you an invite link.')}>
         <Link to="/login" className="btn btn-secondary btn-block">
-          Back to login
+          {t('Back to login')}
         </Link>
       </AuthShell>
     );
   }
   return (
     <AuthShell
-      title={config.isFirstUser ? 'Create the first account' : 'Create an account'}
-      subtitle="A new workspace will be created for you."
+      title={config.isFirstUser ? t('Create the first account') : t('Create an account')}
+      subtitle={t('A new workspace will be created for you.')}
     >
       {config.microsoft && (
         <>
-          <MicrosoftButton label="Sign up with Microsoft" />
+          <MicrosoftButton label={t('Sign up with Microsoft')} />
           <OrDivider />
         </>
       )}
       <RegisterForm />
       <p className="auth-footer">
-        Already have an account? <Link to="/login">Log in</Link>
+        {t('Already have an account?')} <Link to="/login">{t('Log in')}</Link>
       </p>
     </AuthShell>
   );

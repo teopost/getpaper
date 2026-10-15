@@ -93,6 +93,7 @@ export function createSlashCommand(getItems) {
               .filter(
                 (i) =>
                   i.title.toLowerCase().includes(q) ||
+                  (i.titleEn || '').toLowerCase().includes(q) ||
                   (i.keywords || '').toLowerCase().includes(q)
               )
               .slice(0, 20);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { api } from './api';
 import { AppProvider } from './store';
@@ -17,6 +17,8 @@ import Templates from './pages/Templates';
 import Settings from './pages/Settings';
 import NoWorkspace from './pages/NoWorkspace';
 import { Spinner } from './components/ui';
+import { applyInstance, applyPrefs, setDefaults } from './prefs';
+import { t } from './i18n';
 
 function AuthenticatedApp() {
   const [auth, setAuth] = useState(null);
@@ -38,12 +40,32 @@ function AuthenticatedApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) return <div className="centered-page">Something went wrong: {error.message}</div>;
+  // after switching or creating a workspace: reload the session data and rebuild the app in place
+  const openWorkspace = useCallback(
+    async (path = '/') => {
+      try {
+        const next = await api('auth.info');
+        setAuth(next);
+        navigate(path);
+      } catch {
+        // the server is already on the new workspace: load it from scratch rather than show stale data
+        window.location.href = path;
+      }
+    },
+    [navigate]
+  );
+
+  if (error) return <div className="centered-page">{t('Something went wrong: {message}', { message: error.message })}</div>;
   if (!auth) return <div className="centered-page"><Spinner /></div>;
-  if (!auth.team) return <NoWorkspace auth={auth} />;
+  if (!auth.team) {
+    setDefaults(auth.defaults);
+    applyInstance(auth.instance);
+    applyPrefs(auth.user);
+    return <NoWorkspace auth={auth} />;
+  }
 
   return (
-    <AppProvider initialAuth={auth}>
+    <AppProvider key={auth.team.id} initialAuth={auth} onOpenWorkspace={openWorkspace}>
       <Layout>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -57,7 +79,7 @@ function AuthenticatedApp() {
           <Route path="/doc/:id" element={<DocumentPage />} />
           <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
           <Route path="/settings/:section" element={<Settings />} />
-          <Route path="*" element={<div className="centered-page">Page not found</div>} />
+          <Route path="*" element={<div className="centered-page">{t('Page not found')}</div>} />
         </Routes>
       </Layout>
     </AppProvider>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { api } from '../api';
 import { Button, Field } from '../components/ui';
 import { AuthShell } from './Login';
+import { t } from '../i18n';
 
 export default function NoWorkspace({ auth }) {
   const [name, setName] = useState('');
@@ -20,16 +21,16 @@ export default function NoWorkspace({ auth }) {
   };
   return (
     <AuthShell
-      title="No workspace"
-      subtitle={`Hi ${auth.user.name}, you are not a member of any workspace yet. Create a new one, or ask someone to invite you.`}
+      title={t('No workspace')}
+      subtitle={t('Hi {name}, you are not a member of any workspace yet. Create a new one, or ask someone to invite you.', { name: auth.user.name })}
     >
       <form className="form" onSubmit={submit}>
-        <Field label="Workspace name">
+        <Field label={t('Workspace name')}>
           <input autoFocus value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>
         {error && <div className="error-text">{error}</div>}
         <Button type="submit" className="btn-block" disabled={busy}>
-          Create workspace
+          {t('Create workspace')}
         </Button>
         <Button
           variant="secondary"
@@ -40,7 +41,7 @@ export default function NoWorkspace({ auth }) {
             window.location.href = '/login';
           }}
         >
-          Log out
+          {t('Log out')}
         </Button>
       </form>
     </AuthShell>

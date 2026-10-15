@@ -10,7 +10,7 @@ use crate::{
     error::{ok, ApiError, ApiResult},
     models::User,
     util::{hash_password, non_empty, valid_role, verify_password},
-    AppState,
+    AppState, CONTENT_WIDTHS, LANGUAGES, THEMES,
 };
 
 #[derive(Serialize, FromRow)]
@@ -22,6 +22,7 @@ pub struct Member {
     color: String,
     avatar_url: Option<String>,
     role: String,
+    is_superadmin: bool,
     created_at: DateTime<Utc>,
     last_active_at: Option<DateTime<Utc>>,
 }
@@ -34,7 +35,7 @@ pub struct ListReq {
 pub async fn list(State(st): State<AppState>, auth: Auth, Json(b): Json<ListReq>) -> ApiResult<Json<Value>> {
     let q = b.query.unwrap_or_default();
     let members: Vec<Member> = sqlx::query_as(
-        "SELECT u.id, u.name, u.email, u.color, u.avatar_url, m.role, m.created_at, u.last_active_at \
+        "SELECT u.id, u.name, u.email, u.color, u.avatar_url, m.role, u.is_superadmin, m.created_at, u.last_active_at \
          FROM team_memberships m JOIN users u ON u.id = m.user_id WHERE m.team_id = $1 \
          AND ($2 = '' OR u.name ILIKE '%' || $2 || '%' OR u.email ILIKE '%' || $2 || '%') ORDER BY u.name",
     )
@@ -46,9 +47,22 @@ pub async fn list(State(st): State<AppState>, auth: Auth, Json(b): Json<ListReq>
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateReq {
     name: Option<String>,
     color: Option<String>,
+    // preferences: "" resets to the installation default
+    content_width: Option<String>,
+    language: Option<String>,
+    theme: Option<String>,
+}
+
+fn check_choice(v: &Option<String>, allowed: &[&str], what: &str) -> ApiResult<()> {
+    match v.as_deref() {
+        None | Some("") => Ok(()),
+        Some(v) if allowed.contains(&v) => Ok(()),
+        _ => Err(ApiError::bad_request(&format!("{what} must be one of: {}", allowed.join(", ")))),
+    }
 }
 
 pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<UpdateReq>) -> ApiResult<Json<Value>> {
@@ -56,12 +70,22 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
         Some(n) => Some(non_empty(n, "Name")?),
         None => None,
     };
+    check_choice(&b.content_width, CONTENT_WIDTHS, "Content width")?;
+    check_choice(&b.language, LANGUAGES, "Language")?;
+    check_choice(&b.theme, THEMES, "Theme")?;
     let u: User = sqlx::query_as(
-        "UPDATE users SET name = COALESCE($2, name), color = COALESCE($3, color), updated_at = now() WHERE id = $1 RETURNING *",
+        "UPDATE users SET name = COALESCE($2, name), color = COALESCE($3, color), \
+         content_width = CASE WHEN $4::text IS NULL THEN content_width ELSE NULLIF($4, '') END, \
+         language = CASE WHEN $5::text IS NULL THEN language ELSE NULLIF($5, '') END, \
+         theme = CASE WHEN $6::text IS NULL THEN theme ELSE NULLIF($6, '') END, \
+         updated_at = now() WHERE id = $1 RETURNING *",
     )
     .bind(auth.user.id)
     .bind(name)
     .bind(&b.color)
+    .bind(&b.content_width)
+    .bind(&b.language)
+    .bind(&b.theme)
     .fetch_one(&st.db)
     .await?;
     ok(u)
@@ -159,6 +183,9 @@ pub struct PasswordReq {
 }
 
 pub async fn change_password(State(st): State<AppState>, auth: Auth, Json(b): Json<PasswordReq>) -> ApiResult<Json<Value>> {
+    if !st.cfg.password_login {
+        return Err(ApiError::forbidden("Password sign-in is disabled, use Microsoft sign-in"));
+    }
     // accounts created with SSO have no password yet: they can set one without the current password
     let has_password = !auth.user.password_hash.is_empty();
     if has_password && !verify_password(&b.current_password, &auth.user.password_hash) {

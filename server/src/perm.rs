@@ -81,6 +81,24 @@ pub async fn load_collection(db: &PgPool, auth: &Auth, id: &str, need: Access) -
     Ok((c, a))
 }
 
+/// Workspaces the user belongs to and the collections they can read in each of them
+/// (same rules as `readable_collection_ids`, applied with the user's role in every workspace).
+pub async fn readable_collection_ids_all_teams(db: &PgPool, user_id: Uuid) -> ApiResult<(Vec<Uuid>, Vec<Uuid>)> {
+    let teams: Vec<(Uuid,)> = sqlx::query_as("SELECT team_id FROM team_memberships WHERE user_id = $1")
+        .bind(user_id)
+        .fetch_all(db)
+        .await?;
+    let cols: Vec<(Uuid,)> = sqlx::query_as(
+        "SELECT c.id FROM collections c JOIN team_memberships m ON m.team_id = c.team_id AND m.user_id = $1 \
+         WHERE c.deleted_at IS NULL AND (m.role = 'admin' OR c.permission IS NOT NULL OR EXISTS \
+         (SELECT 1 FROM collection_memberships cm WHERE cm.collection_id = c.id AND cm.user_id = $1))",
+    )
+    .bind(user_id)
+    .fetch_all(db)
+    .await?;
+    Ok((teams.into_iter().map(|r| r.0).collect(), cols.into_iter().map(|r| r.0).collect()))
+}
+
 pub async fn readable_collection_ids(db: &PgPool, auth: &Auth) -> ApiResult<Vec<Uuid>> {
     let team = auth.team()?;
     let rows: Vec<(Uuid,)> = if auth.is_admin() {

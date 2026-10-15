@@ -2,17 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { Button, Field } from '../components/ui';
+import { t } from '../i18n';
+import { LogoFull } from '../components/Logo';
 
-export function Logo({ size = 40 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 64 64" className="logo">
-      <rect width="64" height="64" rx="14" fill="currentColor" />
-      <path d="M18 46V18l14 9 14-9v28l-14-9z" fill="var(--bg)" />
-    </svg>
-  );
-}
+export { LogoMark as Logo } from '../components/Logo';
 
-export function MicrosoftButton({ redirect, invite, label = 'Continue with Microsoft' }) {
+export function MicrosoftButton({ redirect, invite, label = t('Continue with Microsoft') }) {
   const params = new URLSearchParams();
   if (redirect && redirect !== '/') params.set('redirect', redirect);
   if (invite) params.set('invite', invite);
@@ -33,7 +28,7 @@ export function MicrosoftButton({ redirect, invite, label = 'Continue with Micro
 export function OrDivider() {
   return (
     <div className="or-divider">
-      <span>or</span>
+      <span>{t('or')}</span>
     </div>
   );
 }
@@ -42,7 +37,7 @@ export function AuthShell({ title, subtitle, children }) {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <Logo size={44} />
+        <LogoFull size={40} />
         <h1>{title}</h1>
         {subtitle && <p className="auth-subtitle">{subtitle}</p>}
         {children}
@@ -61,7 +56,7 @@ export default function Login() {
   const redirect = params.get('redirect') || '/';
 
   useEffect(() => {
-    document.title = 'Login - Horsa Codex';
+    document.title = t('Login - GetPaper');
     api('auth.config').then(setConfig).catch(() => {});
   }, []);
 
@@ -82,27 +77,27 @@ export default function Login() {
 
   if (config.isFirstUser && config.passwordLogin) {
     return (
-      <AuthShell title="Welcome to Horsa Codex" subtitle="Let's get started by creating the first account and workspace.">
+      <AuthShell title={t('Welcome to GetPaper')} subtitle={t('Let\'s get started by creating the first account and workspace.')}>
         {config.microsoft && <MicrosoftButton />}
         {config.microsoft && <OrDivider />}
         <Link to="/register" className="btn btn-primary btn-block">
-          Create account
+          {t('Create account')}
         </Link>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell title="Login to Horsa Codex">
+    <AuthShell title={t('Login to GetPaper')}>
       {config.microsoft && <MicrosoftButton redirect={redirect} />}
       {config.microsoft && config.passwordLogin && <OrDivider />}
       {!config.passwordLogin && error && <div className="error-text">{error}</div>}
       {config.passwordLogin && (
       <form onSubmit={submit} className="form">
-        <Field label="Email">
+        <Field label={t('Email')}>
           <input type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </Field>
-        <Field label="Password">
+        <Field label={t('Password')}>
           <input
             type="password"
             value={password}
@@ -113,14 +108,14 @@ export default function Login() {
         </Field>
         {error && <div className="error-text">{error}</div>}
         <Button type="submit" disabled={busy} className="btn-block">
-          {busy ? 'Signing in…' : 'Continue with email'}
+          {busy ? t('Signing in…') : t('Continue with email')}
         </Button>
       </form>
       )}
       {config.allowSignup && (
         <p className="auth-footer">
-          Don&apos;t have an account?{' '}
-          <Link to={`/register${redirect !== '/' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`}>Sign up</Link>
+          {t('Don’t have an account?')}{' '}
+          <Link to={`/register${redirect !== '/' ? `?redirect=${encodeURIComponent(redirect)}` : ''}`}>{t('Sign up')}</Link>
         </p>
       )}
     </AuthShell>

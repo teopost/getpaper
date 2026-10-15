@@ -39,12 +39,14 @@ import { CollectionIcon, DocIcon } from '../components/icons';
 import { Avatar, Button, ConfirmModal, IconButton, Menu, Modal, Popover, Spinner, Switch } from '../components/ui';
 import EmojiPicker from '../components/EmojiPicker';
 import { useToast } from '../components/Toast';
+import { t } from '../i18n';
 
 // ---------------------------------------------------------------------------
 // Share popover
 // ---------------------------------------------------------------------------
 
 function SharePanel({ doc }) {
+  const { instance } = useApp();
   const [share, setShare] = useState(undefined);
   const [busy, setBusy] = useState(false);
   const toast = useToast();
@@ -68,17 +70,21 @@ function SharePanel({ doc }) {
   };
   return (
     <div className="share-panel">
+      {instance.allowPublicSharing === false ? (
+        <div className="muted small">{t('Public links have been disabled by the administrator.')}</div>
+      ) : (
+      <>
       <div className="share-row">
         <Globe size={20} className="muted" />
         <div className="grow">
-          <div className="share-title">Publish to internet</div>
+          <div className="share-title">{t('Publish to internet')}</div>
           <div className="muted small">
-            {share ? 'Anyone with the link can view this document' : 'Only members of this workspace can view'}
+            {share ? t('Anyone with the link can view this document') : t('Only members of this workspace can view')}
           </div>
         </div>
         <Switch checked={!!share} disabled={busy || share === undefined || !doc.publishedAt} onChange={toggle} />
       </div>
-      {!doc.publishedAt && <div className="muted small">Publish the document before sharing it publicly.</div>}
+      {!doc.publishedAt && <div className="muted small">{t('Publish the document before sharing it publicly.')}</div>}
       {share && (
         <div className="row gap">
           <input readOnly value={share.url} className="grow" onFocus={(e) => e.target.select()} />
@@ -87,12 +93,14 @@ function SharePanel({ doc }) {
             icon={<Copy size={14} />}
             onClick={async () => {
               await copyToClipboard(share.url);
-              toast('Public link copied to clipboard');
+              toast(t('Public link copied to clipboard'));
             }}
           >
-            Copy
+            {t('Copy')}
           </Button>
         </div>
+      )}
+      </>
       )}
       <div className="share-divider" />
       <Button
@@ -101,10 +109,10 @@ function SharePanel({ doc }) {
         icon={<Copy size={14} />}
         onClick={async () => {
           await copyToClipboard(internalUrl);
-          toast('Link copied to clipboard');
+          toast(t('Link copied to clipboard'));
         }}
       >
-        Copy internal link
+        {t('Copy internal link')}
       </Button>
     </div>
   );
@@ -131,7 +139,7 @@ function MoveModal({ doc, onClose, onMoved }) {
   const move = async (target) => {
     try {
       await api('documents.move', { id: doc.id, ...target });
-      toast('Document moved');
+      toast(t('Document moved'));
       onMoved();
       onClose();
     } catch (e) {
@@ -140,8 +148,8 @@ function MoveModal({ doc, onClose, onMoved }) {
   };
   const f = filter.toLowerCase();
   return (
-    <Modal title={`Move “${doc.title || 'Untitled'}”`} onClose={onClose} width={520}>
-      <input autoFocus placeholder="Filter…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+    <Modal title={t('Move “{title}”', { title: doc.title || t('Untitled') })} onClose={onClose} width={520}>
+      <input autoFocus placeholder={t('Filter…')} value={filter} onChange={(e) => setFilter(e.target.value)} />
       <div className="move-list">
         {writable.map((c) => {
           const items = flatten(trees[c.id] || [], 1, doc.id, []).filter((n) => !f || (n.title || '').toLowerCase().includes(f));
@@ -158,7 +166,7 @@ function MoveModal({ doc, onClose, onMoved }) {
                   style={{ paddingLeft: 12 + n.depth * 18 }}
                   onClick={() => move({ parentDocumentId: n.id })}
                 >
-                  {n.emoji ? <span>{n.emoji}</span> : <FileText size={15} className="muted" />} {n.title || 'Untitled'}
+                  {n.emoji ? <span>{n.emoji}</span> : <FileText size={15} className="muted" />} {n.title || t('Untitled')}
                 </button>
               ))}
             </div>
@@ -181,14 +189,14 @@ function HistoryPanel({ doc, onSelect, selectedId, onClose }) {
   return (
     <aside className="side-panel">
       <div className="side-panel-header">
-        <h3>History</h3>
-        <IconButton title="Close" onClick={onClose}>
+        <h3>{t('History')}</h3>
+        <IconButton title={t('Close')} onClick={onClose}>
           <X size={18} />
         </IconButton>
       </div>
       <div className="side-panel-body">
         {!revisions && <Spinner />}
-        {revisions?.length === 0 && <div className="muted small">No history yet. Revisions are saved once the document is published.</div>}
+        {revisions?.length === 0 && <div className="muted small">{t('No history yet. Revisions are saved once the document is published.')}</div>}
         {revisions?.map((r, i) => (
           <button
             key={r.id}
@@ -197,7 +205,7 @@ function HistoryPanel({ doc, onSelect, selectedId, onClose }) {
           >
             <Avatar name={r.userName} color={r.userColor} size={28} />
             <div>
-              <div className="revision-title">{i === 0 ? 'Current version' : formatDate(r.createdAt)}</div>
+              <div className="revision-title">{i === 0 ? t('Current version') : formatDate(r.createdAt)}</div>
               <div className="muted small">
                 {r.userName} · {timeAgo(r.createdAt)}
               </div>
@@ -242,7 +250,7 @@ function CommentItem({ c, replies, onReply, reload, canResolve }) {
                   reload();
                 }}
               >
-                Delete
+                {t('Delete')}
               </button>
             )}
           </div>
@@ -251,17 +259,17 @@ function CommentItem({ c, replies, onReply, reload, canResolve }) {
       <div className="comment-actions">
         {!c.resolvedAt && (
           <button className="link-btn small" onClick={() => onReply(c)}>
-            Reply
+            {t('Reply')}
           </button>
         )}
         {(canResolve || c.createdBy === user.id) && (
           <button className="link-btn small" onClick={() => act('comments.resolve')}>
-            {c.resolvedAt ? 'Reopen' : 'Resolve'}
+            {c.resolvedAt ? t('Reopen') : t('Resolve')}
           </button>
         )}
         {(c.createdBy === user.id || isAdmin) && (
           <button className="link-btn small danger" onClick={() => act('comments.delete')}>
-            Delete
+            {t('Delete')}
           </button>
         )}
       </div>
@@ -296,14 +304,14 @@ function CommentsPanel({ doc, canResolve, onClose }) {
   return (
     <aside className="side-panel">
       <div className="side-panel-header">
-        <h3>Comments</h3>
-        <IconButton title="Close" onClick={onClose}>
+        <h3>{t('Comments')}</h3>
+        <IconButton title={t('Close')} onClick={onClose}>
           <X size={18} />
         </IconButton>
       </div>
       <div className="side-panel-body">
         {!comments && <Spinner />}
-        {comments && roots.length === 0 && <div className="muted small">No comments yet.</div>}
+        {comments && roots.length === 0 && <div className="muted small">{t('No comments yet.')}</div>}
         {roots.map((c) => (
           <CommentItem
             key={c.id}
@@ -319,23 +327,23 @@ function CommentsPanel({ doc, canResolve, onClose }) {
         ))}
         {resolvedCount > 0 && (
           <button className="link-btn small" onClick={() => setShowResolved((s) => !s)}>
-            {showResolved ? 'Hide' : 'Show'} {resolvedCount} resolved
+            {t(showResolved ? 'Hide {count} resolved' : 'Show {count} resolved', { count: resolvedCount })}
           </button>
         )}
       </div>
       <div className="side-panel-footer">
         {replyTo && (
           <div className="replying muted small">
-            Replying to {replyTo.createdByName}{' '}
+            {t('Replying to {name}', { name: replyTo.createdByName })}{' '}
             <button className="link-btn small" onClick={() => setReplyTo(null)}>
-              cancel
+              {t('cancel')}
             </button>
           </div>
         )}
         <textarea
           ref={inputRef}
           rows={3}
-          placeholder={replyTo ? 'Reply…' : 'Add a comment…'}
+          placeholder={replyTo ? t('Reply…') : t('Add a comment…')}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -343,9 +351,9 @@ function CommentsPanel({ doc, canResolve, onClose }) {
           }}
         />
         <div className="row space-between">
-          <span className="muted small">Ctrl+Enter to post</span>
+          <span className="muted small">{t('Ctrl+Enter to post')}</span>
           <Button small onClick={post} disabled={!text.trim()}>
-            Post
+            {t('Post')}
           </Button>
         </div>
       </div>
@@ -422,7 +430,7 @@ export default function DocumentPage() {
       if (e.status === 409) {
         setConflict(e.message);
       } else {
-        toast(`Could not save: ${e.message}`, 'error');
+        toast(t('Could not save: {error}', { error: e.message }), 'error');
       }
       pending.current = { ...fields, ...pending.current };
       setSaveState('error');
@@ -469,7 +477,7 @@ export default function DocumentPage() {
       setConflict(null);
       setSaveState('saved');
       setActiveDoc({ collectionId: d.document.collectionId, ids: [...d.path.map((p) => p.id), d.document.id] });
-      document.title = `${d.document.title || 'Untitled'} - Horsa Codex`;
+      document.title = `${d.document.title || t('Untitled')} - GetPaper`;
     } catch (e) {
       setError(e);
     }
@@ -517,10 +525,10 @@ export default function DocumentPage() {
   if (error) {
     return (
       <div className="centered-page">
-        <h2>{error.status === 404 ? 'Not found' : 'Error'}</h2>
+        <h2>{error.status === 404 ? t('Not found') : t('Error')}</h2>
         <p className="muted">{error.message}</p>
         <Link to="/" className="btn btn-secondary">
-          Go home
+          {t('Go home')}
         </Link>
       </div>
     );
@@ -549,7 +557,7 @@ export default function DocumentPage() {
     await flush();
     try {
       const d = await api('documents.update', { id: doc.id, publish: true, collectionId });
-      toast('Document published');
+      toast(t('Document published'));
       await refreshAllTrees();
       baseUpdatedAt.current = d.updatedAt;
       load();
@@ -574,12 +582,12 @@ export default function DocumentPage() {
     }
   };
 
-  const applyTemplate = (t) => {
-    const newTitle = title.trim() ? title : t.title;
+  const applyTemplate = (tpl) => {
+    const newTitle = title.trim() ? title : tpl.title;
     setTitle(newTitle);
-    setData((d) => ({ ...d, document: { ...d.document, text: t.text, emoji: t.emoji || d.document.emoji } }));
+    setData((d) => ({ ...d, document: { ...d.document, text: tpl.text, emoji: tpl.emoji || d.document.emoji } }));
     setEditorKey((k) => k + 1);
-    queueSave({ title: newTitle, text: t.text, ...(t.emoji ? { emoji: t.emoji } : {}) });
+    queueSave({ title: newTitle, text: tpl.text, ...(tpl.emoji ? { emoji: tpl.emoji } : {}) });
   };
 
   const selectRevision = async (rid) => {
@@ -594,7 +602,7 @@ export default function DocumentPage() {
   const restoreRevision = async () => {
     try {
       await api('documents.restore', { id: doc.id, revisionId: revision.id });
-      toast('Document restored');
+      toast(t('Document restored'));
       setRevision(null);
       setEditorKey((k) => k + 1);
       await load();
@@ -606,31 +614,31 @@ export default function DocumentPage() {
 
   const menuItems = [
     canWrite && !isDraft && !doc.template && !doc.deletedAt && {
-      label: 'New nested document',
+      label: t('New nested document'),
       icon: <Plus size={16} />,
       onClick: () => createDoc({ parentDocumentId: doc.id }),
     },
     canWrite && !doc.deletedAt && {
-      label: 'Duplicate',
+      label: t('Duplicate'),
       icon: <Copy size={16} />,
       onClick: () =>
         runAction(async () => {
           const d = await api('documents.duplicate', { id: doc.id });
           await refreshAllTrees();
           navigate(docUrl(d));
-        }, 'Document duplicated'),
+        }, t('Document duplicated')),
     },
     canWrite && !isDraft && !doc.template && !doc.deletedAt && !doc.archivedAt && {
-      label: 'Move…',
+      label: t('Move…'),
       icon: <FolderInput size={16} />,
       onClick: () => setMoving(true),
     },
     canWrite && !doc.template && !doc.deletedAt && {
-      label: 'Create template…',
+      label: t('Create template…'),
       icon: <LayoutTemplate size={16} />,
       onClick: () =>
         runAction(async () => {
-          const t = await api('documents.create', {
+          const tpl = await api('documents.create', {
             title: doc.title,
             text: editorRef.current?.storage.markdown.getMarkdown() ?? doc.text,
             emoji: doc.emoji,
@@ -638,17 +646,17 @@ export default function DocumentPage() {
             publish: true,
           });
           await refreshTemplates();
-          navigate(docUrl(t));
-        }, 'Template created'),
+          navigate(docUrl(tpl));
+        }, t('Template created')),
     },
     { separator: true },
     {
-      label: 'History',
+      label: t('History'),
       icon: <History size={16} />,
       onClick: () => setPanel(panel === 'history' ? null : 'history'),
     },
-    {
-      label: 'Download',
+    app.instance.allowMarkdownExport !== false && {
+      label: t('Download'),
       icon: <Download size={16} />,
       onClick: () =>
         runAction(async () => {
@@ -657,7 +665,7 @@ export default function DocumentPage() {
         }),
     },
     canWrite && !doc.deletedAt && {
-      label: 'Full width',
+      label: t('Full width'),
       icon: <Maximize2 size={16} />,
       checked: doc.fullWidth,
       onClick: () => {
@@ -667,17 +675,17 @@ export default function DocumentPage() {
     },
     canWrite && !doc.deletedAt && { separator: true },
     canWrite && !isDraft && !doc.template && !doc.deletedAt && (doc.createdBy === user.id || isAdmin) && data.children.length === 0 && {
-      label: 'Unpublish',
+      label: t('Unpublish'),
       icon: <Undo2 size={16} />,
       onClick: () =>
         runAction(async () => {
           await api('documents.unpublish', { id: doc.id });
           await refreshAllTrees();
           load();
-        }, 'Document unpublished'),
+        }, t('Document unpublished')),
     },
     canWrite && !isDraft && !doc.archivedAt && !doc.deletedAt && {
-      label: 'Archive',
+      label: t('Archive@@action'),
       icon: <Archive size={16} />,
       onClick: () =>
         runAction(async () => {
@@ -685,17 +693,16 @@ export default function DocumentPage() {
           await refreshAllTrees();
           refreshTemplates();
           load();
-        }, 'Document archived'),
+        }, t('Document archived')),
     },
     canWrite && !doc.deletedAt && {
-      label: 'Delete…',
+      label: t('Delete…'),
       icon: <Trash2 size={16} />,
       danger: true,
       onClick: () => setConfirm('delete'),
     },
   ];
 
-  const who = doc.updatedBy === user.id ? 'You' : doc.updatedByName;
   const shownTitle = revision ? revision.title : title;
   const shownEmoji = revision ? revision.emoji : doc.emoji;
 
@@ -712,11 +719,11 @@ export default function DocumentPage() {
               </Link>
             ) : doc.template ? (
               <Link to="/templates" className="crumb">
-                <LayoutTemplate size={16} /> <span>Templates</span>
+                <LayoutTemplate size={16} /> <span>{t('Templates')}</span>
               </Link>
             ) : (
               <Link to="/drafts" className="crumb">
-                <span>Drafts</span>
+                <span>{t('Drafts')}</span>
               </Link>
             )}
             {data.path.map((p) => (
@@ -724,7 +731,7 @@ export default function DocumentPage() {
                 <ChevronRight size={14} className="muted crumb-sep" />
                 <Link to={docUrl(p)} className="crumb">
                   {p.emoji && <span>{p.emoji}</span>}
-                  <span>{p.title || 'Untitled'}</span>
+                  <span>{p.title || t('Untitled')}</span>
                 </Link>
               </React.Fragment>
             ))}
@@ -734,19 +741,19 @@ export default function DocumentPage() {
           <>
             {canWrite && (
               <span className={`save-state ${saveState}`}>
-                {saveState === 'saving' ? 'Saving…' : saveState === 'dirty' ? 'Editing' : saveState === 'error' ? 'Not saved' : 'Saved'}
+                {saveState === 'saving' ? t('Saving…') : saveState === 'dirty' ? t('Editing') : saveState === 'error' ? t('Not saved') : t('Saved')}
               </span>
             )}
             {isDraft && !doc.template && canWrite && !doc.deletedAt && (
               doc.collectionId ? (
-                <Button onClick={() => publish()}>Publish</Button>
+                <Button onClick={() => publish()}>{t('Publish')}</Button>
               ) : (
                 <Menu
                   align="right"
                   width={240}
-                  trigger={<Button>Publish</Button>}
+                  trigger={<Button>{t('Publish')}</Button>}
                   items={[
-                    { heading: 'Publish in…' },
+                    { heading: t('Publish in…') },
                     ...writableCollections.map((c) => ({
                       label: c.name,
                       icon: <CollectionIcon collection={c} size={16} />,
@@ -757,25 +764,25 @@ export default function DocumentPage() {
               )
             )}
             {!doc.template && !doc.deletedAt && (
-              <Popover trigger={<Button variant="secondary">Share</Button>} width={380}>
+              <Popover trigger={<Button variant="secondary">{t('Share')}</Button>} width={380}>
                 <SharePanel doc={doc} />
               </Popover>
             )}
             {!isDraft && !doc.deletedAt && (
-              <IconButton title={doc.isStarred ? 'Unstar' : 'Star'} onClick={toggleStar} active={doc.isStarred}>
+              <IconButton title={doc.isStarred ? t('Unstar') : t('Star')} onClick={toggleStar} active={doc.isStarred}>
                 <Star size={18} fill={doc.isStarred ? 'currentColor' : 'none'} />
               </IconButton>
             )}
-            <IconButton title="Comments" active={panel === 'comments'} onClick={() => setPanel(panel === 'comments' ? null : 'comments')}>
+            <IconButton title={t('Comments')} active={panel === 'comments'} onClick={() => setPanel(panel === 'comments' ? null : 'comments')}>
               <MessageSquare size={18} />
             </IconButton>
-            <IconButton title="History" active={panel === 'history'} onClick={() => setPanel(panel === 'history' ? null : 'history')}>
+            <IconButton title={t('History')} active={panel === 'history'} onClick={() => setPanel(panel === 'history' ? null : 'history')}>
               <History size={18} />
             </IconButton>
             <Menu
               align="right"
               trigger={
-                <IconButton title="More">
+                <IconButton title={t('More')}>
                   <MoreHorizontal size={18} />
                 </IconButton>
               }
@@ -796,13 +803,13 @@ export default function DocumentPage() {
                 load();
               }}
             >
-              Reload
+              {t('Reload')}
             </Button>
           </div>
         )}
         {doc.deletedAt && (
           <div className="notice-bar">
-            This document was deleted {timeAgo(doc.deletedAt)}. It will be permanently removed after 30 days.
+            {t('This document was deleted {time}. It will be permanently removed after 30 days.', { time: timeAgo(doc.deletedAt) })}
             {canWrite && (
               <span className="row gap">
                 <Button
@@ -818,13 +825,13 @@ export default function DocumentPage() {
                       await api('documents.restore', params);
                       await refreshAllTrees();
                       load();
-                    }, 'Document restored')
+                    }, t('Document restored'))
                   }
                 >
-                  Restore
+                  {t('Restore')}
                 </Button>
                 <Button small variant="danger" onClick={() => setConfirm('permanent')}>
-                  Delete permanently
+                  {t('Delete permanently')}
                 </Button>
               </span>
             )}
@@ -832,7 +839,7 @@ export default function DocumentPage() {
         )}
         {doc.archivedAt && !doc.deletedAt && (
           <div className="notice-bar">
-            This document was archived {timeAgo(doc.archivedAt)}.
+            {t('This document was archived {time}.', { time: timeAgo(doc.archivedAt) })}
             {canWrite && (
               <Button
                 small
@@ -843,32 +850,32 @@ export default function DocumentPage() {
                     await api('documents.restore', { id: doc.id });
                     await refreshAllTrees();
                     load();
-                  }, 'Document restored')
+                  }, t('Document restored'))
                 }
               >
-                Restore
+                {t('Restore')}
               </Button>
             )}
           </div>
         )}
         {revision && (
           <div className="notice-bar">
-            Viewing revision from {formatDate(revision.createdAt)} by {revision.userName}.
+            {t('Viewing revision from {date} by {name}.', { date: formatDate(revision.createdAt), name: revision.userName })}
             <span className="row gap">
               {canWrite && !doc.deletedAt && (
                 <Button small icon={<RotateCcw size={14} />} onClick={restoreRevision}>
-                  Restore this version
+                  {t('Restore this version')}
                 </Button>
               )}
               <Button small variant="secondary" onClick={() => setRevision(null)}>
-                Close
+                {t('Close')}
               </Button>
             </span>
           </div>
         )}
         {doc.template && !revision && (
           <div className="notice-bar info">
-            <LayoutTemplate size={16} /> You’re editing a template. It will be available to everyone when creating a new document.
+            <LayoutTemplate size={16} /> {t('You’re editing a template. It will be available to everyone when creating a new document.')}
           </div>
         )}
 
@@ -879,7 +886,7 @@ export default function DocumentPage() {
                 align="left"
                 width={330}
                 trigger={
-                  <button className={`emoji-trigger ${shownEmoji ? 'has-emoji' : ''}`} title="Choose an icon">
+                  <button className={`emoji-trigger ${shownEmoji ? 'has-emoji' : ''}`} title={t('Choose an icon')}>
                     {shownEmoji || <Smile size={22} />}
                   </button>
                 }
@@ -910,7 +917,7 @@ export default function DocumentPage() {
               rows={1}
               value={shownTitle}
               readOnly={!editable}
-              placeholder={doc.template ? 'Start your template…' : 'Untitled'}
+              placeholder={doc.template ? t('Start your template…') : t('Untitled')}
               onChange={(e) => {
                 const v = e.target.value.replace(/\n/g, '');
                 setTitle(v);
@@ -929,15 +936,17 @@ export default function DocumentPage() {
             />
           </div>
           <div className="document-meta">
-            {isDraft && !doc.template && <span className="badge">Draft</span>}
+            {isDraft && !doc.template && <span className="badge">{t('Draft')}</span>}
             <span>
-              {who} {isDraft ? 'saved' : 'updated'} {timeAgo(doc.updatedAt)}
+              {doc.updatedBy === user.id
+                ? t(isDraft ? 'You saved {time}' : 'You updated {time}', { time: timeAgo(doc.updatedAt) })
+                : t(isDraft ? '{name} saved {time}' : '{name} updated {time}', { name: doc.updatedByName, time: timeAgo(doc.updatedAt) })}
             </span>
             {collection && (
               <>
                 <span>·</span>
                 <span>
-                  in <Link to={collectionUrl(collection)}>{collection.name}</Link>
+                  {t('in')} <Link to={collectionUrl(collection)}>{collection.name}</Link>
                 </span>
               </>
             )}
@@ -949,13 +958,13 @@ export default function DocumentPage() {
                 width={260}
                 trigger={
                   <Button variant="secondary" small icon={<LayoutTemplate size={14} />}>
-                    Use a template
+                    {t('Use a template')}
                   </Button>
                 }
-                items={templates.map((t) => ({
-                  label: t.title || 'Untitled',
-                  icon: <DocIcon doc={t} size={16} />,
-                  onClick: () => applyTemplate(t),
+                items={templates.map((tpl) => ({
+                  label: tpl.title || t('Untitled'),
+                  icon: <DocIcon doc={tpl} size={16} />,
+                  onClick: () => applyTemplate(tpl),
                 }))}
               />
             </div>
@@ -976,12 +985,12 @@ export default function DocumentPage() {
 
           {data.children.length > 0 && !revision && (
             <div className="nested-docs">
-              <h3>Nested documents</h3>
+              <h3>{t('Nested documents')}</h3>
               <div className="nested-grid">
                 {data.children.map((c) => (
                   <Link key={c.id} to={docUrl(c)} className="nested-card">
                     <DocIcon doc={c} size={16} />
-                    <span>{c.title || 'Untitled'}</span>
+                    <span>{c.title || t('Untitled')}</span>
                     <CornerDownRight size={14} className="muted" />
                   </Link>
                 ))}
@@ -999,13 +1008,13 @@ export default function DocumentPage() {
       {moving && <MoveModal doc={doc} onClose={() => setMoving(false)} onMoved={async () => { await refreshAllTrees(); load(); }} />}
       {confirm === 'delete' && (
         <ConfirmModal
-          title="Delete document"
+          title={t('Delete document')}
           danger
-          confirmLabel="I’m sure – Delete"
+          confirmLabel={t('I’m sure – Delete')}
           message={
             data.children.length
-              ? `Are you sure about that? Deleting “${doc.title || 'Untitled'}” will also delete all of its nested documents.`
-              : `Are you sure about that? Deleting “${doc.title || 'Untitled'}” will move it to the trash.`
+              ? t('Are you sure about that? Deleting “{title}” will also delete all of its nested documents.', { title: doc.title || t('Untitled') })
+              : t('Are you sure about that? Deleting “{title}” will move it to the trash.', { title: doc.title || t('Untitled') })
           }
           onClose={() => setConfirm(null)}
           onConfirm={async () => {
@@ -1014,21 +1023,21 @@ export default function DocumentPage() {
             await refreshAllTrees();
             refreshStarred();
             refreshTemplates();
-            toast('Document moved to trash');
+            toast(t('Document moved to trash'));
             navigate(collection ? collectionUrl(collection) : '/');
           }}
         />
       )}
       {confirm === 'permanent' && (
         <ConfirmModal
-          title="Permanently delete"
+          title={t('Permanently delete')}
           danger
-          confirmLabel="Delete forever"
-          message="This document and its nested documents will be permanently deleted. This cannot be undone."
+          confirmLabel={t('Delete forever')}
+          message={t('This document and its nested documents will be permanently deleted. This cannot be undone.')}
           onClose={() => setConfirm(null)}
           onConfirm={async () => {
             await api('documents.delete', { id: doc.id, permanent: true });
-            toast('Document permanently deleted');
+            toast(t('Document permanently deleted'));
             navigate('/trash');
           }}
         />

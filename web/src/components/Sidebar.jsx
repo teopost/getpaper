@@ -26,8 +26,9 @@ import { Menu, TeamAvatar, Avatar } from './ui';
 import CollectionModal from './CollectionModal';
 import NewWorkspaceModal from './NewWorkspaceModal';
 import InviteModal from './InviteModal';
+import { t } from '../i18n';
 
-const DND_TYPE = 'application/x-horsa-codex-doc';
+const DND_TYPE = 'application/x-getpaper-doc';
 
 function usePersistentSet(key) {
   const [set, setSet] = useState(() => {
@@ -66,17 +67,17 @@ function TeamSwitcher() {
   };
 
   const items = [
-    { heading: 'Workspaces' },
-    ...teams.map((t) => ({
-      label: t.name,
-      icon: <TeamAvatar team={t} size={20} />,
-      checked: t.id === team.id,
-      onClick: () => t.id !== team.id && switchTeam(t.id),
+    { heading: t('Workspaces') },
+    ...teams.map((tm) => ({
+      label: tm.name,
+      icon: <TeamAvatar team={tm} size={20} />,
+      checked: tm.id === team.id,
+      onClick: () => tm.id !== team.id && switchTeam(tm.id),
     })),
-    { label: 'New workspace…', icon: <Plus size={16} />, onClick: () => setShowNew(true) },
+    { label: t('New workspace…'), icon: <Plus size={16} />, onClick: () => setShowNew(true) },
     { separator: true },
-    { label: 'Settings', icon: <Settings size={16} />, onClick: () => navigate('/settings/workspace') },
-    { label: 'Invite people…', icon: <UserPlus size={16} />, onClick: () => setShowInvite(true) },
+    { label: t('Settings'), icon: <Settings size={16} />, onClick: () => navigate('/settings/workspace') },
+    { label: t('Invite people…'), icon: <UserPlus size={16} />, onClick: () => setShowInvite(true) },
     { separator: true },
     {
       render: () => (
@@ -89,8 +90,8 @@ function TeamSwitcher() {
         </div>
       ),
     },
-    { label: 'Profile', icon: <Pencil size={16} />, onClick: () => navigate('/settings/profile') },
-    { label: 'Log out', icon: <LogOut size={16} />, onClick: logout },
+    { label: t('Profile'), icon: <Pencil size={16} />, onClick: () => navigate('/settings/profile') },
+    { label: t('Log out'), icon: <LogOut size={16} />, onClick: logout },
   ];
 
   return (
@@ -212,12 +213,12 @@ function DocNode({ node, collection, parentId, index, depth, expanded, toggleExp
             {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </span>
           {node.emoji && <span className="sidebar-emoji">{node.emoji}</span>}
-          <span className="sidebar-label">{node.title || 'Untitled'}</span>
+          <span className="sidebar-label">{node.title || t('Untitled')}</span>
           {canWrite && (
             <span className="sidebar-actions">
               <span
                 className="sidebar-action"
-                title="New nested document"
+                title={t('New nested document')}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -266,12 +267,12 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed
   }, [activeDoc]);
 
   const remove = async () => {
-    if (!window.confirm(`Delete the "${collection.name}" collection and all of its documents?`)) return;
+    if (!window.confirm(t('Delete the "{name}" collection and all of its documents?', { name: collection.name }))) return;
     try {
       await api('collections.delete', { id: collection.id });
       await refreshCollections();
       await refreshAllTrees();
-      toast('Collection deleted');
+      toast(t('Collection deleted'));
       if (isActive) navigate('/');
     } catch (e) {
       toast(e.message, 'error');
@@ -316,7 +317,7 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed
             {canWrite && (
               <span
                 className="sidebar-action"
-                title="New document"
+                title={t('New document')}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -330,16 +331,16 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed
             {canWrite && (
               <Menu
                 trigger={
-                  <span className="sidebar-action" title="More">
+                  <span className="sidebar-action" title={t('More')}>
                     <MoreHorizontal size={14} />
                   </span>
                 }
                 items={[
-                  { label: 'New document', icon: <Plus size={16} />, onClick: () => createDoc({ collectionId: collection.id }) },
-                  { label: 'Edit…', icon: <Pencil size={16} />, onClick: () => setEditing(true) },
+                  { label: t('New document'), icon: <Plus size={16} />, onClick: () => createDoc({ collectionId: collection.id }) },
+                  { label: t('Edit…'), icon: <Pencil size={16} />, onClick: () => setEditing(true) },
                   (isAdmin || collection.createdBy === user.id) && { separator: true },
                   (isAdmin || collection.createdBy === user.id) && {
-                    label: 'Delete…',
+                    label: t('Delete…'),
                     icon: <Trash2 size={16} />,
                     danger: true,
                     onClick: remove,
@@ -365,7 +366,7 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed
               onMove={onMove}
             />
           ))}
-          {nodes.length === 0 && <div className="sidebar-empty">Empty</div>}
+          {nodes.length === 0 && <div className="sidebar-empty">{t('Empty')}</div>}
         </div>
       )}
       {editing && <CollectionModal collection={collection} onClose={() => setEditing(false)} />}
@@ -415,27 +416,27 @@ export default function Sidebar() {
       <div className="sidebar-scroll">
         <nav className="sidebar-section">
           <SidebarLink to="/" end icon={<Home size={18} />}>
-            Home
+            {t('Home')}
           </SidebarLink>
           <SidebarLink to="/search" icon={<Search size={18} />}>
-            Search
+            {t('Search')}
           </SidebarLink>
           {canWrite && (
             <SidebarLink to="/drafts" icon={<Pencil size={18} />} badge={draftCount || null}>
-              Drafts
+              {t('Drafts')}
             </SidebarLink>
           )}
         </nav>
 
         {starred.length > 0 && (
           <div className="sidebar-section">
-            <div className="sidebar-heading">Starred</div>
+            <div className="sidebar-heading">{t('Starred')}</div>
             {starred.map((d) => (
               <NavLink key={d.id} to={docUrl(d)} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                 <span className="sidebar-icon">
                   {d.emoji ? <span className="sidebar-emoji">{d.emoji}</span> : <Star size={16} />}
                 </span>
-                <span className="sidebar-label">{d.title || 'Untitled'}</span>
+                <span className="sidebar-label">{d.title || t('Untitled')}</span>
               </NavLink>
             ))}
           </div>
@@ -443,9 +444,9 @@ export default function Sidebar() {
 
         <div className="sidebar-section">
           <div className="sidebar-heading">
-            <span>Collections</span>
+            <span>{t('Collections')}</span>
             {canWrite && (
-              <button className="sidebar-heading-action" title="New collection" onClick={() => setCreating(true)}>
+              <button className="sidebar-heading-action" title={t('New collection')} onClick={() => setCreating(true)}>
                 <Plus size={14} />
               </button>
             )}
@@ -468,23 +469,23 @@ export default function Sidebar() {
               <span className="sidebar-icon">
                 <Plus size={16} />
               </span>
-              <span className="sidebar-label">New collection…</span>
+              <span className="sidebar-label">{t('New collection…')}</span>
             </button>
           )}
         </div>
 
         <div className="sidebar-section sidebar-bottom">
           <SidebarLink to="/templates" icon={<LayoutTemplate size={18} />}>
-            Templates
+            {t('Templates')}
           </SidebarLink>
           <SidebarLink to="/archive" icon={<Archive size={18} />}>
-            Archive
+            {t('Archive')}
           </SidebarLink>
           <SidebarLink to="/trash" icon={<Trash2 size={18} />}>
-            Trash
+            {t('Trash')}
           </SidebarLink>
           <SidebarLink to="/settings/workspaces" icon={<Building2 size={18} />}>
-            Workspaces
+            {t('Workspaces')}
           </SidebarLink>
         </div>
       </div>

@@ -77,6 +77,9 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<DocReq
     if d.published_at.is_none() {
         return Err(ApiError::bad_request("Publish the document before sharing it"));
     }
+    if !st.settings().allow_public_sharing {
+        return Err(ApiError::forbidden("Public links have been disabled by the administrator"));
+    }
     let (sharing,): (bool,) = sqlx::query_as("SELECT sharing FROM teams WHERE id = $1")
         .bind(d.team_id)
         .fetch_one(&st.db)

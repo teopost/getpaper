@@ -20,15 +20,44 @@ pub struct Invite {
     team_id: Uuid,
     email: String,
     role: String,
+    /// secret: only sent inside the invite link, on request
+    #[serde(skip_serializing)]
     token: String,
     created_by: Uuid,
     created_at: DateTime<Utc>,
+    email_sent_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateReq {
     email: String,
     role: Option<String>,
+    /// send the invitation email (when email is configured); default true
+    send_email: Option<bool>,
+}
+
+/// Sends the invitation email in the inviter's language.
+async fn send_invite_email(st: &AppState, inviter: &User, team: Uuid, email: &str, role: &str, link: &str, added: bool) -> ApiResult<()> {
+    let smtp = st.cfg.smtp.as_ref().ok_or_else(|| ApiError::bad_request("Email is not configured on this server"))?;
+    let (team_name,): (String,) = sqlx::query_as("SELECT name FROM teams WHERE id = $1").bind(team).fetch_one(&st.db).await?;
+    let lang = inviter.language.clone().unwrap_or_else(|| st.defaults().language);
+    let settings = st.settings();
+    let brand = settings.header_color.or(settings.accent_color).unwrap_or_else(|| "#1f2937".into());
+    let base = st.cfg.url.trim_end_matches('/');
+    let mail = crate::mail::invite(&crate::mail::InviteMail {
+        lang: &lang,
+        inviter: &inviter.name,
+        team: &team_name,
+        role,
+        email,
+        link,
+        base_url: base,
+        added,
+        microsoft: st.cfg.microsoft.is_some(),
+        brand_color: &brand,
+    });
+    smtp.send(email, None, &mail).await
 }
 
 pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<CreateReq>) -> ApiResult<Json<Value>> {
@@ -46,6 +75,7 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
         .bind(&email)
         .fetch_optional(&st.db)
         .await?;
+    let send = st.cfg.smtp.is_some() && b.send_email.unwrap_or(true);
     if let Some(u) = existing {
         let res = sqlx::query(
             "INSERT INTO team_memberships (team_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
@@ -55,15 +85,28 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
         .bind(&role)
         .execute(&st.db)
         .await?;
+        let added = res.rows_affected() > 0;
+        // tell them they were added; the link opens the app
+        let email_error = if send && added {
+            send_invite_email(&st, &auth.user, team, &u.email, &role, st.cfg.url.trim_end_matches('/'), true)
+                .await
+                .err()
+                .map(|e| e.message)
+        } else {
+            None
+        };
         return ok(json!({
-            "added": res.rows_affected() > 0,
-            "alreadyMember": res.rows_affected() == 0,
+            "added": added,
+            "alreadyMember": !added,
             "user": { "id": u.id, "name": u.name, "email": u.email },
+            "emailSent": send && added && email_error.is_none(),
+            "emailError": email_error,
         }));
     }
 
     let invite: Invite = sqlx::query_as(
-        "INSERT INTO invites (id, team_id, email, role, token, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+        "INSERT INTO invites (id, team_id, email, role, token, created_by) VALUES ($1, $2, $3, $4, $5, $6) \
+         RETURNING id, team_id, email, role, token, created_by, created_at, email_sent_at",
     )
     .bind(Uuid::new_v4())
     .bind(team)
@@ -74,28 +117,56 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
     .fetch_one(&st.db)
     .await?;
     let link = format!("{}/invite/{}", st.cfg.url.trim_end_matches('/'), invite.token);
-    ok(json!({ "added": false, "invite": invite, "link": link }))
+    let email_error = if send { deliver(&st, &auth.user, &invite, &link).await.err().map(|e| e.message) } else { None };
+    ok(json!({ "added": false, "invite": invite, "link": link, "emailSent": send && email_error.is_none(), "emailError": email_error }))
+}
+
+/// Sends the email of a pending invite and records when.
+async fn deliver(st: &AppState, inviter: &User, invite: &Invite, link: &str) -> ApiResult<()> {
+    send_invite_email(st, inviter, invite.team_id, &invite.email, &invite.role, link, false).await?;
+    sqlx::query("UPDATE invites SET email_sent_at = now() WHERE id = $1").bind(invite.id).execute(&st.db).await?;
+    Ok(())
+}
+
+/// (Re)sends the email of a pending invite.
+pub async fn send(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
+    auth.require_writer()?;
+    let invite: Invite = sqlx::query_as(
+        "SELECT id, team_id, email, role, token, created_by, created_at, email_sent_at FROM invites \
+         WHERE id = $1 AND team_id = $2 AND accepted_at IS NULL",
+    )
+    .bind(b.id)
+    .bind(auth.team()?)
+    .fetch_optional(&st.db)
+    .await?
+    .ok_or_else(|| ApiError::not_found("This invite is invalid or was already used"))?;
+    let link = format!("{}/invite/{}", st.cfg.url.trim_end_matches('/'), invite.token);
+    deliver(&st, &auth.user, &invite, &link).await?;
+    ok(json!({ "success": true }))
 }
 
 pub async fn list(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Value>> {
     let invites: Vec<Invite> = sqlx::query_as(
-        "SELECT id, team_id, email, role, token, created_by, created_at FROM invites \
+        "SELECT id, team_id, email, role, token, created_by, created_at, email_sent_at FROM invites \
          WHERE team_id = $1 AND accepted_at IS NULL ORDER BY created_at DESC",
     )
     .bind(auth.team()?)
     .fetch_all(&st.db)
     .await?;
-    let base = st.cfg.url.trim_end_matches('/').to_string();
-    let out: Vec<Value> = invites
-        .into_iter()
-        .map(|i| {
-            let link = format!("{base}/invite/{}", i.token);
-            let mut v = serde_json::to_value(&i).unwrap();
-            v["link"] = json!(link);
-            v
-        })
-        .collect();
-    ok(out)
+    // without the secret tokens: the link of one invite is fetched with invites.link when needed
+    ok(invites)
+}
+
+/// The link of a pending invite (for "Copy link").
+pub async fn link(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
+    auth.require_writer()?;
+    let (token,): (String,) = sqlx::query_as("SELECT token FROM invites WHERE id = $1 AND team_id = $2 AND accepted_at IS NULL")
+        .bind(b.id)
+        .bind(auth.team()?)
+        .fetch_optional(&st.db)
+        .await?
+        .ok_or_else(|| ApiError::not_found("This invite is invalid or was already used"))?;
+    ok(json!({ "link": format!("{}/invite/{token}", st.cfg.url.trim_end_matches('/')) }))
 }
 
 #[derive(Deserialize)]

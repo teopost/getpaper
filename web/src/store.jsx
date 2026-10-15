@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, docUrl } from './api';
+import { applyInstance, applyPrefs, setDefaults } from './prefs';
 import { useToast } from './components/Toast';
 
 const AppContext = createContext(null);
@@ -9,8 +10,12 @@ export function useApp() {
   return useContext(AppContext);
 }
 
-export function AppProvider({ initialAuth, children }) {
+export function AppProvider({ initialAuth, onOpenWorkspace, children }) {
   const [auth, setAuth] = useState(initialAuth);
+  // applied while rendering so the whole tree below already uses the chosen language
+  setDefaults(auth.defaults);
+  applyInstance(auth.instance);
+  const { language } = applyPrefs(auth.user);
   const [collections, setCollections] = useState([]);
   const [trees, setTrees] = useState({});
   const [starred, setStarred] = useState([]);
@@ -58,10 +63,18 @@ export function AppProvider({ initialAuth, children }) {
     refreshTemplates();
   }, [refreshAllTrees, refreshStarred, refreshTemplates]);
 
-  const switchTeam = useCallback(async (id) => {
-    await api('teams.switch', { id });
-    window.location.href = '/';
-  }, []);
+  // switch without reloading the page: the provider is keyed by workspace, so its state starts fresh
+  const switchTeam = useCallback(
+    async (id, path = '/') => {
+      try {
+        await api('teams.switch', { id });
+        await onOpenWorkspace(path);
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    },
+    [onOpenWorkspace, toast]
+  );
 
   const createDoc = useCallback(
     async ({ collectionId, parentDocumentId, template } = {}) => {
@@ -91,6 +104,8 @@ export function AppProvider({ initialAuth, children }) {
       teams: auth.teams,
       role: auth.role,
       isAdmin: auth.role === 'admin',
+      isSuperadmin: !!auth.user?.isSuperadmin,
+      instance: auth.instance || {},
       canWrite: auth.role !== 'viewer',
       refreshAuth,
       collections,
@@ -105,6 +120,7 @@ export function AppProvider({ initialAuth, children }) {
       activeDoc,
       setActiveDoc,
       switchTeam,
+      openWorkspace: onOpenWorkspace,
       createDoc,
     }),
     [
@@ -121,9 +137,15 @@ export function AppProvider({ initialAuth, children }) {
       refreshTemplates,
       activeDoc,
       switchTeam,
+      onOpenWorkspace,
       createDoc,
     ]
   );
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      {/* remount on language change so every component picks up the new strings */}
+      <React.Fragment key={language}>{children}</React.Fragment>
+    </AppContext.Provider>
+  );
 }

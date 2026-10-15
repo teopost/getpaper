@@ -6,6 +6,7 @@ import Scene from '../components/Scene';
 import DocumentList from '../components/DocumentList';
 import { Button, Tabs, Menu } from '../components/ui';
 import { CollectionIcon } from '../components/icons';
+import { t } from '../i18n';
 
 export function NewDocButton({ collectionId }) {
   const { collections, createDoc, canWrite } = useApp();
@@ -14,7 +15,7 @@ export function NewDocButton({ collectionId }) {
   if (collectionId) {
     return (
       <Button icon={<Plus size={16} />} onClick={() => createDoc({ collectionId })}>
-        New doc
+        {t('New doc')}
       </Button>
     );
   }
@@ -22,16 +23,16 @@ export function NewDocButton({ collectionId }) {
     <Menu
       align="right"
       width={240}
-      trigger={<Button icon={<Plus size={16} />}>New doc</Button>}
+      trigger={<Button icon={<Plus size={16} />}>{t('New doc')}</Button>}
       items={[
-        { heading: 'New document in…' },
+        { heading: t('New document in…') },
         ...writable.map((c) => ({
           label: c.name,
           icon: <CollectionIcon collection={c} size={16} />,
           onClick: () => createDoc({ collectionId: c.id }),
         })),
         { separator: true },
-        { label: 'New draft (no collection)', onClick: () => createDoc({}) },
+        { label: t('New draft (no collection)'), onClick: () => createDoc({}) },
       ]}
     />
   );
@@ -55,16 +56,16 @@ export default function Home() {
   }, [tab, user.id, version]);
 
   return (
-    <Scene title="Home" headerTitle={<span className="header-title">Home</span>} actions={<NewDocButton />}>
-      <h1 className="page-title">Home</h1>
-      <p className="page-subtitle muted">Welcome back to {team.name}.</p>
+    <Scene title={t('Home')} headerTitle={<span className="header-title">{t('Home')}</span>} actions={<NewDocButton />}>
+      <h1 className="page-title">{t('Home')}</h1>
+      <p className="page-subtitle muted">{t('Welcome back to {name}.', { name: team.name })}</p>
       <Tabs
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: 'viewed', label: 'Recently viewed' },
-          { value: 'updated', label: 'Recently updated' },
-          { value: 'mine', label: 'Created by me' },
+          { value: 'viewed', label: t('Recently viewed') },
+          { value: 'updated', label: t('Recently updated') },
+          { value: 'mine', label: t('Created by me') },
         ]}
       />
       <DocumentList
@@ -72,8 +73,8 @@ export default function Home() {
         onStarChange={() => setVersion((v) => v + 1)}
         empty={
           tab === 'viewed'
-            ? 'Documents you’ve recently viewed will be here for easy access.'
-            : 'No documents yet. Create one to get started!'
+            ? t('Documents you’ve recently viewed will be here for easy access.')
+            : t('No documents yet. Create one to get started!')
         }
       />
     </Scene>

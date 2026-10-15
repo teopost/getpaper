@@ -1,5 +1,8 @@
 //! Bulk import of an archive (ZIP) of Markdown / HTML / text files.
 //!
+//! Confluence HTML space exports are recognised and rewritten to this layout first (see `import_confluence`).
+//! HTML files are converted to Markdown.
+//!
 //! Supported layouts (covers Outline, Notion, Obsidian, Wiki.js, GitBook, BookStack markdown exports):
 //! - top-level folders become collections (unless a target collection is given)
 //! - nested folders become nested documents; `Doc.md` + `Doc/child.md` attaches the children to `Doc`
@@ -15,12 +18,14 @@ use std::{
 
 use axum::{
     extract::{Multipart, State},
+    http::StatusCode,
     Json,
 };
 use regex::{Captures, Regex};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
+use super::{backup_restore, import_confluence, import_confluence_xml};
 use crate::{
     auth::Auth,
     error::{ok, ApiError, ApiResult},
@@ -61,7 +66,7 @@ fn clean_name(s: &str) -> String {
     }
 }
 
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -80,7 +85,7 @@ fn percent_decode(s: &str) -> String {
 }
 
 /// Joins `base_dir` and a relative `target`, resolving `.` and `..`.
-fn join_path(base_dir: &str, target: &str) -> String {
+pub(crate) fn join_path(base_dir: &str, target: &str) -> String {
     let mut parts: Vec<&str> = if base_dir.is_empty() { vec![] } else { base_dir.split('/').collect() };
     for seg in target.split('/') {
         match seg {
@@ -150,7 +155,7 @@ fn parse_doc(ext: &str, raw: &[u8], fallback: &str) -> (String, String) {
                 body = body.replacen(&c[0], "", 1);
             }
         }
-        return (title.unwrap_or_else(|| fallback.to_string()), body.trim().to_string());
+        return (title.unwrap_or_else(|| fallback.to_string()), crate::html_md::convert(&body));
     }
 
     // YAML front matter
@@ -178,7 +183,53 @@ fn parse_doc(ext: &str, raw: &[u8], fallback: &str) -> (String, String) {
             s = remaining.trim_start_matches('\n').to_string();
         }
     }
-    (title.unwrap_or_else(|| fallback.to_string()), s.trim_end().to_string())
+    (title.unwrap_or_else(|| fallback.to_string()), callouts_to_notices(s.trim_end()))
+}
+
+/// Obsidian callouts (`> [!warning] Title` + quoted lines) → notices (`:::warning`)
+fn callouts_to_notices(s: &str) -> String {
+    static START: OnceLock<Regex> = OnceLock::new();
+    let start = re(&START, r"^>\s?\[!(\w+)\][+-]?\s*(.*)$");
+    let mut out: Vec<String> = vec![];
+    let mut in_callout = false;
+    let mut fence: Option<String> = None;
+    for line in s.lines() {
+        if in_callout {
+            if let Some(rest) = line.strip_prefix('>') {
+                out.push(rest.strip_prefix(' ').unwrap_or(rest).to_string());
+                continue;
+            }
+            out.push(":::".into());
+            in_callout = false;
+        }
+        let marker = crate::html_md::code_fence(line);
+        if let Some(f) = &fence {
+            if marker.is_some_and(|m| m.starts_with(f.as_str())) {
+                fence = None;
+            }
+        } else if marker.is_some() {
+            fence = marker;
+        } else if let Some(c) = start.captures(line) {
+            let style = match c[1].to_lowercase().as_str() {
+                "tip" | "hint" | "important" => "tip",
+                "success" | "check" | "done" => "success",
+                "warning" | "caution" | "attention" | "danger" | "error" | "bug" | "failure" | "fail" | "missing" => "warning",
+                _ => "info",
+            };
+            out.push(format!(":::{style}"));
+            if !c[2].trim().is_empty() {
+                out.push(format!("**{}**", c[2].trim()));
+                out.push(String::new());
+            }
+            in_callout = true;
+            continue;
+        }
+        out.push(line.to_string());
+    }
+    if in_callout {
+        out.push(":::".into());
+    }
+    out.join("\n")
 }
 
 struct Node {
@@ -189,6 +240,16 @@ struct Node {
     zip_path: Option<String>,
     id: Uuid,
     url_id: String,
+    meta: DocMeta,
+}
+
+/// Per-document details some sources provide, keyed by path in the (rewritten) archive.
+#[derive(Clone, Default)]
+pub struct DocMeta {
+    /// position among siblings; documents without one follow, sorted by name
+    pub order: Option<i64>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl Node {
@@ -202,6 +263,30 @@ pub struct ImportResult {
     pub documents: usize,
     pub attachments: usize,
     pub skipped: Vec<String>,
+    /// format that was recognised: "confluence-xml", "confluence-html" or "markdown"
+    pub format: &'static str,
+}
+
+/// Where the archive comes from, as chosen by the user. Confluence exports are recognised by their
+/// content; every other tool exports folders of Markdown files handled by the generic importer.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Source {
+    Auto,
+    Confluence,
+    Backup,
+    Markdown,
+}
+
+impl Source {
+    pub fn parse(s: &str) -> Self {
+        match s.trim().to_lowercase().as_str() {
+            "" | "auto" => Source::Auto,
+            "confluence" => Source::Confluence,
+            "getpaper" | "horsa" | "backup" => Source::Backup,
+            // outline, notion, obsidian, markdown, …
+            _ => Source::Markdown,
+        }
+    }
 }
 
 fn read_entries(filename: &str, bytes: Vec<u8>, max_file: usize) -> ApiResult<(Vec<(String, Vec<u8>)>, Vec<String>)> {
@@ -224,7 +309,8 @@ fn read_entries(filename: &str, bytes: Vec<u8>, max_file: usize) -> ApiResult<(V
         if name.split('/').any(|seg| seg.starts_with('.') || seg == "__MACOSX") || name.ends_with("Thumbs.db") {
             continue;
         }
-        if f.size() as usize > max_file {
+        // the Confluence XML export and our backup keep everything in one large file
+        if f.size() as usize > max_file && !name.ends_with("entities.xml") && !super::backup_restore::is_backup_file(&name) {
             skipped.push(format!("{name} (too large)"));
             continue;
         }
@@ -242,6 +328,7 @@ pub async fn import_archive(
     bytes: Vec<u8>,
     target: Option<Collection>,
     publish: bool,
+    source: Source,
 ) -> ApiResult<ImportResult> {
     let team = target.as_ref().map(|c| c.team_id).unwrap_or(auth.team()?);
     let max_file = st.cfg.max_upload_mb * 1024 * 1024;
@@ -249,6 +336,59 @@ pub async fn import_archive(
     if entries.is_empty() {
         return Err(ApiError::bad_request("The archive is empty"));
     }
+    // a backup of this product is restored as it is, not imported as files
+    let is_backup = backup_restore::detect(&entries);
+    match (source, is_backup) {
+        (Source::Auto | Source::Backup, true) => return backup_restore::restore(st, auth, entries).await,
+        (_, true) => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "getpaper_backup",
+                "This archive is a GetPaper backup. Choose GetPaper backup or automatic detection as the source.",
+            ))
+        }
+        (Source::Backup, false) => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "not_getpaper_backup",
+                "This archive is not a GetPaper backup: getpaper-backup.json is missing.",
+            ))
+        }
+        _ => {}
+    }
+    let mut meta: HashMap<String, DocMeta> = HashMap::new();
+    let format = if import_confluence_xml::detect(&entries) {
+        "confluence-xml"
+    } else if import_confluence::detect(&entries) {
+        "confluence-html"
+    } else {
+        "markdown"
+    };
+    // the codes let the web client show a translated message
+    match (source, format) {
+        (Source::Confluence, "markdown") => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "not_confluence_export",
+                "This archive is not a Confluence export: it contains neither entities.xml (XML export) nor Confluence HTML pages. \
+                 Export the space as XML or HTML and upload the ZIP as it is.",
+            ))
+        }
+        (Source::Markdown, "confluence-xml" | "confluence-html") => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "confluence_export",
+                "This archive is a Confluence export. Choose Confluence or automatic detection as the source.",
+            ))
+        }
+        _ => {}
+    }
+    if format == "confluence-xml" {
+        (entries, meta) = import_confluence_xml::convert(entries)?;
+    } else if format == "confluence-html" {
+        (entries, meta) = import_confluence::convert(entries);
+    }
+    tracing::info!(format, files = entries.len(), "importing");
 
     // Strip a single wrapper folder that directly contains no documents ("export/Coll/…").
     loop {
@@ -265,6 +405,7 @@ pub async fn import_archive(
         for (p, _) in entries.iter_mut() {
             *p = p.split_once('/').map(|(_, r)| r.to_string()).unwrap_or_default();
         }
+        meta = meta.into_iter().map(|(p, v)| (p.split_once('/').map(|(_, r)| r.to_string()).unwrap_or_default(), v)).collect();
     }
 
     let default_coll = {
@@ -277,9 +418,12 @@ pub async fn import_archive(
     let mut index: HashMap<(String, Vec<String>), usize> = HashMap::new();
     let mut attachments: Vec<(String, Vec<u8>)> = vec![];
 
+    // archives rewritten from a structured export list their documents in `meta`; any other file is an attachment
+    let structured = !meta.is_empty();
     for (path, data) in entries {
         let ext = ext_of(&path);
-        if !DOC_EXTS.contains(&ext.as_str()) {
+        let is_doc = if structured { meta.contains_key(&path) } else { DOC_EXTS.contains(&ext.as_str()) };
+        if !is_doc {
             attachments.push((path, data));
             continue;
         }
@@ -314,7 +458,8 @@ pub async fn import_archive(
             continue;
         }
         index.insert(k, nodes.len());
-        nodes.push(Node { coll, key, title, text, zip_path: Some(path), id: Uuid::new_v4(), url_id: new_url_id() });
+        let meta = meta.get(&path).cloned().unwrap_or_default();
+        nodes.push(Node { coll, key, title, text, zip_path: Some(path), id: Uuid::new_v4(), url_id: new_url_id(), meta });
     }
 
     // placeholders for folders without a document
@@ -334,6 +479,7 @@ pub async fn import_archive(
                     zip_path: None,
                     id: Uuid::new_v4(),
                     url_id: new_url_id(),
+                    meta: DocMeta::default(),
                 });
             }
         }
@@ -351,7 +497,8 @@ pub async fn import_archive(
     let mut att_count = 0;
     for (path, data) in attachments {
         let ext = ext_of(&path);
-        if ext == "json" || ext == "xml" || ext == "yml" || ext == "yaml" {
+        // metadata files of Markdown exports; real attachments in structured exports
+        if !structured && matches!(ext.as_str(), "json" | "xml" | "yml" | "yaml") {
             skipped.push(path);
             continue;
         }
@@ -425,7 +572,7 @@ pub async fn import_archive(
     static MD_LINK: OnceLock<Regex> = OnceLock::new();
     static HTML_ATTR: OnceLock<Regex> = OnceLock::new();
     static WIKI: OnceLock<Regex> = OnceLock::new();
-    let md_link = re(&MD_LINK, r#"(!?\[[^\]]*\]\()(<[^>]+>|[^)\s]+)((?:\s+"[^"]*")?\))"#);
+    let md_link = re(&MD_LINK, r#"(!?\[(?:\\.|[^\]\\])*\]\()(<[^>]+>|[^)\s]+)((?:\s+"[^"]*")?\))"#);
     let html_attr = re(&HTML_ATTR, r#"\b(src|href)="([^"]+)""#);
     let wiki = re(&WIKI, r"(!?)\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]");
     for n in nodes.iter_mut() {
@@ -497,7 +644,13 @@ pub async fn import_archive(
     let mut order: Vec<usize> = (0..nodes.len()).collect();
     order.sort_by(|&a, &b| {
         let (na, nb) = (&nodes[a], &nodes[b]);
-        na.key.len().cmp(&nb.key.len()).then_with(|| na.key.cmp(&nb.key))
+        let (pa, pb) = (&na.key[..na.key.len().saturating_sub(1)], &nb.key[..nb.key.len().saturating_sub(1)]);
+        na.key
+            .len()
+            .cmp(&nb.key.len())
+            .then_with(|| (&na.coll, pa).cmp(&(&nb.coll, pb)))
+            .then_with(|| na.meta.order.unwrap_or(i64::MAX).cmp(&nb.meta.order.unwrap_or(i64::MAX)))
+            .then_with(|| na.key.cmp(&nb.key))
     });
     let mut positions: HashMap<(String, Vec<String>), f64> = HashMap::new();
     for i in order {
@@ -511,8 +664,10 @@ pub async fn import_archive(
         let pos = positions.entry(pos_key).or_insert(0.0);
         *pos += 1.0;
         sqlx::query(
-            "INSERT INTO documents (id, url_id, team_id, collection_id, parent_document_id, title, text, created_by, updated_by, published_at, position) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, CASE WHEN $9 THEN now() ELSE NULL END, $10)",
+            "INSERT INTO documents (id, url_id, team_id, collection_id, parent_document_id, title, text, created_by, updated_by, \
+             published_at, position, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, CASE WHEN $9 THEN COALESCE($12, now()) ELSE NULL END, $10, \
+             COALESCE($11, now()), COALESCE($12, now()))",
         )
         .bind(n.id)
         .bind(&n.url_id)
@@ -524,22 +679,27 @@ pub async fn import_archive(
         .bind(auth.user.id)
         .bind(publish)
         .bind(*pos)
+        .bind(n.meta.created_at)
+        .bind(n.meta.updated_at)
         .execute(&mut *tx)
         .await?;
         if publish {
-            sqlx::query("INSERT INTO revisions (id, document_id, user_id, title, text) VALUES ($1, $2, $3, $4, $5)")
+            sqlx::query(
+                "INSERT INTO revisions (id, document_id, user_id, title, text, created_at) VALUES ($1, $2, $3, $4, $5, COALESCE($6, now()))",
+            )
                 .bind(Uuid::new_v4())
                 .bind(n.id)
                 .bind(auth.user.id)
                 .bind(&n.title)
                 .bind(&n.text)
+                .bind(n.meta.updated_at)
                 .execute(&mut *tx)
                 .await?;
         }
     }
     tx.commit().await?;
 
-    Ok(ImportResult { collections: created_collections, documents: nodes.len(), attachments: att_count, skipped })
+    Ok(ImportResult { collections: created_collections, documents: nodes.len(), attachments: att_count, skipped, format })
 }
 
 pub async fn import(State(st): State<AppState>, auth: Auth, mut mp: Multipart) -> ApiResult<Json<Value>> {
@@ -547,8 +707,10 @@ pub async fn import(State(st): State<AppState>, auth: Auth, mut mp: Multipart) -
     let mut file: Option<(String, Vec<u8>)> = None;
     let mut collection_id: Option<String> = None;
     let mut publish = true;
+    let mut source = Source::Auto;
     while let Some(field) = mp.next_field().await.map_err(|e| ApiError::bad_request(e.to_string()))? {
         match field.name().unwrap_or("") {
+            "source" => source = Source::parse(&field.text().await.unwrap_or_default()),
             "file" => {
                 let name = field.file_name().unwrap_or("import.zip").to_string();
                 let bytes = field.bytes().await.map_err(|e| ApiError::bad_request(e.to_string()))?;
@@ -564,9 +726,10 @@ pub async fn import(State(st): State<AppState>, auth: Auth, mut mp: Multipart) -
         Some(c) => Some(load_collection(&st.db, &auth, &c, Access::Write).await?.0),
         None => None,
     };
-    let r = import_archive(&st, &auth, &name, bytes, target, publish).await?;
+    let r = import_archive(&st, &auth, &name, bytes, target, publish, source).await?;
     tracing::info!(documents = r.documents, attachments = r.attachments, "import completed");
     ok(json!({
+        "format": r.format,
         "collections": r.collections,
         "documents": r.documents,
         "attachments": r.attachments,

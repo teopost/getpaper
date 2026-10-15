@@ -32,7 +32,7 @@ fn redirect(location: &str, cookies: Vec<String>) -> Response {
 }
 
 fn clear_state_cookie() -> String {
-    format!("{STATE_COOKIE}=; Path=/auth/microsoft; HttpOnly; SameSite=Lax; Max-Age=0")
+    format!("{STATE_COOKIE}=; Path=/auth; HttpOnly; SameSite=Lax; Max-Age=0")
 }
 
 fn login_error(message: &str) -> Response {
@@ -43,7 +43,8 @@ fn login_error(message: &str) -> Response {
 }
 
 fn redirect_uri(st: &AppState) -> String {
-    format!("{}/auth/microsoft/callback", st.cfg.url.trim_end_matches('/'))
+    let path = st.cfg.microsoft.as_ref().map(|m| m.callback_path.as_str()).unwrap_or("/auth/microsoft/callback");
+    format!("{}{path}", st.cfg.url.trim_end_matches('/'))
 }
 
 fn is_tenant_specific(ms: &MicrosoftConfig) -> bool {
@@ -89,7 +90,7 @@ pub async fn start(State(st): State<AppState>, Query(q): Query<StartQuery>) -> R
         .append_pair("prompt", "select_account");
 
     let cookie = format!(
-        "{STATE_COOKIE}={cookie_value}; Path=/auth/microsoft; HttpOnly; SameSite=Lax; Max-Age=600{}",
+        "{STATE_COOKIE}={cookie_value}; Path=/auth; HttpOnly; SameSite=Lax; Max-Age=600{}",
         if st.cfg.secure_cookies { "; Secure" } else { "" }
     );
     redirect(url.as_str(), vec![cookie])
@@ -228,13 +229,15 @@ async fn resolve_user(st: &AppState, ms: &MicrosoftConfig, id: &Identity, has_in
         return Err(ApiError::forbidden("You don't have an account yet. Ask an admin to invite you."));
     }
     Ok(sqlx::query_as(
-        "INSERT INTO users (id, name, email, password_hash, color, microsoft_id) VALUES ($1, $2, $3, '', $4, $5) RETURNING *",
+        "INSERT INTO users (id, name, email, password_hash, color, microsoft_id, is_superadmin) \
+         VALUES ($1, $2, $3, '', $4, $5, NOT EXISTS (SELECT 1 FROM users) OR lower($3) = ANY($6)) RETURNING *",
     )
     .bind(Uuid::new_v4())
     .bind(&id.name)
     .bind(&id.email)
     .bind(random_color())
     .bind(&id.microsoft_id)
+    .bind(&st.cfg.superadmin_emails)
     .fetch_one(&st.db)
     .await?)
 }
@@ -351,6 +354,7 @@ pub async fn shared_page(State(st): State<AppState>) -> Response {
                 (header::CONTENT_TYPE, "text/html; charset=utf-8"),
                 (header::HeaderName::from_static("x-robots-tag"), "noindex, nofollow"),
                 (header::REFERRER_POLICY, "no-referrer"),
+                (header::CACHE_CONTROL, "no-cache"),
             ],
             html,
         )

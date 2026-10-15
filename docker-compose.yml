@@ -1,4 +1,4 @@
-name: horsa-codex
+name: getpaper
 
 services:
   postgres:
@@ -18,7 +18,7 @@ services:
 
   app:
     build: .
-    image: horsa-codex:latest
+    image: getpaper:latest
     restart: unless-stopped
     depends_on:
       postgres:
@@ -33,6 +33,20 @@ services:
       # Max size of a ZIP archive accepted by the bulk importer
       IMPORT_MAX_MB: 500
       RUST_LOG: info,sqlx=warn
+      # Outgoing email for invitations (SMTP_SECURE: ssl for port 465, starttls, none)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-GetPaper}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      # Accounts that are always superadmins (comma separated), e.g. to recover access
+      SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}
+      # Defaults for users who haven't set their own preference (Settings → Profile)
+      DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-en}
+      DEFAULT_THEME: ${DEFAULT_THEME:-system}
+      DEFAULT_CONTENT_WIDTH: ${DEFAULT_CONTENT_WIDTH:-normal}
       # --- Microsoft Entra ID (Azure AD) single sign-on ---
       # Redirect URI to register in the app registration: ${URL}/auth/microsoft/callback
       MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
@@ -43,6 +57,8 @@ services:
       MICROSOFT_ALLOWED_DOMAINS: ${MICROSOFT_ALLOWED_DOMAINS:-}
       # Create accounts automatically on first Microsoft sign-in
       MICROSOFT_AUTO_PROVISION: ${MICROSOFT_AUTO_PROVISION:-true}
+      # Redirect URI path: /auth/microsoft/callback, or /auth/azure.callback to reuse an Outline app registration
+      MICROSOFT_CALLBACK_PATH: ${MICROSOFT_CALLBACK_PATH:-/auth/microsoft/callback}
       # Set to "false" to allow only Microsoft sign-in
       PASSWORD_LOGIN: ${PASSWORD_LOGIN:-true}
     ports:

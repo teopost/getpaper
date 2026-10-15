@@ -1,12 +1,12 @@
 [package]
-name = "horsa-codex"
+name = "getpaper"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 axum = { version = "0.7", features = ["multipart", "macros"] }
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.5", features = ["fs", "trace", "compression-gzip"] }
+tower-http = { version = "0.5", features = ["fs", "trace", "compression-gzip", "set-header"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "chrono", "json", "macros", "migrate"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -21,6 +21,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 regex = "1"
+scraper = "0.20"
+quick-xml = "0.36"
+lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 bytes = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 base64 = "0.22"

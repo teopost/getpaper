@@ -44,6 +44,13 @@ impl Auth {
             Err(ApiError::forbidden("Only workspace admins can do this"))
         }
     }
+    pub fn require_superadmin(&self) -> ApiResult<()> {
+        if self.user.is_superadmin {
+            Ok(())
+        } else {
+            Err(ApiError::forbidden("Only superadmins can change the general settings"))
+        }
+    }
     pub fn require_writer(&self) -> ApiResult<()> {
         if self.can_write() {
             Ok(())
