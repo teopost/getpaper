@@ -1,11 +1,27 @@
 # GetPaper
 
-**Sito del progetto:** https://teopost.github.io/getpaper/
+**Sito del progetto:** https://teopost.github.io/getpaper/ · Licenza MIT · Immagine Docker: `ghcr.io/teopost/getpaper`
 
 Wiki / knowledge base ispirata a [Outline](https://github.com/outline/outline), con backend in **Rust** e
 **workspace multipli** inclusi (in Outline sono una funzione a pagamento).
 
-## Avvio
+## Avvio rapido (immagine Docker)
+
+L'immagine pubblicata su GitHub Container Registry (`ghcr.io/teopost/getpaper`, per amd64 e arm64) si avvia senza
+scaricare i sorgenti:
+
+```bash
+mkdir getpaper && cd getpaper
+curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
+# imposta almeno URL e POSTGRES_PASSWORD in .env
+docker compose up -d
+```
+
+Aggiornamento all'ultima versione: `docker compose pull && docker compose up -d`. Per aggiornamenti controllati
+imposta in `.env` una versione precisa, ad esempio `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:1.0.0`.
+
+## Avvio dai sorgenti
 
 ```bash
 docker compose up -d --build
@@ -281,3 +297,7 @@ Sviluppo frontend con hot reload: avvia lo stack, poi `cd web && npm install && 
   il documento nel frattempo, compare un avviso di conflitto con il pulsante per ricaricare.
 - Login con email e password. Non ci sono SSO (Google, Slack, OIDC), invio email, gruppi e integrazioni.
 - I commenti riguardano l'intero documento, non sono ancorati a una selezione di testo.
+
+## Licenza
+
+GetPaper è distribuito con licenza [MIT](LICENSE).

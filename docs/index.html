@@ -373,12 +373,11 @@
     <div class="reveal">
       <div class="kicker" data-i18n="start.kicker">Self-host</div>
       <h2 data-i18n="start.title">Up and running in three steps.</h2>
-      <p class="sub" data-i18n="start.sub">A single Docker Compose file starts GetPaper and PostgreSQL. No external services required.</p>
+      <p class="sub" data-i18n="start.sub">A single Docker Compose file starts GetPaper and PostgreSQL from the image on GitHub Container Registry. No external services required.</p>
     </div>
     <div class="steps">
-      <div class="step reveal"><div class="num">1</div><h3 data-i18n="s1.t">Get the code</h3><p data-i18n="s1.d">Clone the repository on any machine with Docker.</p><pre>git clone https://github.com/teopost/getpaper
-cd getpaper</pre></div>
-      <div class="step reveal"><div class="num">2</div><h3 data-i18n="s2.t">Configure</h3><p data-i18n="s2.d">Set your public URL, and optionally Microsoft sign-in and email.</p><pre>cp .env.example .env
+      <div class="step reveal"><div class="num">1</div><h3 data-i18n="s1.t">Download</h3><p data-i18n="s1.d">The Compose file uses the published image (amd64 and arm64): no build needed.</p><pre>curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml</pre></div>
+      <div class="step reveal"><div class="num">2</div><h3 data-i18n="s2.t">Configure</h3><p data-i18n="s2.d">Set your public URL and a database password; Microsoft sign-in and email are optional.</p><pre>curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
 nano .env</pre></div>
       <div class="step reveal"><div class="num">3</div><h3 data-i18n="s3.t">Start</h3><p data-i18n="s3.d">Open the URL and create the first account and workspace.</p><pre>docker compose up -d</pre></div>
     </div>
@@ -401,7 +400,7 @@ nano .env</pre></div>
 <footer>
   <div class="wrap foot">
     <span class="brand"><svg><use href="#logo"/></svg><span>Get<b>Paper</b></span></span>
-    <span data-i18n="foot.tag">The self-hosted wiki for teams.</span>
+    <span data-i18n="foot.tag">The self-hosted wiki for teams. MIT licensed.</span>
     <span class="sp">
       <a href="https://github.com/teopost/getpaper">GitHub</a>
       <a href="https://github.com/teopost/getpaper#readme">Docs</a>
@@ -438,13 +437,13 @@ nano .env</pre></div>
     'admin.kicker': 'Per gli amministratori', 'admin.title': 'Impostazioni per tutta l’installazione.',
     'admin.p': 'I superadmin personalizzano il prodotto, decidono quali export sono permessi e impostano i valori predefiniti di ogni nuovo utente.',
     'admin.l1': 'Nome del prodotto e colori personalizzati', 'admin.l2': 'Interruttori per backup, export Markdown e link pubblici', 'admin.l3': 'Lingua, tema e larghezza della pagina predefiniti',
-    'start.kicker': 'Self-hosting', 'start.title': 'Operativo in tre passi.', 'start.sub': 'Un solo file Docker Compose avvia GetPaper e PostgreSQL. Nessun servizio esterno necessario.',
-    's1.t': 'Scarica il codice', 's1.d': 'Clona il repository su qualsiasi macchina con Docker.',
-    's2.t': 'Configura', 's2.d': 'Imposta l’URL pubblico e, se vuoi, accesso Microsoft ed email.',
+    'start.kicker': 'Self-hosting', 'start.title': 'Operativo in tre passi.', 'start.sub': 'Un solo file Docker Compose avvia GetPaper e PostgreSQL con l’immagine di GitHub Container Registry. Nessun servizio esterno necessario.',
+    's1.t': 'Scarica', 's1.d': 'Il file Compose usa l’immagine pubblicata (amd64 e arm64): niente da compilare.',
+    's2.t': 'Configura', 's2.d': 'Imposta l’URL pubblico e una password per il database; accesso Microsoft ed email sono facoltativi.',
     's3.t': 'Avvia', 's3.d': 'Apri l’URL e crea il primo account e il primo workspace.',
     'final.title': 'Dai al tuo team una casa per ciò che sa.', 'final.p': 'GetPaper è gratuito e open source. Installalo sui tuoi server, rendilo tuo.',
     'final.cta': 'Scarica GetPaper da GitHub', 'final.cta2': 'Leggi la guida rapida',
-    'foot.tag': 'Il wiki self-hosted per i team.',
+    'foot.tag': 'Il wiki self-hosted per i team. Licenza MIT.',
   };
   const EN = {};
   document.querySelectorAll('[data-i18n]').forEach((el) => (EN[el.dataset.i18n] = el.innerHTML));

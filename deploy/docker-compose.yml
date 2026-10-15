@@ -1,0 +1,69 @@
+# GetPaper with the published image: no source code or build needed.
+#
+#   curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml
+#   curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env   # then edit URL and the rest
+#   docker compose up -d
+#
+# Open the URL and create the first account: it becomes the superadmin.
+# Update to the latest version with: docker compose pull && docker compose up -d
+name: getpaper
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: getpaper
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-getpaper}
+      POSTGRES_DB: getpaper
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U getpaper -d getpaper"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    # pin a version (e.g. ghcr.io/teopost/getpaper:1.0.0) for predictable updates
+    image: ${GETPAPER_IMAGE:-ghcr.io/teopost/getpaper:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://getpaper:${POSTGRES_PASSWORD:-getpaper}@postgres:5432/getpaper
+      # Public URL, used in invite and share links and for Microsoft sign-in
+      URL: ${URL:-http://localhost:3000}
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
+      PASSWORD_LOGIN: ${PASSWORD_LOGIN:-true}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+      IMPORT_MAX_MB: ${IMPORT_MAX_MB:-500}
+      RUST_LOG: info,sqlx=warn
+      # Microsoft Entra ID single sign-on (optional)
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-organizations}
+      MICROSOFT_ALLOWED_DOMAINS: ${MICROSOFT_ALLOWED_DOMAINS:-}
+      MICROSOFT_AUTO_PROVISION: ${MICROSOFT_AUTO_PROVISION:-true}
+      MICROSOFT_CALLBACK_PATH: ${MICROSOFT_CALLBACK_PATH:-/auth/microsoft/callback}
+      # Invitation emails (optional)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SUPERADMIN_EMAILS: ${SUPERADMIN_EMAILS:-}
+      DEFAULT_LANGUAGE: ${DEFAULT_LANGUAGE:-en}
+      DEFAULT_THEME: ${DEFAULT_THEME:-system}
+      DEFAULT_CONTENT_WIDTH: ${DEFAULT_CONTENT_WIDTH:-normal}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - uploads:/data/uploads
+
+volumes:
+  pgdata:
+  uploads:
