@@ -1,0 +1,453 @@
+.editor {
+  position: relative;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.ProseMirror {
+  outline: none;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0;
+  min-height: 2em;
+}
+
+.editor.is-editable .ProseMirror-doc {
+  min-height: 50vh;
+}
+.collection-description .editor.is-editable .ProseMirror-doc {
+  min-height: 1.6em;
+}
+
+.ProseMirror > * + * {
+  margin-top: 0;
+}
+
+.ProseMirror p {
+  margin: 0;
+  min-height: 1.6em;
+}
+
+.ProseMirror p + p {
+  margin-top: 0;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror h4 {
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 1em 0 0.5em;
+  letter-spacing: -0.01em;
+}
+.ProseMirror h1 {
+  font-size: 1.75em;
+}
+.ProseMirror h2 {
+  font-size: 1.5em;
+}
+.ProseMirror h3 {
+  font-size: 1.25em;
+}
+.ProseMirror h4 {
+  font-size: 1em;
+}
+.ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.ProseMirror a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ProseMirror a:hover {
+  text-decoration-color: var(--accent);
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5em;
+  margin: 0.25em 0;
+}
+.ProseMirror li > p {
+  margin: 0;
+}
+.ProseMirror li {
+  padding-left: 0.15em;
+}
+
+.ProseMirror ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.2em;
+}
+.ProseMirror ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ProseMirror ul[data-type='taskList'] li > label {
+  flex-shrink: 0;
+  user-select: none;
+  margin-top: 0.3em;
+}
+.ProseMirror ul[data-type='taskList'] li > label input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.ProseMirror ul[data-type='taskList'] li > div {
+  flex: 1;
+}
+.ProseMirror ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--divider);
+  margin: 0.5em 0;
+  padding-left: 1em;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.ProseMirror hr {
+  border: 0;
+  height: 0;
+  border-top: 1px solid var(--divider);
+  margin: 1.5em 0;
+}
+.ProseMirror hr.ProseMirror-selectednode {
+  border-top-color: var(--accent);
+}
+
+.ProseMirror code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  background: var(--code-bg);
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.ProseMirror pre {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  background: var(--code-bg);
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  padding: 0.75em 1em;
+  margin: 0.5em 0;
+  overflow-x: auto;
+  white-space: pre;
+  line-height: 1.5;
+}
+.ProseMirror pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+.ProseMirror mark {
+  background: var(--mark);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  display: block;
+  margin: 0.5em 0;
+}
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+}
+
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  width: 100%;
+  table-layout: fixed;
+  overflow: hidden;
+}
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid var(--divider);
+  padding: 6px 10px;
+  vertical-align: top;
+  min-width: 60px;
+  position: relative;
+}
+.ProseMirror th {
+  background: var(--code-bg);
+  font-weight: 600;
+  text-align: left;
+}
+.ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 102, 214, 0.12);
+  pointer-events: none;
+}
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+}
+
+/* notices */
+.ProseMirror .notice {
+  display: block;
+  border-radius: 6px;
+  padding: 0.75em 1em 0.75em 2.6em;
+  margin: 0.5em 0;
+  position: relative;
+  background: rgba(3, 102, 214, 0.08);
+}
+.ProseMirror .notice::before {
+  position: absolute;
+  left: 0.9em;
+  top: 0.72em;
+  font-size: 1em;
+}
+.ProseMirror .notice[data-style='info']::before {
+  content: 'ℹ️';
+}
+.ProseMirror .notice[data-style='warning'] {
+  background: rgba(240, 138, 36, 0.13);
+}
+.ProseMirror .notice[data-style='warning']::before {
+  content: '⚠️';
+}
+.ProseMirror .notice[data-style='tip'] {
+  background: rgba(158, 92, 247, 0.11);
+}
+.ProseMirror .notice[data-style='tip']::before {
+  content: '💡';
+}
+.ProseMirror .notice[data-style='success'] {
+  background: rgba(58, 217, 132, 0.14);
+}
+.ProseMirror .notice[data-style='success']::before {
+  content: '✅';
+}
+
+/* placeholder */
+.ProseMirror p.is-empty::before,
+.ProseMirror h1.is-empty::before,
+.ProseMirror h2.is-empty::before,
+.ProseMirror h3.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+  pointer-events: none;
+  height: 0;
+}
+.editor.is-readonly .ProseMirror p.is-empty::before {
+  content: none;
+}
+
+/* syntax highlighting */
+.hljs-comment,
+.hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type {
+  color: #d73a49;
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+  color: #22863a;
+}
+.hljs-number,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-attr,
+.hljs-attribute {
+  color: #005cc5;
+}
+.hljs-title,
+.hljs-section,
+.hljs-function {
+  color: #6f42c1;
+}
+.hljs-built_in,
+.hljs-name,
+.hljs-tag {
+  color: #e36209;
+}
+.hljs-deletion {
+  color: #b31d28;
+}
+@media (prefers-color-scheme: dark) {
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-type {
+    color: #ff7b72;
+  }
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-addition {
+    color: #a5d6ff;
+  }
+  .hljs-number,
+  .hljs-variable,
+  .hljs-attr,
+  .hljs-attribute {
+    color: #79c0ff;
+  }
+  .hljs-title,
+  .hljs-section,
+  .hljs-function {
+    color: #d2a8ff;
+  }
+  .hljs-built_in,
+  .hljs-name,
+  .hljs-tag {
+    color: #ffa657;
+  }
+}
+
+/* formatting toolbar (Outline style: dark floating bar) */
+.formatting-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #181c25;
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+.fmt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border: 0;
+  background: none;
+  color: #c5ccd3;
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.fmt-btn.text {
+  font-size: 12px;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+.fmt-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+.fmt-btn.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+.fmt-btn.danger:hover {
+  color: #ff6b87;
+}
+.fmt-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
+}
+.link-editor {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.link-editor input {
+  width: 260px;
+  background: transparent;
+  border: 0;
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+/* slash command menu */
+.slash-popup {
+  position: fixed;
+  z-index: 1000;
+}
+.command-list {
+  width: 280px;
+  max-height: 340px;
+  overflow-y: auto;
+  background: var(--menu-bg);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+}
+.empty-commands {
+  padding: 10px 14px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+}
+.command-section {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  padding: 8px 10px 4px;
+}
+.command-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 6px 10px;
+  border-radius: 5px;
+  color: var(--text);
+  text-align: left;
+  font-size: 14px;
+}
+.command-item.selected {
+  background: var(--accent);
+  color: #fff;
+}
+.command-icon {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: var(--code-bg);
+  color: var(--text-secondary);
+}
+.command-item.selected .command-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.command-title {
+  flex: 1;
+}
+.command-shortcut {
+  font-family: var(--mono);
+  font-size: 12px;
+  opacity: 0.55;
+}

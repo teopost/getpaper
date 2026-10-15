@@ -1,0 +1,55 @@
+name: horsa-codex
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: codex
+      POSTGRES_PASSWORD: codex
+      POSTGRES_DB: codex
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codex -d codex"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    image: horsa-codex:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://codex:codex@postgres:5432/codex
+      # Public URL used to build invite and share links
+      URL: ${URL:-http://localhost:3000}
+      # Set to "false" to allow new accounts only through invites
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-true}
+      MAX_UPLOAD_MB: 25
+      # Max size of a ZIP archive accepted by the bulk importer
+      IMPORT_MAX_MB: 500
+      RUST_LOG: info,sqlx=warn
+      # --- Microsoft Entra ID (Azure AD) single sign-on ---
+      # Redirect URI to register in the app registration: ${URL}/auth/microsoft/callback
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      # Directory (tenant) id; "organizations" accepts any work/school account
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-organizations}
+      # Optional: only these email domains may sign in (comma separated)
+      MICROSOFT_ALLOWED_DOMAINS: ${MICROSOFT_ALLOWED_DOMAINS:-}
+      # Create accounts automatically on first Microsoft sign-in
+      MICROSOFT_AUTO_PROVISION: ${MICROSOFT_AUTO_PROVISION:-true}
+      # Set to "false" to allow only Microsoft sign-in
+      PASSWORD_LOGIN: ${PASSWORD_LOGIN:-true}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - uploads:/data/uploads
+
+volumes:
+  pgdata:
+  uploads:

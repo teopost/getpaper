@@ -1,0 +1,16 @@
+# dependencies & build output
+web/node_modules/
+web/dist/
+server/target/
+
+# local configuration and secrets
+.env
+.env.*
+!.env.example
+.claude/
+
+# editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

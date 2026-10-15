@@ -1,0 +1,220 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Download, MoreHorizontal, Pencil, Plus, Trash2, Upload, Search as SearchIcon, Lock } from 'lucide-react';
+import { api, collectionUrl, docUrl, downloadText, slugify, upload } from '../api';
+import { useApp } from '../store';
+import Scene from '../components/Scene';
+import DocumentList from '../components/DocumentList';
+import { CollectionIcon } from '../components/icons';
+import { Button, IconButton, Menu, Spinner, Tabs, Empty, ConfirmModal } from '../components/ui';
+import CollectionModal from '../components/CollectionModal';
+import { useToast } from '../components/Toast';
+import Editor from '../editor/Editor';
+
+export default function CollectionPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const { createDoc, refreshCollections, refreshAllTrees, refreshTree, isAdmin, user, collections } = useApp();
+  const [collection, setCollection] = useState(null);
+  const [error, setError] = useState(null);
+  const [tab, setTab] = useState('updated');
+  const [docs, setDocs] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const descTimer = useRef(null);
+
+  const load = () =>
+    api('collections.info', { id })
+      .then((c) => {
+        setCollection(c);
+        setError(null);
+      })
+      .catch((e) => setError(e));
+
+  useEffect(() => {
+    setCollection(null);
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // keep in sync with edits made via the sidebar
+  useEffect(() => {
+    const c = collections.find((x) => x.id === collection?.id);
+    if (c && collection && (c.name !== collection.name || c.color !== collection.color || c.icon !== collection.icon || c.permission !== collection.permission)) {
+      setCollection((prev) => ({ ...prev, ...c }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collections]);
+
+  useEffect(() => {
+    if (!collection) return;
+    setDocs(null);
+    const params =
+      tab === 'updated'
+        ? { sort: 'updatedAt' }
+        : tab === 'published'
+        ? { sort: 'publishedAt' }
+        : tab === 'old'
+        ? { sort: 'updatedAt', direction: 'ASC' }
+        : { sort: 'title', direction: 'ASC' };
+    api('documents.list', { collectionId: collection.id, limit: 100, ...params }).then(setDocs);
+  }, [collection?.id, tab]);
+
+  if (error) return <div className="centered-page">{error.message}</div>;
+  if (!collection)
+    return (
+      <div className="centered-page">
+        <Spinner />
+      </div>
+    );
+
+  const canWrite = collection.access === 'write';
+  const canDelete = canWrite && (isAdmin || collection.createdBy === user.id);
+
+  const saveDescription = (md) => {
+    clearTimeout(descTimer.current);
+    descTimer.current = setTimeout(() => {
+      api('collections.update', { id: collection.id, description: md }).catch((e) => toast(e.message, 'error'));
+    }, 800);
+  };
+
+  const importFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.zip,.md,.markdown,.txt,.html,.htm,text/markdown,text/plain';
+    input.multiple = true;
+    input.onchange = async () => {
+      let last;
+      let total = 0;
+      for (const file of input.files) {
+        try {
+          if (file.name.toLowerCase().endsWith('.zip')) {
+            const r = await upload('collections.import', { file, collectionId: collection.id, publish: 'true' });
+            total += r.documents;
+          } else {
+            last = await upload('documents.import', { file, collectionId: collection.id, publish: 'true' });
+            total += 1;
+          }
+        } catch (e) {
+          toast(`${file.name}: ${e.message}`, 'error');
+        }
+      }
+      await refreshTree(collection.id);
+      if (total) toast(`Imported ${total} document${total === 1 ? '' : 's'}`);
+      if (last && total === 1) navigate(docUrl(last));
+      else load();
+    };
+    input.click();
+  };
+
+  const exportCollection = async () => {
+    const res = await api('collections.export', { id: collection.id });
+    downloadText(`${slugify(res.name)}.md`, res.markdown);
+  };
+
+  return (
+    <Scene
+      title={collection.name}
+      headerTitle={
+        <span className="breadcrumb">
+          <CollectionIcon collection={collection} size={16} />
+          <span>{collection.name}</span>
+          {!collection.permission && <Lock size={13} className="muted" title="Private" />}
+        </span>
+      }
+      actions={
+        <>
+          <IconButton title="Search in collection" onClick={() => navigate(`/search?collectionId=${collection.id}`)}>
+            <SearchIcon size={18} />
+          </IconButton>
+          {canWrite && (
+            <Button icon={<Plus size={16} />} onClick={() => createDoc({ collectionId: collection.id })}>
+              New doc
+            </Button>
+          )}
+          <Menu
+            align="right"
+            trigger={
+              <IconButton title="More">
+                <MoreHorizontal size={18} />
+              </IconButton>
+            }
+            items={[
+              canWrite && { label: 'New document', icon: <Plus size={16} />, onClick: () => createDoc({ collectionId: collection.id }) },
+              canWrite && { label: 'Import…', icon: <Upload size={16} />, onClick: importFile },
+              canWrite && { label: 'Edit…', icon: <Pencil size={16} />, onClick: () => setEditing(true) },
+              { label: 'Export', icon: <Download size={16} />, onClick: exportCollection },
+              canDelete && { separator: true },
+              canDelete && { label: 'Delete…', icon: <Trash2 size={16} />, danger: true, onClick: () => setConfirmDelete(true) },
+            ]}
+          />
+        </>
+      }
+    >
+      <div className="collection-hero">
+        <CollectionIcon collection={collection} size={40} />
+        <h1 className="page-title">{collection.name}</h1>
+      </div>
+      <div className="collection-description">
+        <Editor
+          key={collection.id}
+          value={collection.description}
+          editable={canWrite}
+          onChange={saveDescription}
+          documentId={undefined}
+          placeholder={canWrite ? 'Add a description…' : ''}
+        />
+      </div>
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { value: 'updated', label: 'Recently updated' },
+          { value: 'published', label: 'Recently published' },
+          { value: 'old', label: 'Least recently updated' },
+          { value: 'alpha', label: 'A–Z' },
+        ]}
+      />
+      {docs && docs.length === 0 ? (
+        <Empty>
+          <p>Collections are a place to organize documents. Get started by creating a new one!</p>
+          {canWrite && (
+            <Button icon={<Plus size={16} />} onClick={() => createDoc({ collectionId: collection.id })}>
+              Create a document
+            </Button>
+          )}
+        </Empty>
+      ) : (
+        <DocumentList docs={docs} showCollection={false} />
+      )}
+      {editing && (
+        <CollectionModal
+          collection={collection}
+          onClose={() => {
+            setEditing(false);
+            load();
+          }}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete collection"
+          danger
+          confirmLabel="I’m sure – Delete"
+          message={`Are you sure you want to delete the ${collection.name} collection? All of its documents will be moved to the trash.`}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={async () => {
+            await api('collections.delete', { id: collection.id });
+            await refreshCollections();
+            await refreshAllTrees();
+            toast('Collection deleted');
+            navigate('/');
+          }}
+        />
+      )}
+    </Scene>
+  );
+}
+
+export { collectionUrl };
