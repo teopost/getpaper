@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GetPaper — the self-hosted wiki for teams</title>
+<meta name="description" content="GetPaper is an open-source, self-hosted team wiki: a fast Markdown editor, multiple workspaces, Microsoft sign-in, imports from Confluence, Outline, Notion and Obsidian, and a built-in MCP server for AI assistants.">
+<meta property="og:title" content="GetPaper — the self-hosted wiki for teams">
+<meta property="og:description" content="Fast Markdown editor, multiple workspaces, Microsoft sign-in, Confluence import and a built-in MCP server for AI assistants.">
+<meta property="og:image" content="assets/document.webp">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f6f7f9;
+    --bg-card: #ffffff;
+    --text: #0f1115;
+    --text-2: #4b5563;
+    --text-3: #8a94a3;
+    --line: #e7e9ee;
+    --accent: #2563eb;
+    --accent-2: #7c3aed;
+    --accent-soft: #eef3ff;
+    --code-bg: #0f1115;
+    --code-text: #e6e9ef;
+    --shadow: 0 1px 2px rgba(15, 17, 21, 0.04), 0 12px 32px -8px rgba(15, 17, 21, 0.14), 0 40px 80px -24px rgba(37, 99, 235, 0.18);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: #0c0e12;
+      --bg-soft: #12151b;
+      --bg-card: #151921;
+      --text: #eef0f4;
+      --text-2: #aab3c0;
+      --text-3: #6e7887;
+      --line: #232833;
+      --accent: #5b8cff;
+      --accent-2: #a78bfa;
+      --accent-soft: #172036;
+      --code-bg: #0a0c10;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 64px -16px rgba(0, 0, 0, 0.7), 0 40px 100px -30px rgba(91, 140, 255, 0.25);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; height: auto; display: block; }
+  code, pre { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  nav {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  }
+  .nav { display: flex; align-items: center; gap: 28px; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
+  .brand svg { width: 28px; height: 28px; color: var(--text); }
+  .brand b { color: var(--accent); font-weight: 700; }
+  .nav-links { display: flex; gap: 22px; margin-left: 12px; font-size: 14px; color: var(--text-2); }
+  .nav-links a:hover { color: var(--text); }
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .lang { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 12px; font-weight: 600; }
+  .lang button { border: 0; background: transparent; color: var(--text-3); padding: 6px 10px; cursor: pointer; font: inherit; }
+  .lang button.on { background: var(--accent-soft); color: var(--accent); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px;
+    border-radius: 10px; font-weight: 600; font-size: 15px; transition: transform 120ms, box-shadow 120ms, background 120ms;
+  }
+  .btn svg { width: 18px; height: 18px; }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 20px -6px color-mix(in srgb, var(--accent) 70%, transparent); }
+  .btn-primary:hover { transform: translateY(-1px); }
+  .btn-ghost { border: 1px solid var(--line); background: var(--bg-card); }
+  .btn-ghost:hover { border-color: var(--text-3); }
+  .btn-sm { height: 34px; padding: 0 12px; font-size: 14px; }
+
+  /* hero */
+  .hero { position: relative; padding: 88px 0 40px; text-align: center; overflow: hidden; }
+  .hero::before {
+    content: ''; position: absolute; inset: -40% -10% auto; height: 760px; z-index: -1;
+    background:
+      radial-gradient(40% 50% at 30% 30%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+      radial-gradient(35% 45% at 70% 25%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 70%);
+    filter: blur(10px);
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-card); color: var(--text-2); font-size: 13px; font-weight: 500;
+  }
+  .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 20%, transparent); }
+  h1 {
+    margin: 22px auto 18px; max-width: 880px;
+    font-size: clamp(40px, 6.4vw, 72px); line-height: 1.04; letter-spacing: -0.045em; font-weight: 800;
+  }
+  .grad { background: linear-gradient(100deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { max-width: 680px; margin: 0 auto; color: var(--text-2); font-size: 19px; }
+  .cta { display: flex; justify-content: center; gap: 12px; margin: 32px 0 14px; flex-wrap: wrap; }
+  .note { color: var(--text-3); font-size: 13px; }
+
+  .shot {
+    margin: 56px auto 0; max-width: 1080px; border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--line); background: var(--bg-card); box-shadow: var(--shadow);
+  }
+  .shot-bar { display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--bg-soft); }
+  .shot-bar i { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
+  .shot-bar span { margin: 0 auto; font-size: 12px; color: var(--text-3); padding-right: 44px; }
+  .shot img { width: 100%; height: auto; }
+
+  /* strip */
+  .strip { display: flex; justify-content: center; gap: 36px; flex-wrap: wrap; padding: 40px 0 8px; color: var(--text-3); font-size: 14px; font-weight: 500; }
+  .strip span { display: inline-flex; align-items: center; gap: 8px; }
+  .strip svg { width: 18px; height: 18px; }
+
+  section { padding: 96px 0; }
+  .center { text-align: center; }
+  .kicker { color: var(--accent); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase; }
+  h2 { font-size: clamp(30px, 4vw, 44px); line-height: 1.12; letter-spacing: -0.035em; margin: 10px 0 14px; font-weight: 800; }
+  .sub { color: var(--text-2); font-size: 18px; max-width: 640px; margin: 0 auto; }
+
+  /* features */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 52px; }
+  .card {
+    padding: 26px; border-radius: 16px; border: 1px solid var(--line); background: var(--bg-card);
+    transition: transform 160ms, border-color 160ms;
+  }
+  .card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .icon {
+    width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 16px;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .icon svg { width: 22px; height: 22px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: -0.01em; }
+  .card p { margin: 0; color: var(--text-2); font-size: 15px; }
+
+  /* showcase */
+  .alt { background: var(--bg-soft); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .row { display: grid; grid-template-columns: 1fr 1.25fr; gap: 64px; align-items: center; }
+  .row + .row { margin-top: 110px; }
+  .row > *, .grid > *, .steps > * { min-width: 0; }
+  .row.flip .text { order: 2; }
+  .text h2 { font-size: clamp(28px, 3.4vw, 38px); }
+  .text p { color: var(--text-2); font-size: 17px; }
+  .ticks { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 10px; }
+  .ticks li { display: flex; gap: 10px; color: var(--text-2); font-size: 15px; }
+  .ticks li::before {
+    content: ''; flex: none; width: 18px; height: 18px; margin-top: 3px; border-radius: 50%;
+    background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 11px no-repeat;
+  }
+  .frame { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--bg-card); }
+
+  /* code */
+  .term {
+    margin-top: 22px; border-radius: 12px; background: var(--code-bg); color: var(--code-text);
+    padding: 18px 20px; font-size: 13.5px; line-height: 1.7; overflow-x: auto; border: 1px solid #1d2230;
+  }
+  .term .c { color: #6b7686; }
+  .term .k { color: #8ab4ff; }
+  .term .s { color: #a5e3b6; }
+
+  /* quick start */
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 48px; text-align: left; }
+  .step { padding: 24px; border-radius: 16px; border: 1px solid var(--line); background: var(--bg-card); }
+  .num {
+    width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; margin-bottom: 14px;
+  }
+  .step h3 { margin: 0 0 6px; font-size: 16px; }
+  .step p { margin: 0; color: var(--text-2); font-size: 14.5px; }
+  .step pre { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--code-bg); color: var(--code-text); font-size: 12.5px; overflow-x: auto; }
+
+  /* final cta */
+  .final {
+    margin: 0 auto; max-width: 980px; text-align: center; padding: 64px 32px; border-radius: 24px; color: #fff;
+    background:
+      radial-gradient(60% 120% at 0% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
+      linear-gradient(120deg, #1d4ed8, #6d28d9);
+    box-shadow: 0 30px 80px -30px rgba(79, 70, 229, 0.6);
+  }
+  .final h2 { color: #fff; }
+  .final p { color: rgba(255, 255, 255, 0.82); font-size: 18px; max-width: 560px; margin: 0 auto 28px; }
+  .final .btn-primary { background: #fff; color: #1d2a5c; box-shadow: none; }
+  .final .btn-ghost { background: transparent; border-color: rgba(255, 255, 255, 0.4); color: #fff; }
+
+  footer { padding: 48px 0 56px; color: var(--text-3); font-size: 14px; }
+  .foot { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 28px; }
+  .foot .brand { font-size: 15px; color: var(--text-2); }
+  .foot .brand svg { width: 22px; height: 22px; }
+  .foot a:hover { color: var(--text); }
+  .foot .sp { margin-left: auto; display: flex; gap: 18px; }
+
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity 600ms ease, transform 600ms ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+  @media (max-width: 920px) {
+    .grid, .steps { grid-template-columns: 1fr 1fr; }
+    .row, .row.flip { grid-template-columns: 1fr; gap: 28px; }
+    .row.flip .text { order: 0; }
+    .nav-links { display: none; }
+  }
+  @media (max-width: 620px) {
+    .wrap { padding: 0 16px; }
+    .grid, .steps { grid-template-columns: 1fr; }
+    .hero { padding-top: 56px; }
+    section { padding: 72px 0; }
+    .gh-label { display: none; }
+    .final { padding: 48px 20px; border-radius: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 64 64">
+    <rect width="64" height="64" rx="14" fill="currentColor"/>
+    <path d="M21 13h15.5L45 21.5V48a3 3 0 0 1-3 3H21a3 3 0 0 1-3-3V16a3 3 0 0 1 3-3z" fill="var(--bg)"/>
+    <path d="M36.5 13v6.5a2 2 0 0 0 2 2H45z" fill="currentColor" opacity=".35"/>
+    <rect x="24" y="28" width="15" height="3" rx="1.5" fill="currentColor"/>
+    <rect x="24" y="34" width="15" height="3" rx="1.5" fill="currentColor"/>
+    <rect x="24" y="40" width="9" height="3" rx="1.5" fill="currentColor"/>
+  </symbol>
+  <symbol id="gh" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></symbol>
+</svg>
+
+<nav>
+  <div class="wrap nav">
+    <a class="brand" href="#"><svg><use href="#logo"/></svg><span>Get<b>Paper</b></span></a>
+    <div class="nav-links">
+      <a href="#features" data-i18n="nav.features">Features</a>
+      <a href="#ai" data-i18n="nav.ai">AI &amp; MCP</a>
+      <a href="#migrate" data-i18n="nav.migrate">Migration</a>
+      <a href="#start" data-i18n="nav.start">Self-host</a>
+    </div>
+    <div class="nav-right">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en">EN</button>
+        <button type="button" data-lang="it">IT</button>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="https://github.com/teopost/getpaper"><svg><use href="#gh"/></svg><span class="gh-label">GitHub</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow"><i></i><span data-i18n="hero.eyebrow">Open source · Self-hosted · Built in Rust</span></span>
+    <h1 data-i18n="hero.title">Your team's knowledge, <span class="grad">beautifully organised</span>.</h1>
+    <p class="lead" data-i18n="hero.lead">GetPaper is a fast, self-hosted wiki for teams: a delightful Markdown editor, multiple workspaces, Microsoft sign-in and a built-in MCP server so your AI assistant can read and write your documentation.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#start" data-i18n="hero.cta">Get started in 2 minutes</a>
+      <a class="btn btn-ghost" href="https://github.com/teopost/getpaper"><svg><use href="#gh"/></svg><span data-i18n="hero.github">Star on GitHub</span></a>
+    </div>
+    <div class="note" data-i18n="hero.note">One Docker Compose file · PostgreSQL · Your data stays on your servers</div>
+
+    <div class="shot reveal">
+      <div class="shot-bar"><i></i><i></i><i></i><span>docs.acme.example</span></div>
+      <picture>
+        <source srcset="assets/document-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="assets/document.webp" width="2880" height="1800" alt="A runbook in GetPaper with a checklist, a code block and a table">
+      </picture>
+    </div>
+
+    <div class="strip">
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg><span data-i18n="strip.workspaces">Multiple workspaces</span></span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span data-i18n="strip.sso">Microsoft Entra ID SSO</span></span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></svg><span data-i18n="strip.mcp">MCP server for AI</span></span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12M7 2h1"/><path d="m22 22-5-10-5 10M14 18h6"/></svg><span data-i18n="strip.i18n">English &amp; Italian</span></span>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="center reveal">
+      <div class="kicker" data-i18n="features.kicker">Everything a team wiki needs</div>
+      <h2 data-i18n="features.title">Write, organise, find. Without friction.</h2>
+      <p class="sub" data-i18n="features.sub">A focused editor and a clean structure keep documentation alive — and the details that make admins happy are already there.</p>
+    </div>
+    <div class="grid">
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg></div><h3 data-i18n="f1.t">A Markdown editor you'll love</h3><p data-i18n="f1.d">Slash commands, tables, checklists, callouts and code blocks with syntax highlighting, copy and line wrapping. Saved as plain Markdown.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></div><h3 data-i18n="f2.t">Workspaces for every team</h3><p data-i18n="f2.d">Fully isolated workspaces with their own members, roles and collections. Move pages between them in a click.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><h3 data-i18n="f3.t">Search that finds it</h3><p data-i18n="f3.d">Full-text search with highlighted results, filters by collection and one switch to search every workspace you belong to.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><h3 data-i18n="f4.t">Sign-in and invitations</h3><p data-i18n="f4.d">Microsoft Entra ID single sign-on, invite-only access and beautiful invitation emails. Admins, editors and viewers.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3 data-i18n="f5.t">Data protection built in</h3><p data-i18n="f5.d">Private collections, scoped API keys and superadmin switches to turn off exports and public links installation-wide.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7H17a5 5 0 0 0 5-5C22 6 17.5 2 12 2z"/></svg></div><h3 data-i18n="f6.t">Make it yours</h3><p data-i18n="f6.d">Your product name, header and accent colours, light or dark theme, English or Italian — per user, with installation defaults.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="ai">
+  <div class="wrap">
+    <div class="row">
+      <div class="text reveal">
+        <div class="kicker" data-i18n="ai.kicker">AI ready</div>
+        <h2 data-i18n="ai.title">Your docs, available to your AI assistant.</h2>
+        <p data-i18n="ai.p">GetPaper ships a Model Context Protocol server. Connect Claude, Cursor or any MCP client and let it search, read and write documentation — always within the limits you choose.</p>
+        <ul class="ticks">
+          <li data-i18n="ai.l1">Read-only or read/write keys, with an expiry date</li>
+          <li data-i18n="ai.l2">One key for several workspaces, or only the collections you pick</li>
+          <li data-i18n="ai.l3">Never more permissions than the person who created the key</li>
+        </ul>
+<pre class="term"><span class="c"># one command, and your assistant knows your wiki</span>
+<span class="k">claude</span> mcp add --transport http getpaper \
+  https://docs.acme.example/mcp \
+  --header <span class="s">"Authorization: Bearer ol_api_…"</span></pre>
+      </div>
+      <div class="frame reveal"><img src="assets/mcp-key.webp" width="2880" height="1800" loading="lazy" alt="Creating a scoped API key for the MCP server"></div>
+    </div>
+
+    <div class="row flip">
+      <div class="text reveal">
+        <div class="kicker" data-i18n="search.kicker">Across workspaces</div>
+        <h2 data-i18n="search.title">One search box for the whole company.</h2>
+        <p data-i18n="search.p">Engineering runbooks, marketing plans, HR policies: search everything you have access to and jump straight into the right workspace.</p>
+        <ul class="ticks">
+          <li data-i18n="search.l1">Ranked full-text results with highlighted matches</li>
+          <li data-i18n="search.l2">Permissions respected in every workspace</li>
+        </ul>
+      </div>
+      <div class="frame reveal"><img src="assets/search.webp" width="2880" height="1800" loading="lazy" alt="Search results from two workspaces"></div>
+    </div>
+  </div>
+</section>
+
+<section id="migrate">
+  <div class="wrap">
+    <div class="row">
+      <div class="text reveal">
+        <div class="kicker" data-i18n="mig.kicker">Bring your content</div>
+        <h2 data-i18n="mig.title">Leave Confluence behind — keep everything else.</h2>
+        <p data-i18n="mig.p">Import Confluence spaces (XML or HTML exports) with page tree, dates, attachments and macros. Outline, Notion, Obsidian and plain Markdown work too.</p>
+        <ul class="ticks">
+          <li data-i18n="mig.l1">Info, note and warning panels become callouts; code macros keep their language</li>
+          <li data-i18n="mig.l2">Links between pages and images are rewritten automatically</li>
+          <li data-i18n="mig.l3">Full backups to move between instances, Obsidian vault export</li>
+        </ul>
+      </div>
+      <div class="frame reveal"><img src="assets/import.webp" width="2880" height="1800" loading="lazy" alt="Importing a Confluence export"></div>
+    </div>
+
+    <div class="row flip">
+      <div class="text reveal">
+        <div class="kicker" data-i18n="admin.kicker">For administrators</div>
+        <h2 data-i18n="admin.title">Settings that cover the whole installation.</h2>
+        <p data-i18n="admin.p">Superadmins brand the product, decide which exports are allowed and set the defaults every new user starts with.</p>
+        <ul class="ticks">
+          <li data-i18n="admin.l1">Custom product name and colours</li>
+          <li data-i18n="admin.l2">Switches for backups, Markdown export and public links</li>
+          <li data-i18n="admin.l3">Default language, theme and page width</li>
+        </ul>
+      </div>
+      <div class="frame reveal"><img src="assets/settings.webp" width="2880" height="1800" loading="lazy" alt="General settings for superadmins"></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="start">
+  <div class="wrap center">
+    <div class="reveal">
+      <div class="kicker" data-i18n="start.kicker">Self-host</div>
+      <h2 data-i18n="start.title">Up and running in three steps.</h2>
+      <p class="sub" data-i18n="start.sub">A single Docker Compose file starts GetPaper and PostgreSQL. No external services required.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><div class="num">1</div><h3 data-i18n="s1.t">Get the code</h3><p data-i18n="s1.d">Clone the repository on any machine with Docker.</p><pre>git clone https://github.com/teopost/getpaper
+cd getpaper</pre></div>
+      <div class="step reveal"><div class="num">2</div><h3 data-i18n="s2.t">Configure</h3><p data-i18n="s2.d">Set your public URL, and optionally Microsoft sign-in and email.</p><pre>cp .env.example .env
+nano .env</pre></div>
+      <div class="step reveal"><div class="num">3</div><h3 data-i18n="s3.t">Start</h3><p data-i18n="s3.d">Open the URL and create the first account and workspace.</p><pre>docker compose up -d</pre></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="final reveal">
+      <h2 data-i18n="final.title">Give your team a home for what it knows.</h2>
+      <p data-i18n="final.p">GetPaper is free and open source. Host it yourself, make it yours.</p>
+      <div class="cta" style="margin:0">
+        <a class="btn btn-primary" href="https://github.com/teopost/getpaper"><svg><use href="#gh"/></svg><span data-i18n="final.cta">Get GetPaper on GitHub</span></a>
+        <a class="btn btn-ghost" href="#start" data-i18n="final.cta2">Read the quick start</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot">
+    <span class="brand"><svg><use href="#logo"/></svg><span>Get<b>Paper</b></span></span>
+    <span data-i18n="foot.tag">The self-hosted wiki for teams.</span>
+    <span class="sp">
+      <a href="https://github.com/teopost/getpaper">GitHub</a>
+      <a href="https://github.com/teopost/getpaper#readme">Docs</a>
+    </span>
+  </div>
+</footer>
+
+<script>
+  const IT = {
+    'nav.features': 'Funzionalità', 'nav.ai': 'AI e MCP', 'nav.migrate': 'Migrazione', 'nav.start': 'Installazione',
+    'hero.eyebrow': 'Open source · Self-hosted · Scritto in Rust',
+    'hero.title': 'La conoscenza del tuo team, <span class="grad">organizzata con eleganza</span>.',
+    'hero.lead': 'GetPaper è un wiki per team veloce e self-hosted: un editor Markdown piacevole da usare, più workspace, accesso con Microsoft e un server MCP integrato, così il tuo assistente AI può leggere e scrivere la documentazione.',
+    'hero.cta': 'Inizia in 2 minuti', 'hero.github': 'Su GitHub',
+    'hero.note': 'Un solo file Docker Compose · PostgreSQL · I dati restano sui tuoi server',
+    'strip.workspaces': 'Più workspace', 'strip.sso': 'SSO Microsoft Entra ID', 'strip.mcp': 'Server MCP per l’AI', 'strip.i18n': 'Italiano e inglese',
+    'features.kicker': 'Tutto ciò che serve a un wiki', 'features.title': 'Scrivi, organizza, trova. Senza attriti.',
+    'features.sub': 'Un editor essenziale e una struttura pulita tengono viva la documentazione — e i dettagli che piacciono agli amministratori ci sono già.',
+    'f1.t': 'Un editor Markdown da amare', 'f1.d': 'Comandi con /, tabelle, checklist, avvisi e blocchi di codice con evidenziazione, copia e a capo. Salvato come Markdown semplice.',
+    'f2.t': 'Un workspace per ogni team', 'f2.d': 'Workspace isolati con membri, ruoli e collezioni propri. Sposta le pagine dall’uno all’altro con un clic.',
+    'f3.t': 'Una ricerca che trova', 'f3.d': 'Ricerca full-text con risultati evidenziati, filtri per collezione e un interruttore per cercare in tutti i tuoi workspace.',
+    'f4.t': 'Accesso e inviti', 'f4.d': 'Single sign-on con Microsoft Entra ID, accesso solo su invito ed eleganti email di invito. Amministratori, editor e lettori.',
+    'f5.t': 'Protezione dei dati integrata', 'f5.d': 'Collezioni private, chiavi API con permessi limitati e interruttori per disattivare export e link pubblici su tutta l’installazione.',
+    'f6.t': 'Fallo tuo', 'f6.d': 'Il nome del tuo prodotto, colori dell’header e di accento, tema chiaro o scuro, italiano o inglese — per utente, con valori predefiniti.',
+    'ai.kicker': 'Pronto per l’AI', 'ai.title': 'La tua documentazione, a disposizione del tuo assistente AI.',
+    'ai.p': 'GetPaper include un server Model Context Protocol. Collega Claude, Cursor o qualsiasi client MCP e lascialo cercare, leggere e scrivere — sempre nei limiti che scegli tu.',
+    'ai.l1': 'Chiavi in sola lettura o lettura/scrittura, con scadenza', 'ai.l2': 'Una chiave per più workspace, o solo per le collezioni che scegli', 'ai.l3': 'Mai più permessi di chi ha creato la chiave',
+    'search.kicker': 'Su tutti i workspace', 'search.title': 'Una sola ricerca per tutta l’azienda.',
+    'search.p': 'Runbook dell’IT, piani marketing, policy HR: cerca in tutto ciò a cui hai accesso e salta direttamente nel workspace giusto.',
+    'search.l1': 'Risultati full-text ordinati per pertinenza, con le corrispondenze evidenziate', 'search.l2': 'Permessi rispettati in ogni workspace',
+    'mig.kicker': 'Porta i tuoi contenuti', 'mig.title': 'Lascia Confluence — tieni tutto il resto.',
+    'mig.p': 'Importa gli spazi Confluence (export XML o HTML) con albero delle pagine, date, allegati e macro. Funzionano anche Outline, Notion, Obsidian e Markdown.',
+    'mig.l1': 'I pannelli info, note e warning diventano avvisi; il codice mantiene il linguaggio', 'mig.l2': 'Link tra pagine e immagini riscritti automaticamente', 'mig.l3': 'Backup completi per spostarsi tra installazioni, export come vault Obsidian',
+    'admin.kicker': 'Per gli amministratori', 'admin.title': 'Impostazioni per tutta l’installazione.',
+    'admin.p': 'I superadmin personalizzano il prodotto, decidono quali export sono permessi e impostano i valori predefiniti di ogni nuovo utente.',
+    'admin.l1': 'Nome del prodotto e colori personalizzati', 'admin.l2': 'Interruttori per backup, export Markdown e link pubblici', 'admin.l3': 'Lingua, tema e larghezza della pagina predefiniti',
+    'start.kicker': 'Self-hosting', 'start.title': 'Operativo in tre passi.', 'start.sub': 'Un solo file Docker Compose avvia GetPaper e PostgreSQL. Nessun servizio esterno necessario.',
+    's1.t': 'Scarica il codice', 's1.d': 'Clona il repository su qualsiasi macchina con Docker.',
+    's2.t': 'Configura', 's2.d': 'Imposta l’URL pubblico e, se vuoi, accesso Microsoft ed email.',
+    's3.t': 'Avvia', 's3.d': 'Apri l’URL e crea il primo account e il primo workspace.',
+    'final.title': 'Dai al tuo team una casa per ciò che sa.', 'final.p': 'GetPaper è gratuito e open source. Installalo sui tuoi server, rendilo tuo.',
+    'final.cta': 'Scarica GetPaper da GitHub', 'final.cta2': 'Leggi la guida rapida',
+    'foot.tag': 'Il wiki self-hosted per i team.',
+  };
+  const EN = {};
+  document.querySelectorAll('[data-i18n]').forEach((el) => (EN[el.dataset.i18n] = el.innerHTML));
+  function setLang(lang) {
+    const dict = lang === 'it' ? IT : EN;
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      const v = dict[el.dataset.i18n];
+      if (v) el.innerHTML = v;
+    });
+    document.documentElement.lang = lang;
+    document.querySelectorAll('.lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === lang));
+    try { localStorage.setItem('getpaper-lang', lang); } catch (e) {}
+  }
+  let saved = null;
+  try { saved = localStorage.getItem('getpaper-lang'); } catch (e) {}
+  setLang(saved || ((navigator.language || '').toLowerCase().startsWith('it') ? 'it' : 'en'));
+  document.querySelectorAll('.lang button').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
+
+  const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }), { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+</script>
+</body>
+</html>

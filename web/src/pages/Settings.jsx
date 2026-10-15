@@ -233,7 +233,7 @@ function Workspace() {
             'People signing in with Microsoft whose email belongs to one of these domains join this workspace automatically, with the default role. Separate multiple domains with commas.'
           )}
         >
-          <input value={allowedDomains} onChange={(e) => setAllowedDomains(e.target.value)} placeholder={t('e.g. {example}', { example: 'horsa.it, vidata.it' })} />
+          <input value={allowedDomains} onChange={(e) => setAllowedDomains(e.target.value)} placeholder={t('e.g. {example}', { example: 'example.com, example.org' })} />
         </Field>
         <Field label={t('Default role')} hint={t('The role new members get when joining automatically.')}>
           <select value={defaultRole} onChange={(e) => setDefaultRole(e.target.value)}>

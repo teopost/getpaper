@@ -1,5 +1,7 @@
 # GetPaper
 
+**Sito del progetto:** https://teopost.github.io/getpaper/
+
 Wiki / knowledge base ispirata a [Outline](https://github.com/outline/outline), con backend in **Rust** e
 **workspace multipli** inclusi (in Outline sono una funzione a pagamento).
 
@@ -53,7 +55,7 @@ I dati stanno nei volumi Docker `pgdata` (PostgreSQL) e `uploads` (allegati).
 Il login usa Microsoft Entra ID (Azure AD) tramite OpenID Connect, con authorization code flow e PKCE.
 
 1. In Entra ID crea una *App registration* di tipo **Web**, con redirect URI `<URL>/auth/microsoft/callback`,
-   ad esempio `https://wiki.horsa.it/auth/microsoft/callback`.
+   ad esempio `https://wiki.example.com/auth/microsoft/callback`.
 2. Crea un *client secret* e imposta le variabili nel `.env`:
 
 | Variabile | Descrizione |
@@ -61,7 +63,7 @@ Il login usa Microsoft Entra ID (Azure AD) tramite OpenID Connect, con authoriza
 | `MICROSOFT_CLIENT_ID` | Application (client) ID |
 | `MICROSOFT_CLIENT_SECRET` | Client secret |
 | `MICROSOFT_TENANT_ID` | Directory (tenant) ID. Con `organizations` accetta account di qualunque organizzazione |
-| `MICROSOFT_ALLOWED_DOMAINS` | Facoltativo: solo questi domini email possono entrare (es. `horsa.it,vidata.it`) |
+| `MICROSOFT_ALLOWED_DOMAINS` | Facoltativo: solo questi domini email possono entrare (es. `example.com,example.org`) |
 | `MICROSOFT_AUTO_PROVISION` | `true` (default): crea l'account al primo accesso. Con `false` entra solo chi è invitato |
 | `PASSWORD_LOGIN` | `false` per consentire solo l'accesso Microsoft |
 | `MICROSOFT_CALLBACK_PATH` | Percorso del redirect URI: `/auth/microsoft/callback` (predefinito) oppure `/auth/azure.callback`, lo stesso di Outline, per riusare senza modifiche la app registration di un'istanza Outline sullo stesso dominio |
