@@ -1,275 +1,277 @@
 # GetPaper
 
-**Sito del progetto:** https://teopost.github.io/getpaper/ · Licenza MIT · Immagine Docker: `ghcr.io/teopost/getpaper`
+**English** · [Italiano](README_ITA.md)
 
-Wiki / knowledge base ispirata a [Outline](https://github.com/outline/outline), con backend in **Rust** e
-**workspace multipli** inclusi (in Outline sono una funzione a pagamento).
+**Project site:** https://teopost.github.io/getpaper/ · MIT license · Docker image: `ghcr.io/teopost/getpaper`
 
-## Avvio rapido (immagine Docker)
+A wiki / knowledge base inspired by [Outline](https://github.com/outline/outline), with a **Rust** backend and
+**multiple workspaces** included (a paid feature in Outline).
 
-L'immagine pubblicata su GitHub Container Registry (`ghcr.io/teopost/getpaper`, per amd64 e arm64) si avvia senza
-scaricare i sorgenti:
+## Quick start (Docker image)
+
+The image published on GitHub Container Registry (`ghcr.io/teopost/getpaper`, for amd64 and arm64) runs without
+downloading the sources:
 
 ```bash
 mkdir getpaper && cd getpaper
 curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml
 curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
-# imposta almeno URL e POSTGRES_PASSWORD in .env
+# set at least URL and POSTGRES_PASSWORD in .env
 docker compose up -d
 ```
 
-Aggiornamento all'ultima versione: `docker compose pull && docker compose up -d`. Per aggiornamenti controllati
-imposta in `.env` una versione precisa, ad esempio `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:1.0.0`.
+Update to the latest version: `docker compose pull && docker compose up -d`. For controlled updates, set a
+specific version in `.env`, for example `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:1.0.0`.
 
-## Avvio dai sorgenti
+## Running from source
 
 ```bash
 docker compose up -d --build
 ```
 
-Apri http://localhost:3000. Il primo accesso propone la creazione del primo account e del primo workspace.
+Open http://localhost:3000. The first visit asks you to create the first account and the first workspace.
 
-Variabili utili (file `.env` accanto a `docker-compose.yml` oppure in ambiente):
+Useful variables (in a `.env` file next to `docker-compose.yml`, or in the environment):
 
-| Variabile | Default | Descrizione |
+| Variable | Default | Description |
 | --- | --- | --- |
-| `URL` | `http://localhost:3000` | URL pubblico, usato nei link di invito e di condivisione |
-| `PORT` | `3000` | Porta esposta sull'host |
-| `ALLOW_SIGNUP` | `true` | Con `false` ci si registra solo tramite invito (il primo utente può sempre registrarsi) |
-| `IMPORT_MAX_MB` | `500` | Dimensione massima di un archivio ZIP da importare |
-| `SUPERADMIN_EMAILS` | | Account sempre superadmin, separati da virgola (vedi sotto) |
-| `DEFAULT_LANGUAGE` | `en` | Lingua dell'interfaccia per chi non l'ha scelta: `en`, `it` |
-| `DEFAULT_THEME` | `system` | Aspetto per chi non l'ha scelto: `system`, `light`, `dark` |
-| `DEFAULT_CONTENT_WIDTH` | `normal` | Larghezza del testo nei documenti: `normal`, `wide`, `full` |
+| `URL` | `http://localhost:3000` | Public URL, used in invite and share links |
+| `PORT` | `3000` | Port published on the host |
+| `ALLOW_SIGNUP` | `true` | With `false`, people can only sign up with an invite (the first user can always sign up) |
+| `IMPORT_MAX_MB` | `500` | Maximum size of a ZIP archive to import |
+| `SUPERADMIN_EMAILS` | | Accounts that are always superadmins, comma separated (see below) |
+| `DEFAULT_LANGUAGE` | `en` | Interface language for users who haven't chosen one: `en`, `it` |
+| `DEFAULT_THEME` | `system` | Appearance for users who haven't chosen one: `system`, `light`, `dark` |
+| `DEFAULT_CONTENT_WIDTH` | `normal` | Text width in documents: `normal`, `wide`, `full` |
 
-Ogni utente può sovrascrivere lingua, aspetto e larghezza del testo in **Impostazioni → Profile → Preferenze**.
-I valori `DEFAULT_*` valgono anche per le pagine di login e i link pubblici.
+Each user can override language, appearance and text width in **Settings → Profile → Preferences**.
+The `DEFAULT_*` values also apply to the sign-in pages and public links.
 
-I dati stanno nei volumi Docker `pgdata` (PostgreSQL) e `uploads` (allegati).
+Data is stored in the Docker volumes `pgdata` (PostgreSQL) and `uploads` (attachments).
 
-Comandi più comuni (`make` senza argomenti mostra l'elenco):
+Most common commands (`make` with no arguments shows the list):
 
-| Comando | Cosa fa |
+| Command | What it does |
 | --- | --- |
-| `make start` / `make stop` | Avvia / ferma i container (i dati restano) |
-| `make rebuild` | Ricompila l'immagine dai sorgenti e riavvia |
-| `make restart` | Riavvia solo l'applicazione |
-| `make logs` | Segue il log dell'applicazione |
-| `make status` | Stato e salute dei container |
-| `make backup` | Copia del database in `/opt/getpaper-backups` (`make backup-clean` elimina quelle vecchie) |
-| `make restore FILE=…` | Ripristina una copia del database (chiede conferma) |
-| `make psql` / `make shell` | Console del database / shell nel container |
-| `make update` | `git pull` e ricompilazione |
+| `make start` / `make stop` | Start / stop the containers (data is kept) |
+| `make rebuild` | Rebuild the image from the sources and restart |
+| `make restart` | Restart the application only |
+| `make logs` | Follow the application log |
+| `make status` | Container status and health |
+| `make backup` | Dump the database to `/opt/getpaper-backups` (`make backup-clean` deletes old dumps) |
+| `make restore FILE=…` | Restore a database dump (asks for confirmation) |
+| `make psql` / `make shell` | Database console / shell in the container |
+| `make update` | `git pull` and rebuild |
 
-## Funzionalità
+## Features
 
-- **Workspace multipli**: ogni utente può creare e appartenere a più workspace, completamente isolati
-  (membri, ruoli, collezioni, documenti, condivisioni, chiavi API). Selettore in alto a sinistra nella sidebar.
-- **Collezioni** con icona e colore, permessi "modifica", "sola lettura" o "privata" con membri espliciti,
-  riordino via drag & drop.
-- **Documenti annidati** con albero nella sidebar, drag & drop per spostare e riordinare, breadcrumb.
-- **Spostamento tra workspace**: da *Sposta* si sceglie anche il workspace di destinazione (tra quelli in cui si può
-  scrivere). Il documento passa con sottopagine, cronologia, commenti e allegati; i suoi link pubblici vengono revocati.
-- **Editor WYSIWYG** salvato in Markdown: menu `/`, toolbar di formattazione, scorciatoie Markdown, tabelle,
-  checklist, blocchi di codice con evidenziazione, notice (`:::info`, `:::warning`, `:::tip`, `:::success`),
-  immagini e allegati con incolla o trascina.
-- Salvataggio automatico, bozze, pubblicazione, cronologia revisioni con ripristino, preferiti, archivio,
-  cestino con 30 giorni di conservazione, template, commenti con risposte e risoluzione.
-- **Ricerca full-text** in PostgreSQL con evidenziazione dei risultati e filtro per collezione.
-- **Condivisione pubblica** dei documenti tramite link (`/s/...`).
-- **Membri e ruoli** (admin, editor, viewer), inviti tramite link, chiavi API personali.
-- Import ed export Markdown, interfaccia in inglese e italiano, tema chiaro, scuro o automatico.
+- **Multiple workspaces**: each user can create and belong to several fully isolated workspaces
+  (members, roles, collections, documents, shares, API keys). Switcher at the top left of the sidebar.
+- **Collections** with icon and colour, "edit", "read only" or "private" permissions with explicit members,
+  drag & drop reordering.
+- **Nested documents** with a tree in the sidebar, drag & drop to move and reorder, breadcrumbs.
+- **Moving between workspaces**: *Move* also lets you choose the destination workspace (among those you can write
+  to). The document moves with its subpages, history, comments and attachments; its public links are revoked.
+- **WYSIWYG editor** saved as Markdown: `/` menu, formatting toolbar, Markdown shortcuts, tables, checklists,
+  code blocks with highlighting, language picker, copy and wrap, notices (`:::info`, `:::warning`, `:::tip`,
+  `:::success`), images and attachments by paste or drag.
+- Autosave, drafts, publishing, revision history with restore, stars, archive, trash kept for 30 days,
+  templates, comments with replies and resolution.
+- **Full-text search** in PostgreSQL with highlighted results, a collection filter and search across all your
+  workspaces.
+- **Public sharing** of documents by link (`/s/...`).
+- **Members and roles** (admin, editor, viewer), invites by link or email, personal API keys.
+- Markdown import and export, interface in English and Italian, light, dark or automatic theme.
 
-## Accesso con Microsoft (SSO)
+## Microsoft sign-in (SSO)
 
-Il login usa Microsoft Entra ID (Azure AD) tramite OpenID Connect, con authorization code flow e PKCE.
+Sign-in uses Microsoft Entra ID (Azure AD) through OpenID Connect, with the authorization code flow and PKCE.
 
-1. In Entra ID crea una *App registration* di tipo **Web**, con redirect URI `<URL>/auth/microsoft/callback`,
-   ad esempio `https://wiki.example.com/auth/microsoft/callback`.
-2. Crea un *client secret* e imposta le variabili nel `.env`:
+1. In Entra ID, create a **Web** *App registration* with redirect URI `<URL>/auth/microsoft/callback`,
+   for example `https://wiki.example.com/auth/microsoft/callback`.
+2. Create a *client secret* and set the variables in `.env`:
 
-| Variabile | Descrizione |
+| Variable | Description |
 | --- | --- |
 | `MICROSOFT_CLIENT_ID` | Application (client) ID |
 | `MICROSOFT_CLIENT_SECRET` | Client secret |
-| `MICROSOFT_TENANT_ID` | Directory (tenant) ID. Con `organizations` accetta account di qualunque organizzazione |
-| `MICROSOFT_ALLOWED_DOMAINS` | Facoltativo: solo questi domini email possono entrare (es. `example.com,example.org`) |
-| `MICROSOFT_AUTO_PROVISION` | `true` (default): crea l'account al primo accesso. Con `false` entra solo chi è invitato |
-| `PASSWORD_LOGIN` | `false` per consentire solo l'accesso Microsoft |
-| `MICROSOFT_CALLBACK_PATH` | Percorso del redirect URI: `/auth/microsoft/callback` (predefinito) oppure `/auth/azure.callback`, lo stesso di Outline, per riusare senza modifiche la app registration di un'istanza Outline sullo stesso dominio |
+| `MICROSOFT_TENANT_ID` | Directory (tenant) ID. With `organizations`, accounts from any organization are accepted |
+| `MICROSOFT_ALLOWED_DOMAINS` | Optional: only these email domains can sign in (e.g. `example.com,example.org`) |
+| `MICROSOFT_AUTO_PROVISION` | `true` (default): the account is created at the first sign-in. With `false`, only invited people get in |
+| `PASSWORD_LOGIN` | `false` to allow Microsoft sign-in only |
+| `MICROSOFT_CALLBACK_PATH` | Path of the redirect URI: `/auth/microsoft/callback` (default) or `/auth/azure.callback`, the same as Outline, to reuse unchanged the app registration of an Outline instance on the same domain |
 
-Comportamento:
+Behaviour:
 
-- Gli account sono legati all'identità Microsoft (tenant e object id). Un account esistente con la stessa email
-  viene collegato solo se il tenant è specifico o se i domini sono ristretti.
-- Al primo accesso l'utente accetta in automatico gli inviti pendenti per la sua email. Entra inoltre nei
-  workspace che elencano il suo dominio in **Impostazioni → Details → Allowed domains**, con il ruolo predefinito.
-- Funziona anche dalla pagina di invito ("Join with Microsoft") e riporta l'utente alla pagina richiesta prima
-  del login.
+- Accounts are bound to the Microsoft identity (tenant and object id). An existing account with the same email is
+  linked only if the tenant is specific or the domains are restricted.
+- At the first sign-in the user automatically accepts the pending invites for their email. They also join the
+  workspaces that list their domain in **Settings → Details → Allowed domains**, with the default role.
+- It also works from the invite page ("Join with Microsoft") and takes the user back to the page they asked for
+  before signing in.
 
-## Link pubblici
+## Public links
 
-Un documento pubblicato si può rendere visibile fuori dall'autenticazione da **Share → Publish to internet**. Il
-link ha la forma `<URL>/s/<token>`, con un token casuale di 24 caratteri (circa 143 bit), quindi non è indovinabile.
+A published document can be made visible without authentication from **Share → Publish to internet**. The link
+looks like `<URL>/s/<token>`, with a random 24-character token (about 143 bits), so it cannot be guessed.
 
-- La pagina è in sola lettura, non richiede login e funziona anche con `PASSWORD_LOGIN=false`.
-- La pagina è marcata `noindex` e `no-referrer`, così non finisce nei motori di ricerca e non trapela tramite i link in uscita.
-- Il link si revoca dallo stesso pannello o da **Impostazioni → Shared Links**.
-- La condivisione si può disattivare per l'intero workspace o per una singola collezione.
+- The page is read only, needs no sign-in and also works with `PASSWORD_LOGIN=false`.
+- The page is marked `noindex` and `no-referrer`, so it doesn't end up in search engines or leak through outgoing links.
+- The link is revoked from the same panel or from **Settings → Shared Links**.
+- Sharing can be disabled for the whole workspace or for a single collection.
 
 ## Import
 
-Da **Impostazioni → Import** (o dal menu `…` di una collezione → *Import…*) si carica un file `.md`, `.txt`,
-`.html` oppure un archivio `.zip` che li contiene. Vanno bene gli export Markdown di Outline, Notion, Obsidian,
-Wiki.js, GitBook e BookStack.
+From **Settings → Import** (or from a collection's `…` menu → *Import…*) you upload a `.md`, `.txt` or `.html`
+file, or a `.zip` archive containing them. Markdown exports from Outline, Notion, Obsidian, Wiki.js, GitBook and
+BookStack all work.
 
-- Le cartelle di primo livello diventano collezioni. Se si sceglie una collezione di destinazione, diventano
-  documenti al suo interno.
-- Le sottocartelle diventano documenti annidati. `Pagina.md` e la cartella `Pagina/` vengono uniti.
-  `index.md` o `README.md` dentro una cartella diventa il contenuto della cartella stessa.
-- Il titolo viene preso dal front matter `title:`, dal primo `# Titolo` o dal nome del file. I suffissi esadecimali
-  di Notion vengono rimossi.
-- Immagini e altri file diventano allegati. I link relativi tra documenti, i link agli allegati e i
-  `[[wiki link]]` di Obsidian vengono riscritti.
-- Una cartella contenitore unica (es. `export/…`) viene ignorata automaticamente.
-- I file HTML vengono convertiti in Markdown.
+- Top-level folders become collections. If you choose a destination collection, they become documents inside it.
+- Subfolders become nested documents. `Page.md` and the folder `Page/` are merged.
+  `index.md` or `README.md` inside a folder becomes the content of the folder itself.
+- The title is taken from the `title:` front matter, the first `# Title` or the file name. Notion's hexadecimal
+  suffixes are removed.
+- Images and other files become attachments. Relative links between documents, links to attachments and
+  Obsidian `[[wiki links]]` are rewritten.
+- A single wrapper folder (e.g. `export/…`) is ignored automatically.
+- HTML files are converted to Markdown.
 
 ### Confluence
 
-Si importa l'export **XML** o **HTML** di uno spazio (Cloud: *Impostazioni spazio → Esporta spazio*;
-Server/Data Center: *Space tools → Content Tools → Export*). Lo ZIP si carica così com'è; l'importer
-riconosce il formato automaticamente.
+You import the **XML** or **HTML** export of a space (Cloud: *Space settings → Export space*;
+Server/Data Center: *Space tools → Content Tools → Export*). Upload the ZIP as it is; the importer recognizes the
+format automatically.
 
-- **XML** (consigliato, contiene `entities.xml`): vengono importate solo le pagine correnti (non bozze, cestino e
-  versioni storiche), con gerarchia, ordine e **date di creazione e modifica** originali. Le menzioni diventano
-  `@nome` (dall'account Confluence). `entities.xml` non è soggetto al limite `MAX_UPLOAD_MB` dei singoli file.
-- **HTML**: più spazi si possono importare insieme mettendo le cartelle nello stesso ZIP.
+- **XML** (recommended, contains `entities.xml`): only current pages are imported (not drafts, trash or old
+  versions), with the original hierarchy, order and **creation and modification dates**. Mentions become `@name`
+  (from the Confluence account). `entities.xml` is not subject to the per-file `MAX_UPLOAD_MB` limit.
+- **HTML**: several spaces can be imported together by putting their folders in the same ZIP.
 
-- Ogni spazio diventa una collezione (con una collezione di destinazione, le pagine finiscono al suo interno).
-- La gerarchia viene ricostruita dai breadcrumb di ogni pagina, l'ordine dall'albero delle pagine in `index.html`.
-- Link tra pagine, immagini e allegati vengono riscritti. Gli allegati elencati nella sezione *Attachments* ma non
-  mostrati nel testo vengono aggiunti in fondo alla pagina. Icone e fogli di stile dell'export vengono scartati.
-- Macro convertite: pannelli info/note/warning/tip → notice, blocchi di codice (con linguaggio), expand, liste di
-  attività, tabelle, stati, emoticon, menzioni (come testo). Indice (TOC) e macro dinamiche vengono omessi.
-- Link a pagine di altri spazi (non presenti nell'export) restano come testo.
-- Non vengono importati: autori (le pagine risultano create da chi importa), commenti, cronologia delle versioni,
-  etichette e permessi. L'export PDF non è supportato.
+- Each space becomes a collection (with a destination collection, the pages go inside it).
+- The hierarchy is rebuilt from each page's breadcrumbs, the order from the page tree in `index.html`.
+- Links between pages, images and attachments are rewritten. Attachments listed in the *Attachments* section but
+  not shown in the text are added at the end of the page. Export icons and stylesheets are discarded.
+- Converted macros: info/note/warning/tip panels → notices, code blocks (with language), expand, task lists,
+  tables, statuses, emoticons, mentions (as text). Table of contents and dynamic macros are left out.
+- Links to pages of other spaces (not in the export) stay as text.
+- Not imported: authors (pages appear as created by the person importing), comments, version history, labels and
+  permissions. The PDF export is not supported.
 
-Nel campo **Origine** si sceglie lo strumento di provenienza (Confluence, Outline, Notion, Obsidian, Markdown) per
-vedere le istruzioni di esportazione; con *Rilevamento automatico* (predefinito) il formato viene riconosciuto dal
-contenuto dello ZIP. Se l'origine scelta non corrisponde all'archivio, l'import viene rifiutato con un messaggio chiaro.
-Il risultato indica il formato riconosciuto.
+In the **Source** field you choose the tool you are coming from (Confluence, Outline, Notion, Obsidian, Markdown)
+to see its export instructions; with *Automatic detection* (default) the format is recognized from the content of
+the ZIP. If the chosen source doesn't match the archive, the import is rejected with a clear message. The result
+shows the recognized format.
 
-API: `POST /api/collections.import` (multipart: `file`, `source` opzionale tra `auto`, `confluence`, `outline`, `notion`,
-`obsidian`, `markdown`, `collectionId` opzionale, `publish`). La risposta contiene `format`
-(`confluence-xml`, `confluence-html` o `markdown`).
+API: `POST /api/collections.import` (multipart: `file`, optional `source` among `auto`, `confluence`, `outline`,
+`notion`, `obsidian`, `markdown`, optional `collectionId`, `publish`). The response contains `format`
+(`confluence-xml`, `confluence-html` or `markdown`).
 
-## Email di invito
+## Invitation emails
 
-Con un server SMTP configurato, gli inviti vengono spediti per email: un messaggio nella lingua di chi invita, con
-workspace, ruolo e il pulsante *Accetta l'invito* (con l'accesso Microsoft attivo indica di entrare con l'account
-aziendale). Chi ha già un account e viene aggiunto a un workspace riceve un avviso.
+With an SMTP server configured, invites are sent by email: a message in the inviter's language, with workspace,
+role and an *Accept invitation* button (with Microsoft sign-in enabled it says to sign in with the work
+account). People who already have an account and are added to a workspace get a notice.
 
-- In **Impostazioni → Membri → Invita** la casella *Invia l'invito per email* (attiva di default).
-- Negli inviti in sospeso: *Invia email* / *Invia di nuovo*, la data dell'ultimo invio e *Invia email a tutti gli inviti
-  in attesa*.
-- In **Impostazioni generali → Email** (superadmin): *Verifica connessione* e *Invia un'email di prova* a sé stessi.
+- In **Settings → Members → Invite people…** the *Send the invitation by email* checkbox (on by default).
+- In the pending invites: *Send email* / *Send again*, the date of the last email and *Email all pending invites*.
+- In **General settings → Email** (superadmins): *Check connection* and send a test email to yourself.
 
-| Variabile | Descrizione |
+| Variable | Description |
 | --- | --- |
-| `SMTP_HOST`, `SMTP_PORT` | Server di posta (senza `SMTP_HOST` le email sono disattivate) |
-| `SMTP_USERNAME`, `SMTP_PASSWORD` | Credenziali (per SendGrid: `apikey` e la chiave API) |
-| `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` | Mittente; senza `SMTP_FROM_NAME` il nome del mittente è il nome del prodotto |
-| `SMTP_SECURE` | `ssl` (porta 465), `starttls` (587) o `none`; se vuoto si deduce dalla porta |
+| `SMTP_HOST`, `SMTP_PORT` | Mail server (without `SMTP_HOST` emails are disabled) |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | Credentials (for SendGrid: `apikey` and the API key) |
+| `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` | Sender; without `SMTP_FROM_NAME` the sender name is the product name |
+| `SMTP_SECURE` | `ssl` (port 465), `starttls` (587) or `none`; if empty it is inferred from the port |
 
-## Superadmin e impostazioni generali
+## Superadmins and general settings
 
-Il **superadmin** gestisce le impostazioni comuni a tutti i workspace dell'installazione, in
-**Impostazioni → Impostazioni generali** (la voce compare solo ai superadmin):
+**Superadmins** manage the settings shared by all the workspaces of the installation, in
+**Settings → General settings** (the item is shown to superadmins only):
 
-- **Aspetto del marchio**: nome del prodotto (se vuoto resta *GetPaper*; è mostrato nella scheda del browser, nella
-  pagina di accesso, accanto al logo, nei link pubblici, nelle email e nel documento di benvenuto dei nuovi workspace;
-  file di backup e server MCP mantengono il nome tecnico GetPaper), colore dell'header (la barra in alto; il colore del testo è scelto in automatico per il
-  contrasto) e colore di accento (pulsanti, link). Valgono anche nelle pagine di accesso e nei link pubblici.
-- **Protezione dei dati**: abilita o disabilita i backup dei workspace, l'export Markdown (vault Obsidian e download
-  dei singoli documenti) e i link pubblici. Il blocco è applicato dal server; disattivando i link pubblici quelli
-  esistenti smettono di funzionare finché non vengono riattivati.
-- **Valori predefiniti per gli utenti**: lingua, aspetto e larghezza dei documenti. Hanno la precedenza sulle
-  variabili `DEFAULT_*`, che restano il valore di partenza.
-- **Superadmin**: elenco, aggiunta per email (l'account deve esistere) e rimozione (ne resta sempre almeno uno).
+- **Branding**: product name (if empty it stays *GetPaper*; it is shown in the browser tab, on the sign-in page,
+  next to the logo, in public links, in emails and in the welcome document of new workspaces; backup files and the
+  MCP server keep the technical name GetPaper), header colour (the top bar; the text colour is chosen automatically
+  for contrast) and accent colour (buttons, links). They also apply to the sign-in pages and public links.
+- **Data protection**: enables or disables workspace backups, Markdown export (Obsidian vault and single document
+  downloads) and public links. The block is enforced by the server; when public links are disabled, existing ones
+  stop working until they are enabled again.
+- **Defaults for users**: language, appearance and document width. They take precedence over the `DEFAULT_*`
+  variables, which remain the starting value.
+- **Superadmins**: list, add by email (the account must exist) and remove (at least one always remains).
 
-Il primo account creato è superadmin. I superadmin hanno il badge *Superadmin* nell'elenco **Membri** e sono elencati
-in **Impostazioni generali → Superadmin**. Con `SUPERADMIN_EMAILS` (separati da virgola) si possono indicare account che
-sono sempre superadmin, ad esempio per recuperare l'accesso. Essere superadmin non dà accesso ai workspace di cui non
-si è membri.
+The first account created is a superadmin. Superadmins have the *Superadmin* badge in the **Members** list and are
+listed in **General settings → Superadmins**. With `SUPERADMIN_EMAILS` (comma separated) you can name accounts that
+are always superadmins, for example to recover access. Being a superadmin doesn't give access to workspaces you are
+not a member of.
 
 ## Export
 
-Da **Impostazioni → Esporta**:
+From **Settings → Export**:
 
-- **Backup per GetPaper** (solo amministratori): ZIP con `getpaper-backup.json` e la cartella `attachments/`.
-  Contiene collezioni (icona, colore, permessi, membri delle collezioni private), documenti con gerarchia, bozze,
-  modelli e archiviati, date, cronologia delle revisioni, commenti e allegati. Si ripristina in un'altra istanza da
-  **Impostazioni → Import** (origine *Backup GetPaper* o rilevamento automatico) nel workspace corrente:
-  - gli autori vengono abbinati per email ai membri del workspace di destinazione; il resto viene attribuito a chi
-    ripristina;
-  - id e link restano gli stessi se liberi; se sono già usati (es. ripristino nella stessa istanza) vengono rigenerati
-    e i link interni riscritti;
-  - non sono inclusi: utenti e ruoli, impostazioni del workspace, link pubblici, preferiti, chiavi API.
-- **Vault Obsidian**: i documenti pubblicati leggibili dall'utente come file Markdown. Una cartella per collezione,
-  documenti annidati come `Pagina.md` + `Pagina/`, link interni come `[[wiki link]]`, allegati in `_attachments/`,
-  notice come callout (`> [!info]`), date e titolo originale nel front matter. Reimportando il vault (origine
-  *Obsidian*) callout e titoli vengono riconvertiti.
+- **GetPaper backup** (admins only): a ZIP with `getpaper-backup.json` and the `attachments/` folder.
+  It contains collections (icon, colour, permissions, members of private collections), documents with hierarchy,
+  drafts, templates and archived documents, dates, revision history, comments and attachments. It is restored in
+  another instance from **Settings → Import** (source *GetPaper backup* or automatic detection) into the current
+  workspace:
+  - authors are matched by email to the members of the destination workspace; the rest is attributed to the person
+    restoring;
+  - ids and links stay the same if they are free; if they are already taken (e.g. restoring into the same instance)
+    they are regenerated and internal links rewritten;
+  - not included: users and roles, workspace settings, public links, stars, API keys.
+- **Obsidian vault**: the published documents the user can read, as Markdown files. One folder per collection,
+  nested documents as `Page.md` + `Page/`, internal links as `[[wiki links]]`, attachments in `_attachments/`,
+  notices as callouts (`> [!info]`), dates and original title in the front matter. When the vault is imported again
+  (source *Obsidian*) callouts and titles are converted back.
 
-API: `POST /api/workspace.export` con `{"format": "backup" | "obsidian"}`, risponde con lo ZIP.
+API: `POST /api/workspace.export` with `{"format": "backup" | "obsidian"}`, responds with the ZIP.
 
-## Server MCP (per LLM)
+## MCP server (for LLMs)
 
-Il backend espone un server [MCP](https://modelcontextprotocol.io) su `POST /mcp` (trasporto Streamable HTTP).
-L'autenticazione usa una chiave API personale, creata da **Impostazioni → API Keys & MCP**. Alla creazione si sceglie:
+The backend exposes an [MCP](https://modelcontextprotocol.io) server on `POST /mcp` (Streamable HTTP transport).
+Authentication uses a personal API key, created from **Settings → API Keys & MCP**. When creating it you choose:
 
-- **Accesso**: *sola lettura* (l'LLM cerca e legge) oppure *lettura e scrittura*;
-- **Workspace**: solo quello corrente, alcuni, oppure tutti quelli dell'utente (anche futuri);
-- **Collezioni**: tutte oppure solo alcune (in quel caso l'LLM non vede altro, nemmeno le bozze senza collezione,
-  e non può creare collezioni);
-- **Scadenza**: nessuna, 30, 90, 180 giorni o 1 anno.
+- **Access**: *read only* (the LLM searches and reads) or *read and write*;
+- **Workspaces**: only the current one, some, or all of the user's workspaces (future ones included);
+- **Collections**: all or only some (in that case the LLM sees nothing else, not even drafts without a collection,
+  and cannot create collections);
+- **Expiry**: none, 30, 90, 180 days or 1 year.
 
-Il permesso effettivo non supera mai quello dell'utente; con una chiave non si possono amministrare i workspace
-(membri, impostazioni), modificare le impostazioni generali né creare altre chiavi. Una chiave scaduta viene rifiutata.
+The effective permission never exceeds the user's; a key cannot administer workspaces (members, settings), change
+the general settings or create other keys. An expired key is rejected.
 
-Una chiave valida in più workspace richiede una sola configurazione nel client: lo strumento `list_workspaces` elenca i
-workspace della chiave, ogni strumento accetta il parametro facoltativo `workspace` (nome o id; senza, si usa il
-workspace predefinito della chiave) e `search_documents` cerca in tutti con `all_workspaces: true`. Nelle API REST il
-workspace si sceglie con l'intestazione `X-Workspace: <id>`.
+A key valid in several workspaces needs a single client configuration: the `list_workspaces` tool lists the key's
+workspaces, every tool accepts the optional `workspace` parameter (name or id; without it, the key's default
+workspace is used) and `search_documents` searches all of them with `all_workspaces: true`. In the REST API the
+workspace is chosen with the `X-Workspace: <id>` header.
 
 ```bash
 claude mcp add --scope user --transport http getpaper http://localhost:3000/mcp \
   --header "Authorization: Bearer ol_api_..."
 ```
 
-Per altri client (Claude Desktop, Cursor, …):
+For other clients (Claude Desktop, Cursor, …):
 
 ```json
 { "mcpServers": { "getpaper": { "type": "http", "url": "http://localhost:3000/mcp",
   "headers": { "Authorization": "Bearer ol_api_..." } } } }
 ```
 
-Strumenti disponibili:
+Available tools:
 
-| Area | Strumenti |
+| Area | Tools |
 | --- | --- |
-| Workspace | `list_workspaces`, `workspace_info` |
-| Collezioni | `list_collections`, `get_collection_tree`, `create_collection`, `update_collection` |
-| Lettura | `search_documents`, `list_documents`, `list_drafts`, `list_templates`, `get_document`, `list_revisions` |
-| Scrittura | `create_document`, `update_document` (anche `append_text`), `move_document`, `archive_document`, `delete_document`, `restore_document` |
-| Collaborazione | `list_comments`, `add_comment`, `share_document`, `unshare_document` |
+| Workspaces | `list_workspaces`, `workspace_info` |
+| Collections | `list_collections`, `get_collection_tree`, `create_collection`, `update_collection` |
+| Reading | `search_documents`, `list_documents`, `list_drafts`, `list_templates`, `get_document`, `list_revisions` |
+| Writing | `create_document`, `update_document` (also `append_text`), `move_document`, `archive_document`, `delete_document`, `restore_document` |
+| Collaboration | `list_comments`, `add_comment`, `share_document`, `unshare_document` |
 
-I documenti si indicano per id, urlId o URL completo. Le collezioni si indicano per id, urlId o nome.
+Documents are referenced by id, urlId or full URL. Collections by id, urlId or name.
 
 ## API
 
-API RPC in stile Outline: `POST /api/<metodo>` con corpo JSON, risposta `{ "ok": true, "data": ... }`.
-Autenticazione tramite cookie di sessione o `Authorization: Bearer <chiave API>`.
+Outline-style RPC API: `POST /api/<method>` with a JSON body, response `{ "ok": true, "data": ... }`.
+Authentication with the session cookie or `Authorization: Bearer <API key>`.
 
 ```bash
 curl -X POST http://localhost:3000/api/documents.search \
@@ -277,27 +279,28 @@ curl -X POST http://localhost:3000/api/documents.search \
   -d '{"query":"onboarding"}'
 ```
 
-Metodi principali: `auth.*`, `teams.*` (workspace), `users.*`, `invites.*`, `collections.*`, `documents.*`,
+Main methods: `auth.*`, `teams.*` (workspaces), `users.*`, `invites.*`, `collections.*`, `documents.*`,
 `revisions.*`, `stars.*`, `shares.*`, `comments.*`, `attachments.create`, `apiKeys.*`.
-L'elenco completo è in `server/src/api/mod.rs`.
+The full list is in `server/src/api/mod.rs`.
 
-## Struttura
+## Structure
 
 ```
-server/   backend Rust (axum + sqlx + PostgreSQL), migrazioni in server/migrations
-web/      frontend React + TipTap (ProseMirror), compilato con Vite e servito dal backend
+server/   Rust backend (axum + sqlx + PostgreSQL), migrations in server/migrations
+web/      React + TipTap (ProseMirror) frontend, built with Vite and served by the backend
 ```
 
-Sviluppo frontend con hot reload: avvia lo stack, poi `cd web && npm install && npm run dev`
-(il proxy di Vite inoltra `/api` e `/files` a `localhost:3000`).
+Frontend development with hot reload: start the stack, then `cd web && npm install && npm run dev`
+(the Vite proxy forwards `/api` and `/files` to `localhost:3000`).
 
-## Differenze rispetto a Outline
+## Differences from Outline
 
-- Niente collaborazione in tempo reale (Y.js). Il salvataggio è automatico; se un altro utente ha modificato
-  il documento nel frattempo, compare un avviso di conflitto con il pulsante per ricaricare.
-- Login con email e password. Non ci sono SSO (Google, Slack, OIDC), invio email, gruppi e integrazioni.
-- I commenti riguardano l'intero documento, non sono ancorati a una selezione di testo.
+- No real-time collaboration (Y.js). Saving is automatic; if another user changed the document in the meantime,
+  a conflict notice appears with a button to reload.
+- Sign-in with email and password or Microsoft Entra ID. No other SSO providers (Google, Slack, generic OIDC),
+  groups or integrations.
+- Comments refer to the whole document, they are not anchored to a text selection.
 
-## Licenza
+## License
 
-GetPaper è distribuito con licenza [MIT](LICENSE).
+GetPaper is released under the [MIT](LICENSE) license.
