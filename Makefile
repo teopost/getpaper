@@ -1,4 +1,4 @@
-# GetPaper — common tasks. Run `make` or `make help` for the list.
+# GetPaper - common tasks. Run `make` or `make help` for the list.
 #
 # The stack is defined in docker-compose.yml and configured by .env (see .env.example).
 

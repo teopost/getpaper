@@ -57,7 +57,7 @@ pub struct StartQuery {
     invite: Option<String>,
 }
 
-/// GET /auth/microsoft — redirect the browser to the Microsoft login page.
+/// GET /auth/microsoft - redirect the browser to the Microsoft login page.
 pub async fn start(State(st): State<AppState>, Query(q): Query<StartQuery>) -> Response {
     let Some(ms) = &st.cfg.microsoft else {
         return login_error("Microsoft sign-in is not configured");
@@ -346,7 +346,7 @@ pub async fn callback(State(st): State<AppState>, headers: HeaderMap, Query(q): 
     redirect(&target, vec![session_cookie(&token, st.cfg.secure_cookies), clear_state_cookie()])
 }
 
-/// GET /s/:share — the SPA, with headers that keep public pages out of search engines.
+/// GET /s/:share - the SPA, with headers that keep public pages out of search engines.
 pub async fn shared_page(State(st): State<AppState>) -> Response {
     match tokio::fs::read(st.cfg.static_dir.join("index.html")).await {
         Ok(html) => (

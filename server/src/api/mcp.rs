@@ -387,7 +387,7 @@ fn doc_line(st: &AppState, d: &Value) -> String {
     let emoji = d.get("emoji").and_then(|e| e.as_str()).map(|e| format!("{e} ")).unwrap_or_default();
     let draft = if d.get("publishedAt").map(|p| p.is_null()).unwrap_or(false) { " [draft]" } else { "" };
     format!(
-        "- {emoji}{}{draft} — id: {} — updated {} by {} — {}",
+        "- {emoji}{}{draft} - id: {} - updated {} by {} - {}",
         if s(d, "title").is_empty() { "Untitled" } else { s(d, "title") },
         s(d, "id"),
         &s(d, "updatedAt")[..s(d, "updatedAt").len().min(16)],
@@ -479,7 +479,7 @@ async fn call_tool(st: &AppState, auth: &Auth, name: &str, args: Value) -> Resul
                         Some(k) => crate::auth::key_role(role, k),
                         None => role.clone(),
                     };
-                    format!("- {name} — id: {id} — role: {role}{}", if Some(*id) == default { " — default" } else { "" })
+                    format!("- {name} - id: {id} - role: {role}{}", if Some(*id) == default { " - default" } else { "" })
                 })
                 .collect();
             Ok(format!("{}{collections}{access}", lines.join("\n")))
@@ -505,7 +505,7 @@ async fn call_tool(st: &AppState, auth: &Auth, name: &str, args: Value) -> Resul
                 .flatten()
                 .map(|c| {
                     format!(
-                        "- {} — id: {} — access: {} — permission: {} — {base}/collection/{}-{}{}",
+                        "- {} - id: {} - access: {} - permission: {} - {base}/collection/{}-{}{}",
                         s(c, "name"),
                         s(c, "id"),
                         s(c, "access"),
@@ -744,7 +744,7 @@ async fn call_tool(st: &AppState, auth: &Auth, name: &str, args: Value) -> Resul
                 .as_array()
                 .into_iter()
                 .flatten()
-                .map(|x| format!("- {} — {} — \"{}\" — revision_id: {}", s(x, "createdAt"), s(x, "userName"), s(x, "title"), s(x, "id")))
+                .map(|x| format!("- {} - {} - \"{}\" - revision_id: {}", s(x, "createdAt"), s(x, "userName"), s(x, "title"), s(x, "id")))
                 .collect();
             Ok(if lines.is_empty() { "No revisions.".into() } else { lines.join("\n") })
         }
