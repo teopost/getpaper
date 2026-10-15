@@ -31,6 +31,20 @@ I valori `DEFAULT_*` valgono anche per le pagine di login e i link pubblici.
 
 I dati stanno nei volumi Docker `pgdata` (PostgreSQL) e `uploads` (allegati).
 
+Comandi più comuni (`make` senza argomenti mostra l'elenco):
+
+| Comando | Cosa fa |
+| --- | --- |
+| `make start` / `make stop` | Avvia / ferma i container (i dati restano) |
+| `make rebuild` | Ricompila l'immagine dai sorgenti e riavvia |
+| `make restart` | Riavvia solo l'applicazione |
+| `make logs` | Segue il log dell'applicazione |
+| `make status` | Stato e salute dei container |
+| `make backup` | Copia del database in `/opt/getpaper-backups` (`make backup-clean` elimina quelle vecchie) |
+| `make restore FILE=…` | Ripristina una copia del database (chiede conferma) |
+| `make psql` / `make shell` | Console del database / shell nel container |
+| `make update` | `git pull` e ricompilazione |
+
 ## Funzionalità
 
 - **Workspace multipli**: ogni utente può creare e appartenere a più workspace, completamente isolati
