@@ -2,7 +2,7 @@
 
 [English](README.md) · **Italiano**
 
-**Sito del progetto:** https://teopost.github.io/getpaper/ · Licenza MIT · Immagine Docker: `ghcr.io/teopost/getpaper`
+**Sito del progetto:** https://getpaper.it · Licenza MIT · Immagine Docker: `ghcr.io/teopost/getpaper`
 
 Wiki / knowledge base ispirata a [Outline](https://github.com/outline/outline), con backend in **Rust** e
 **workspace multipli** inclusi (in Outline sono una funzione a pagamento).
