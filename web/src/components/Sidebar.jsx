@@ -26,6 +26,7 @@ import { Menu, TeamAvatar, Avatar } from './ui';
 import CollectionModal from './CollectionModal';
 import NewWorkspaceModal from './NewWorkspaceModal';
 import InviteModal from './InviteModal';
+import Notifications from './Notifications';
 import { t } from '../i18n';
 
 const DND_TYPE = 'application/x-getpaper-doc';
@@ -421,6 +422,7 @@ export default function Sidebar() {
           <SidebarLink to="/search" icon={<Search size={18} />}>
             {t('Search')}
           </SidebarLink>
+          <Notifications />
           {canWrite && (
             <SidebarLink to="/drafts" icon={<Pencil size={18} />} badge={draftCount || null}>
               {t('Drafts')}

@@ -168,4 +168,18 @@ export default {
   'An email was sent to let them know.': 'Ha ricevuto un’email di avviso.',
   'Email not sent: {error}': 'Email non inviata: {error}',
   'Invitation email sent.': 'Email di invito inviata.',
+
+  // Notifications
+  Notifications: 'Notifiche',
+  'Mark all as read': 'Segna tutte come lette',
+  'No notifications yet': 'Nessuna notifica',
+  '{name} mentioned you in': '{name} ti ha menzionato in',
+  Someone: 'Qualcuno',
+  '{name} mentioned {group} in': '{name} ha menzionato {group} in',
+
+  // Groups (sidebar of the settings, "@" menu, collection permissions)
+  Groups: 'Gruppi',
+  'Groups with access': 'Gruppi con accesso',
+  'Add a group…': 'Aggiungi un gruppo…',
+  'No groups yet.': 'Ancora nessun gruppo.',
 };

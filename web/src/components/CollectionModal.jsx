@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Users } from 'lucide-react';
 import { api, collectionUrl } from '../api';
 import { useApp } from '../store';
 import { useToast } from './Toast';
@@ -106,6 +106,75 @@ function MembersEditor({ collection }) {
             ))}
           </select>
           <Button variant="secondary" onClick={add} disabled={!selected}>
+            {t('Add')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Groups with access to the collection: every member of a group gets its permission */
+function GroupsEditor({ collection }) {
+  const [groups, setGroups] = useState([]);
+  const [all, setAll] = useState([]);
+  const [selected, setSelected] = useState('');
+  const toast = useToast();
+  const load = () => api('collections.groupMemberships', { id: collection.id }).then(setGroups);
+  useEffect(() => {
+    load();
+    api('groups.list').then(setAll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collection.id]);
+  const run = async (method, body) => {
+    try {
+      await api(method, { id: collection.id, ...body });
+      await load();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const candidates = all.filter((g) => !groups.some((m) => m.id === g.id));
+  if (!groups.length && !all.length) return null;
+  return (
+    <div className="members-editor">
+      <div className="field-label">{t('Groups with access')}</div>
+      {groups.map((g) => (
+        <div key={g.id} className="member-row">
+          <Users size={18} className="muted" />
+          <span className="member-name">
+            {g.name}{' '}
+            <span className="muted small">{t(g.memberCount === 1 ? '{count} member' : '{count} members', { count: g.memberCount })}</span>
+          </span>
+          <select value={g.permission} onChange={(e) => run('collections.addGroup', { groupId: g.id, permission: e.target.value })}>
+            <option value="read_write">{t('Can edit')}</option>
+            <option value="read">{t('View only')}</option>
+          </select>
+          <button type="button" className="icon-btn" title={t('Remove')} onClick={() => run('collections.removeGroup', { groupId: g.id })}>
+            <Trash2 size={14} />
+          </button>
+        </div>
+      ))}
+      {groups.length === 0 && <div className="muted small">{t('No groups yet.')}</div>}
+      {candidates.length > 0 && (
+        <div className="row gap">
+          <select value={selected} onChange={(e) => setSelected(e.target.value)} className="grow">
+            <option value="">{t('Add a group…')}</option>
+            {candidates.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!selected}
+            onClick={async () => {
+              await run('collections.addGroup', { groupId: selected, permission: 'read_write' });
+              setSelected('');
+            }}
+          >
             {t('Add')}
           </Button>
         </div>
@@ -220,6 +289,7 @@ export default function CollectionModal({ collection, onClose }) {
           </div>
         )}
         {collection && (permission !== 'read_write') && <MembersEditor collection={collection} />}
+        {collection && permission !== 'read_write' && <GroupsEditor collection={collection} />}
         <div className="modal-actions">
           <Button variant="secondary" type="button" onClick={onClose}>
             {t('Cancel')}

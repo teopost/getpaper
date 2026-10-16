@@ -6,11 +6,13 @@ pub mod collections;
 pub mod comments;
 pub mod documents;
 pub mod export;
+pub mod groups;
 pub mod import;
 pub mod import_confluence;
 pub mod import_confluence_xml;
 pub mod mcp;
 pub mod instance;
+pub mod notifications;
 pub mod invites;
 pub mod revisions;
 pub mod session;
@@ -93,6 +95,15 @@ pub fn router() -> Router<AppState> {
         .route("/invites.link", post(invites::link))
         .route("/invites.info", post(invites::info))
         .route("/invites.accept", post(invites::accept))
+        // groups
+        .route("/groups.list", post(groups::list))
+        .route("/groups.info", post(groups::info))
+        .route("/groups.create", post(groups::create))
+        .route("/groups.update", post(groups::update))
+        .route("/groups.delete", post(groups::delete))
+        .route("/groups.memberships", post(groups::memberships))
+        .route("/groups.addUser", post(groups::add_user))
+        .route("/groups.removeUser", post(groups::remove_user))
         // collections
         .route("/collections.list", post(collections::list))
         .route("/collections.listForWorkspace", post(collections::list_for_workspace))
@@ -105,6 +116,9 @@ pub fn router() -> Router<AppState> {
         .route("/collections.memberships", post(collections::memberships))
         .route("/collections.addUser", post(collections::add_user))
         .route("/collections.removeUser", post(collections::remove_user))
+        .route("/collections.groupMemberships", post(collections::group_memberships))
+        .route("/collections.addGroup", post(collections::add_group))
+        .route("/collections.removeGroup", post(collections::remove_group))
         .route("/collections.export", post(collections::export))
         // documents
         .route("/documents.list", post(documents::list))
@@ -143,6 +157,9 @@ pub fn router() -> Router<AppState> {
         .route("/comments.update", post(comments::update))
         .route("/comments.delete", post(comments::delete))
         .route("/comments.resolve", post(comments::resolve))
+        // notifications
+        .route("/notifications.list", post(notifications::list))
+        .route("/notifications.markRead", post(notifications::mark_read))
         // attachments
         .route("/attachments.create", post(attachments::create))
         // api keys

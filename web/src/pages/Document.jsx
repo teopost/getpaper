@@ -38,6 +38,7 @@ import Scene from '../components/Scene';
 import { CollectionIcon, DocIcon } from '../components/icons';
 import { Avatar, Button, ConfirmModal, Field, IconButton, Menu, Modal, Popover, Spinner, Switch } from '../components/ui';
 import EmojiPicker from '../components/EmojiPicker';
+import { notificationsChanged } from '../components/Notifications';
 import { useToast } from '../components/Toast';
 import { t } from '../i18n';
 import { getProductName } from '../prefs';
@@ -544,6 +545,8 @@ export default function DocumentPage() {
       }
       docIdRef.current = d.document.id;
       baseUpdatedAt.current = d.document.updatedAt;
+      // opening the document reads the notifications about it
+      api('notifications.markRead', { documentId: d.document.id }).then(notificationsChanged, () => {});
       setData(d);
       setTitle(d.document.title);
       setError(null);

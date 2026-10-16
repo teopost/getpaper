@@ -59,13 +59,20 @@ pub async fn collection_access(db: &PgPool, auth: &Auth, c: &Collection) -> ApiR
         Some(r) => r,
         None => return Ok(Access::None),
     };
-    let m: Option<(String,)> =
-        sqlx::query_as("SELECT permission FROM collection_memberships WHERE collection_id = $1 AND user_id = $2")
-            .bind(c.id)
-            .bind(auth.user.id)
-            .fetch_optional(db)
+    let m = membership(db, c.id, auth.user.id).await?;
+    Ok(compute_collection_access(&role, c, m.as_deref()))
+}
+
+/// Permission given to the user on a collection, directly or through one of their groups
+/// (the highest one), None without any.
+pub async fn membership(db: &PgPool, collection_id: Uuid, user_id: Uuid) -> ApiResult<Option<String>> {
+    let (m,): (Option<String>,) =
+        sqlx::query_as("SELECT max(permission) FROM collection_grants WHERE collection_id = $1 AND user_id = $2")
+            .bind(collection_id)
+            .bind(user_id)
+            .fetch_one(db)
             .await?;
-    Ok(compute_collection_access(&role, c, m.as_ref().map(|m| m.0.as_str())))
+    Ok(m)
 }
 
 pub async fn find_collection(db: &PgPool, id: &str) -> ApiResult<Collection> {
@@ -99,7 +106,7 @@ pub async fn readable_collection_ids_all_teams(db: &PgPool, auth: &Auth) -> ApiR
     let cols: Vec<(Uuid,)> = sqlx::query_as(
         "SELECT c.id FROM collections c JOIN team_memberships m ON m.team_id = c.team_id AND m.user_id = $1 \
          WHERE c.deleted_at IS NULL AND (m.role = 'admin' OR c.permission IS NOT NULL OR EXISTS \
-         (SELECT 1 FROM collection_memberships cm WHERE cm.collection_id = c.id AND cm.user_id = $1))",
+         (SELECT 1 FROM collection_grants cm WHERE cm.collection_id = c.id AND cm.user_id = $1))",
     )
     .bind(user_id)
     .fetch_all(db)
@@ -122,7 +129,7 @@ pub async fn readable_collection_ids(db: &PgPool, auth: &Auth) -> ApiResult<Vec<
     } else {
         sqlx::query_as(
             "SELECT c.id FROM collections c WHERE c.team_id = $1 AND c.deleted_at IS NULL AND \
-             (c.permission IS NOT NULL OR EXISTS (SELECT 1 FROM collection_memberships cm \
+             (c.permission IS NOT NULL OR EXISTS (SELECT 1 FROM collection_grants cm \
               WHERE cm.collection_id = c.id AND cm.user_id = $2))",
         )
         .bind(team)
@@ -194,13 +201,8 @@ pub async fn doc_access(db: &PgPool, auth: &Auth, d: &DocRow) -> ApiResult<Acces
                 .bind(cid)
                 .fetch_one(db)
                 .await?;
-            let m: Option<(String,)> =
-                sqlx::query_as("SELECT permission FROM collection_memberships WHERE collection_id = $1 AND user_id = $2")
-                    .bind(cid)
-                    .bind(auth.user.id)
-                    .fetch_optional(db)
-                    .await?;
-            let a = compute_collection_access(&role, &c, m.as_ref().map(|m| m.0.as_str()));
+            let m = membership(db, cid, auth.user.id).await?;
+            let a = compute_collection_access(&role, &c, m.as_deref());
             // drafts owned by the user remain editable by them
             if a == Access::None && is_owner && d.published_at.is_none() {
                 Access::Write

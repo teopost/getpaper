@@ -465,6 +465,7 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
         },
     )
     .await?;
+    crate::mentions::notify(&st, &auth.user, &d, None);
     ok(d)
 }
 
@@ -533,6 +534,7 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     if nd.published_at.is_some() && (changed || publishing) {
         save_revision(&st.db, &nd, auth.user.id).await?;
     }
+    crate::mentions::notify(&st, &auth.user, &nd, (!publishing).then_some(d.text.as_str()));
     ok(nd)
 }
 

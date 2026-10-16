@@ -8,6 +8,7 @@ import { Avatar, Button, ConfirmModal, Empty, Field, Modal, Spinner, Switch, Tea
 import { useToast } from '../components/Toast';
 import { COLORS } from '../components/icons';
 import InviteModal from '../components/InviteModal';
+import Groups from './Groups';
 import NewWorkspaceModal from '../components/NewWorkspaceModal';
 import { LANGUAGES, t } from '../i18n';
 import { DEFAULT_PRODUCT_NAME, getDefaults, getProductName } from '../prefs';
@@ -89,6 +90,13 @@ function Preferences() {
             onChange={(v) => save('contentWidth', v)}
           />
         </Field>
+        <div className="field row space-between">
+          <div>
+            <div className="field-label">{t('Email me when someone mentions me')}</div>
+            <div className="field-hint">{t('Mentions always appear in the notifications in the sidebar.')}</div>
+          </div>
+          <Switch checked={user.emailOnMention} onChange={(v) => save('emailOnMention', v)} />
+        </div>
       </div>
     </>
   );
@@ -1549,6 +1557,7 @@ const SECTIONS = {
   profile: { title: 'Profile', component: Profile },
   workspace: { title: 'Details', component: Workspace },
   members: { title: 'Members', component: Members },
+  groups: { title: 'Groups', component: Groups },
   shares: { title: 'Shared Links', component: Shares },
   'api-keys': { title: 'API Keys', component: ApiKeys },
   workspaces: { title: 'Workspaces', component: Workspaces },

@@ -57,8 +57,8 @@ pub async fn list(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Valu
             .fetch_all(&st.db)
             .await?;
     let mems: Vec<(Uuid, String)> = sqlx::query_as(
-        "SELECT cm.collection_id, cm.permission FROM collection_memberships cm JOIN collections c ON c.id = cm.collection_id \
-         WHERE cm.user_id = $1 AND c.team_id = $2",
+        "SELECT cm.collection_id, max(cm.permission) FROM collection_grants cm JOIN collections c ON c.id = cm.collection_id \
+         WHERE cm.user_id = $1 AND c.team_id = $2 GROUP BY cm.collection_id",
     )
     .bind(auth.user.id)
     .bind(team)
@@ -359,6 +359,81 @@ pub async fn remove_user(State(st): State<AppState>, auth: Auth, Json(b): Json<R
     sqlx::query("DELETE FROM collection_memberships WHERE collection_id = $1 AND user_id = $2")
         .bind(c.id)
         .bind(b.user_id)
+        .execute(&st.db)
+        .await?;
+    ok(json!({ "success": true }))
+}
+
+#[derive(Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+struct GroupMemberRow {
+    id: Uuid,
+    name: String,
+    member_count: i64,
+    permission: String,
+    created_at: DateTime<Utc>,
+}
+
+/// Groups with access to the collection
+pub async fn group_memberships(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
+    let (c, _) = load_collection(&st.db, &auth, &b.id, Access::Read).await?;
+    let rows: Vec<GroupMemberRow> = sqlx::query_as(
+        "SELECT g.id, g.name, (SELECT count(*) FROM group_users gu WHERE gu.group_id = g.id) AS member_count, \
+         cg.permission, cg.created_at FROM collection_group_memberships cg JOIN groups g ON g.id = cg.group_id \
+         WHERE cg.collection_id = $1 ORDER BY lower(g.name)",
+    )
+    .bind(c.id)
+    .fetch_all(&st.db)
+    .await?;
+    ok(rows)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddGroupReq {
+    id: String,
+    group_id: Uuid,
+    permission: Option<String>,
+}
+
+pub async fn add_group(State(st): State<AppState>, auth: Auth, Json(b): Json<AddGroupReq>) -> ApiResult<Json<Value>> {
+    let (c, _) = load_collection(&st.db, &auth, &b.id, Access::Write).await?;
+    let perm = b.permission.unwrap_or_else(|| "read_write".into());
+    if perm != "read" && perm != "read_write" {
+        return Err(ApiError::bad_request("Invalid permission"));
+    }
+    let group: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM groups WHERE id = $1 AND team_id = $2")
+        .bind(b.group_id)
+        .bind(c.team_id)
+        .fetch_optional(&st.db)
+        .await?;
+    if group.is_none() {
+        return Err(ApiError::not_found("Group not found"));
+    }
+    sqlx::query(
+        "INSERT INTO collection_group_memberships (collection_id, group_id, permission) VALUES ($1, $2, $3) \
+         ON CONFLICT (collection_id, group_id) DO UPDATE SET permission = EXCLUDED.permission",
+    )
+    .bind(c.id)
+    .bind(b.group_id)
+    .bind(perm)
+    .execute(&st.db)
+    .await?;
+    ok(json!({ "success": true }))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveGroupReq {
+    id: String,
+    group_id: Uuid,
+}
+
+pub async fn remove_group(State(st): State<AppState>, auth: Auth, Json(b): Json<RemoveGroupReq>) -> ApiResult<Json<Value>> {
+    let (c, _) = load_collection(&st.db, &auth, &b.id, Access::Write).await?;
+    sqlx::query("DELETE FROM collection_group_memberships WHERE collection_id = $1 AND group_id = $2")
+        .bind(c.id)
+        .bind(b.group_id)
         .execute(&st.db)
         .await?;
     ok(json!({ "success": true }))

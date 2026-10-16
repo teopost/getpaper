@@ -55,6 +55,7 @@ pub struct UpdateReq {
     content_width: Option<String>,
     language: Option<String>,
     theme: Option<String>,
+    email_on_mention: Option<bool>,
 }
 
 fn check_choice(v: &Option<String>, allowed: &[&str], what: &str) -> ApiResult<()> {
@@ -78,6 +79,7 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
          content_width = CASE WHEN $4::text IS NULL THEN content_width ELSE NULLIF($4, '') END, \
          language = CASE WHEN $5::text IS NULL THEN language ELSE NULLIF($5, '') END, \
          theme = CASE WHEN $6::text IS NULL THEN theme ELSE NULLIF($6, '') END, \
+         email_on_mention = COALESCE($7, email_on_mention), \
          updated_at = now() WHERE id = $1 RETURNING *",
     )
     .bind(auth.user.id)
@@ -86,6 +88,7 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     .bind(&b.content_width)
     .bind(&b.language)
     .bind(&b.theme)
+    .bind(b.email_on_mention)
     .fetch_one(&st.db)
     .await?;
     ok(u)
@@ -160,6 +163,11 @@ pub async fn remove(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
     .bind(b.id)
     .execute(&mut *tx)
     .await?;
+    sqlx::query("DELETE FROM group_users WHERE user_id = $2 AND group_id IN (SELECT id FROM groups WHERE team_id = $1)")
+        .bind(team)
+        .bind(b.id)
+        .execute(&mut *tx)
+        .await?;
     sqlx::query("UPDATE sessions SET team_id = NULL WHERE user_id = $2 AND team_id = $1")
         .bind(team)
         .bind(b.id)

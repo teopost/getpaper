@@ -75,12 +75,19 @@ Most common commands (`make` with no arguments shows the list):
 - **WYSIWYG editor** saved as Markdown: `/` menu, formatting toolbar, Markdown shortcuts, tables, checklists,
   code blocks with highlighting, language picker, copy and wrap, notices (`:::info`, `:::warning`, `:::tip`,
   `:::success`), images and attachments by paste or drag.
+- **Mentions** with `@`, as in Outline: people, groups, documents and collections (saved as
+  `@[Name](mention://<id>/<user|document|collection>/<id>)`); documents and collections are chips that open with a
+  click, also while editing. Whoever is mentioned in a published document gets a notification in the sidebar and an email
+  (can be turned off in the profile preferences), if they can read the document.
 - Autosave, drafts, publishing, revision history with restore, stars, archive, trash kept for 30 days,
   templates, comments with replies and resolution.
 - **Full-text search** in PostgreSQL with highlighted results, a collection filter and search across all your
   workspaces.
 - **Public sharing** of documents by link (`/s/...`).
 - **Members and roles** (admin, editor, viewer), invites by link or email, personal API keys.
+- **Groups**, as in Outline: workspace admins create them, workspace and group admins manage their members; a
+  group can be given read or edit access to a collection, and mentioning it with `@group` notifies all of its
+  members (mentions can be turned off per group).
 - Markdown import and export, interface in English and Italian, light, dark or automatic theme.
 
 ## Microsoft sign-in (SSO)

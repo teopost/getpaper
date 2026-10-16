@@ -269,4 +269,34 @@ export default {
   'Personal keys for the API and the MCP server. Each key can be read-only, valid in one or more workspaces, limited to some collections and set to expire. A key never has more permissions than your account.': 'Chiavi personali per le API e il server MCP. Ogni chiave può essere in sola lettura, valida in uno o più workspace, limitata ad alcune collezioni e con una scadenza. Una chiave non ha mai più permessi del tuo account.',
   'Connect an LLM client (Claude Code, Claude Desktop, Cursor, …) through the Model Context Protocol. The assistant works within the limits of the API key: read-only or read/write, its workspaces and collections. Create an API key above and use it in place of {placeholder}.': 'Collega un client LLM (Claude Code, Claude Desktop, Cursor, …) tramite il Model Context Protocol. L’assistente lavora nei limiti della chiave API: sola lettura o lettura/scrittura, i suoi workspace e le sue collezioni. Crea una chiave API qui sopra e usala al posto di {placeholder}.',
   'A key valid in several workspaces needs a single configuration: the assistant lists them with {listTool} and chooses one with the {param} argument of every tool; the search can cover all of them.': 'Una chiave valida in più workspace richiede un’unica configurazione: l’assistente li elenca con {listTool} e sceglie quello su cui lavorare con il parametro {param} di ogni strumento; la ricerca può coprirli tutti.',
+  'Email me when someone mentions me': 'Inviami un’email quando qualcuno mi menziona',
+  'Mentions always appear in the notifications in the sidebar.': 'Le menzioni compaiono sempre tra le notifiche nella barra laterale.',
+  // Groups
+  'New group…': 'Nuovo gruppo…',
+  'New group': 'Nuovo gruppo',
+  'Edit group': 'Modifica gruppo',
+  'Delete group': 'Elimina gruppo',
+  'Group created': 'Gruppo creato',
+  'Group updated': 'Gruppo aggiornato',
+  'Group deleted': 'Gruppo eliminato',
+  'Groups bring people together: give a group access to a collection, or mention it with @ to notify all of its members.':
+    'I gruppi riuniscono più persone: puoi dare a un gruppo l’accesso a una collezione oppure menzionarlo con @ per avvisare tutti i suoi membri.',
+  'What is this group for? (optional)': 'A cosa serve questo gruppo? (facoltativo)',
+  'Allow mentions': 'Consenti le menzioni',
+  'Members can mention the group with @ in documents to notify everyone in it.':
+    'I membri possono menzionare il gruppo con @ nei documenti per avvisare tutti i suoi componenti.',
+  'Members of {name}': 'Membri di {name}',
+  Member: 'Membro',
+  'Group admin': 'Amministratore del gruppo',
+  'This group has no members yet.': 'Questo gruppo non ha ancora membri.',
+  'Groups can be given access to collections and mentioned with @ in documents to notify all of their members. Admins create groups; workspace admins and group admins manage their members.':
+    'Ai gruppi si può dare accesso alle collezioni e si possono menzionare con @ nei documenti per avvisare tutti i membri. Gli amministratori creano i gruppi; gli amministratori del workspace e quelli del gruppo ne gestiscono i membri.',
+  'No groups match the filter.': 'Nessun gruppo corrisponde al filtro.',
+  '(group admin)': '(amministratore del gruppo)',
+  '(member)': '(membro)',
+  'Mentions off': 'Menzioni disattivate',
+  'Manage members': 'Gestisci membri',
+  'The members of {name} lose the access given through the group. People and documents are kept.':
+    'I membri di {name} perdono l’accesso dato tramite il gruppo. Persone e documenti restano.',
+  Edit: 'Modifica',
 };

@@ -4,6 +4,7 @@ mod error;
 mod html_md;
 mod instance;
 mod mail;
+mod mentions;
 mod models;
 mod perm;
 mod util;

@@ -17,6 +17,7 @@ export default {
   Table: 'Tabella',
   Quote: 'Citazione',
   'Code block': 'Blocco di codice',
+  'Table of contents': 'Indice',
   Divider: 'Divisore',
   Image: 'Immagine',
   'File attachment': 'File allegato',
@@ -26,6 +27,9 @@ export default {
   'Success notice': 'Avviso di successo',
   'Current date': 'Data corrente',
   'No results': 'Nessun risultato',
+  // table of contents block
+  Contents: 'Indice',
+  'Add headings to the document to build the table of contents.': 'Aggiungi dei titoli al documento per costruire l’indice.',
   // formatting toolbar
   'Paste or type a link…': 'Incolla o digita un link…',
   Apply: 'Applica',
@@ -56,8 +60,11 @@ export default {
   '− Row': '− Riga',
   '− Col': '− Col',
   // placeholders
-  "Type '/' to insert, or start writing…": "Digita '/' per inserire, oppure inizia a scrivere…",
+  "Type '/' to insert, '@' to mention, or start writing…": "Digita '/' per inserire, '@' per menzionare, oppure inizia a scrivere…",
   'Plain text': 'Testo semplice',
   'Wrap long lines': 'Vai a capo nelle righe lunghe',
   'Disable line wrapping': 'Disattiva a capo automatico',
+  // "@" menu: sections
+  People: 'Persone',
+  Documents: 'Documenti',
 };

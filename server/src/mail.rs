@@ -1,5 +1,6 @@
 //! Outgoing email over SMTP (SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL,
-//! SMTP_FROM_NAME, SMTP_SECURE) and the messages the application sends: workspace invitations.
+//! SMTP_FROM_NAME, SMTP_SECURE) and the messages the application sends: workspace invitations and
+//! mentions in documents.
 
 use std::time::Duration;
 
@@ -111,6 +112,106 @@ fn on(color: &str) -> &'static str {
     }
 }
 
+/// Plain text version of a snippet of email HTML
+fn strip(s: &str) -> String {
+    let mut out = String::new();
+    let mut tag = false;
+    for c in s.replace("<br>", "\n").chars() {
+        match c {
+            '<' => tag = true,
+            '>' => tag = false,
+            c if !tag => out.push(c),
+            _ => {}
+        }
+    }
+    out.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
+}
+
+/// Content of a message in the common layout: header with the product name, title, paragraphs
+/// (HTML), one button and a footer (HTML, followed by the installation address).
+struct Layout<'a> {
+    lang: &'a str,
+    product: &'a str,
+    brand_color: &'a str,
+    base_url: &'a str,
+    subject: &'a str,
+    title: &'a str,
+    paragraphs: &'a [String],
+    button: &'a str,
+    link: &'a str,
+    /// "if the button doesn't work" line
+    fallback: &'a str,
+    footer: &'a str,
+}
+
+/// Plain text and HTML bodies of a message
+fn layout(l: &Layout) -> (String, String) {
+    let brand = l.brand_color;
+    let brand_text = on(brand);
+    let text = format!(
+        "{title}\n\n{body}\n\n{button}: {link}\n\n{footer}\n-- \n{product} · {base}\n",
+        title = l.title,
+        body = l.paragraphs.iter().map(|p| strip(p)).collect::<Vec<_>>().join("\n\n"),
+        button = l.button,
+        link = l.link,
+        footer = strip(l.footer),
+        product = l.product,
+        base = l.base_url,
+    );
+    let body: String = l
+        .paragraphs
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let bottom = if i + 1 == l.paragraphs.len() { 28 } else { 16 };
+            format!(r#"  <p style="margin:0 0 {bottom}px;font-size:15px;line-height:1.6;color:#374151;">{p}</p>
+"#)
+        })
+        .collect();
+    let html = format!(
+        r#"<!doctype html>
+<html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{subject_e}</title></head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111319;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 12px;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+<tr><td style="background:{brand};padding:20px 32px;">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <td style="width:30px;height:30px;background:{brand_text};border-radius:7px;padding:8px 8px 6px;" valign="top">
+      <div style="height:3px;width:14px;background:{brand};border-radius:2px;margin:0 0 3px;font-size:0;line-height:0;">&nbsp;</div>
+      <div style="height:3px;width:14px;background:{brand};border-radius:2px;margin:0 0 3px;font-size:0;line-height:0;">&nbsp;</div>
+      <div style="height:3px;width:9px;background:{brand};border-radius:2px;font-size:0;line-height:0;">&nbsp;</div>
+    </td>
+    <td style="padding-left:10px;color:{brand_text};font-size:20px;font-weight:700;letter-spacing:-0.3px;">{product_e}</td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:32px 32px 8px;">
+  <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;">{title_e}</h1>
+{body}  <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:8px;background:{brand};">
+    <a href="{link_e}" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:{brand_text};text-decoration:none;border-radius:8px;">{button}</a>
+  </td></tr></table>
+  <p style="margin:28px 0 4px;font-size:13px;color:#6b7280;">{fallback}</p>
+  <p style="margin:0 0 24px;font-size:13px;word-break:break-all;"><a href="{link_e}" style="color:#374151;">{link_e}</a></p>
+</td></tr>
+<tr><td style="padding:16px 32px 28px;border-top:1px solid #f0f1f3;">
+  <p style="margin:0;font-size:12px;line-height:1.5;color:#9ca3af;">{footer} <a href="{base_e}" style="color:#9ca3af;">{base_e}</a>.</p>
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>"#,
+        lang = if l.lang == "it" { "it" } else { "en" },
+        subject_e = esc(l.subject),
+        title_e = esc(l.title),
+        link_e = esc(l.link),
+        base_e = esc(l.base_url),
+        product_e = esc(l.product),
+        button = esc(l.button),
+        fallback = l.fallback,
+        footer = l.footer,
+    );
+    (text, html)
+}
+
 pub struct InviteMail<'a> {
     pub lang: &'a str,
     /// product name shown in the email (GetPaper or the custom one)
@@ -190,68 +291,107 @@ pub fn invite(m: &InviteMail) -> Mail {
             "You received this email because someone invited you to",
         )
     };
-    let brand = m.brand_color;
-    let brand_text = on(brand);
-    let strip = |s: &str| {
-        let mut out = String::new();
-        let mut tag = false;
-        for c in s.chars() {
-            match c {
-                '<' => tag = true,
-                '>' => tag = false,
-                c if !tag => out.push(c),
-                _ => {}
-            }
-        }
-        out.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"")
+    let paragraphs = [intro, sign_in];
+    let (text, html) = layout(&Layout {
+        lang: m.lang,
+        product: m.product,
+        brand_color: m.brand_color,
+        base_url: m.base_url,
+        subject: &subject,
+        title: &title,
+        paragraphs: &paragraphs,
+        button: &button,
+        link: m.link,
+        fallback,
+        footer: &format!("{ignore}<br>{footer}"),
+    });
+    Mail { sender: m.product.to_string(), subject, text, html }
+}
+
+pub struct MentionMail<'a> {
+    /// language of the person mentioned
+    pub lang: &'a str,
+    pub product: &'a str,
+    /// who wrote the mention
+    pub actor: &'a str,
+    pub document: &'a str,
+    /// the group mentioned, when the recipient was mentioned as one of its members
+    pub group: Option<&'a str>,
+    pub team: &'a str,
+    /// link to the document
+    pub link: &'a str,
+    pub base_url: &'a str,
+    pub brand_color: &'a str,
+}
+
+/// Someone mentioned the recipient, or a group they belong to, in a document.
+pub fn mention(m: &MentionMail) -> Mail {
+    let it = m.lang == "it";
+    let doc = if m.document.trim().is_empty() { if it { "Senza titolo" } else { "Untitled" } } else { m.document };
+    let (subject, title, intro, button, fallback, footer) = if it {
+        let whom = match m.group {
+            Some(g) => format!("il gruppo {g}"),
+            None => "te".to_string(),
+        };
+        (
+            match m.group {
+                Some(g) => format!("{} ha menzionato {} in \"{}\"", m.actor, g, doc),
+                None => format!("{} ti ha menzionato in \"{}\"", m.actor, doc),
+            },
+            match m.group {
+                Some(g) => format!("{} ha menzionato {}", m.actor, g),
+                None => format!("{} ti ha menzionato", m.actor),
+            },
+            format!(
+                "<strong>{}</strong> ha menzionato <strong>{}</strong> nel documento <strong>{}</strong> del workspace {}.",
+                esc(m.actor),
+                esc(&whom),
+                esc(doc),
+                esc(m.team)
+            ),
+            "Apri il documento",
+            "Se il pulsante non funziona, copia questo indirizzo nel browser:",
+            "Puoi disattivare queste email nelle preferenze del tuo profilo.<br>Hai ricevuto questa email perché hai un account su",
+        )
+    } else {
+        let whom = match m.group {
+            Some(g) => format!("the {g} group"),
+            None => "you".to_string(),
+        };
+        (
+            match m.group {
+                Some(g) => format!("{} mentioned {} in \"{}\"", m.actor, g, doc),
+                None => format!("{} mentioned you in \"{}\"", m.actor, doc),
+            },
+            match m.group {
+                Some(g) => format!("{} mentioned {}", m.actor, g),
+                None => format!("{} mentioned you", m.actor),
+            },
+            format!(
+                "<strong>{}</strong> mentioned <strong>{}</strong> in the document <strong>{}</strong> of the {} workspace.",
+                esc(m.actor),
+                esc(&whom),
+                esc(doc),
+                esc(m.team)
+            ),
+            "Open the document",
+            "If the button doesn't work, paste this address in your browser:",
+            "You can turn these emails off in your profile preferences.<br>You received this email because you have an account on",
+        )
     };
-    let text = format!(
-        "{title}\n\n{}\n\n{}\n\n{button}: {link}\n\n{ignore}\n-- \n{product} · {base}\n",
-        strip(&intro),
-        strip(&sign_in),
-        link = m.link,
-        base = m.base_url,
-        product = m.product
-    );
-    let html = format!(
-        r#"<!doctype html>
-<html lang="{lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{subject_e}</title></head>
-<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#111319;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:32px 12px;">
-<tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
-<tr><td style="background:{brand};padding:20px 32px;">
-  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-    <td style="width:30px;height:30px;background:{brand_text};border-radius:7px;padding:8px 8px 6px;" valign="top">
-      <div style="height:3px;width:14px;background:{brand};border-radius:2px;margin:0 0 3px;font-size:0;line-height:0;">&nbsp;</div>
-      <div style="height:3px;width:14px;background:{brand};border-radius:2px;margin:0 0 3px;font-size:0;line-height:0;">&nbsp;</div>
-      <div style="height:3px;width:9px;background:{brand};border-radius:2px;font-size:0;line-height:0;">&nbsp;</div>
-    </td>
-    <td style="padding-left:10px;color:{brand_text};font-size:20px;font-weight:700;letter-spacing:-0.3px;">{product_e}</td>
-  </tr></table>
-</td></tr>
-<tr><td style="padding:32px 32px 8px;">
-  <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;">{title_e}</h1>
-  <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">{intro}</p>
-  <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#374151;">{sign_in}</p>
-  <table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="border-radius:8px;background:{brand};">
-    <a href="{link_e}" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:{brand_text};text-decoration:none;border-radius:8px;">{button}</a>
-  </td></tr></table>
-  <p style="margin:28px 0 4px;font-size:13px;color:#6b7280;">{fallback}</p>
-  <p style="margin:0 0 24px;font-size:13px;word-break:break-all;"><a href="{link_e}" style="color:#374151;">{link_e}</a></p>
-</td></tr>
-<tr><td style="padding:16px 32px 28px;border-top:1px solid #f0f1f3;">
-  <p style="margin:0;font-size:12px;line-height:1.5;color:#9ca3af;">{ignore}<br>{footer} <a href="{base_e}" style="color:#9ca3af;">{base_e}</a>.</p>
-</td></tr>
-</table>
-</td></tr></table>
-</body></html>"#,
-        lang = if it { "it" } else { "en" },
-        subject_e = esc(&subject),
-        title_e = esc(&title),
-        link_e = esc(m.link),
-        base_e = esc(m.base_url),
-        product_e = esc(m.product),
-    );
+    let paragraphs = [intro];
+    let (text, html) = layout(&Layout {
+        lang: m.lang,
+        product: m.product,
+        brand_color: m.brand_color,
+        base_url: m.base_url,
+        subject: &subject,
+        title: &title,
+        paragraphs: &paragraphs,
+        button,
+        link: m.link,
+        fallback,
+        footer,
+    });
     Mail { sender: m.product.to_string(), subject, text, html }
 }

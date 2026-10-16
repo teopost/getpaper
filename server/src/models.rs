@@ -18,6 +18,8 @@ pub struct User {
     pub theme: Option<String>,
     /// manages the installation settings
     pub is_superadmin: bool,
+    /// also send an email when someone mentions the user
+    pub email_on_mention: bool,
     pub created_at: DateTime<Utc>,
     pub last_active_at: Option<DateTime<Utc>>,
 }

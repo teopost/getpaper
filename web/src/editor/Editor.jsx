@@ -39,6 +39,7 @@ import {
   Table as TableIcon,
   Image as ImageIcon,
   Minus,
+  ListTree,
   Info,
   AlertTriangle,
   Lightbulb,
@@ -51,10 +52,13 @@ import {
   Trash2,
   Check,
   X,
+  Users,
 } from 'lucide-react';
-import { uploadFile } from '../api';
+import { api, uploadFile } from '../api';
 import { t, getLanguage } from '../i18n';
-import { Notice, createSlashCommand } from './extensions';
+import { Avatar } from '../components/ui';
+import { CollectionIcon, DocIcon } from '../components/icons';
+import { Mention, Notice, Toc, createMentionSuggestion, createSlashCommand, newMentionId } from './extensions';
 import CodeBlockView from './CodeBlockView';
 
 const lowlight = createLowlight(common);
@@ -112,6 +116,7 @@ function slashItems(documentId) {
     { section: t('Blocks'), title: t('Table'), titleEn: 'Table', keywords: 'grid', icon: <TableIcon size={16} />, command: run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()) },
     { section: t('Blocks'), title: t('Quote'), titleEn: 'Quote', keywords: 'blockquote citation', icon: <Quote size={16} />, shortcut: '>', command: run((c) => c.toggleBlockquote().run()) },
     { section: t('Blocks'), title: t('Code block'), titleEn: 'Code block', keywords: 'pre snippet', icon: <Braces size={16} />, shortcut: '```', command: run((c) => c.toggleCodeBlock().run()) },
+    { section: t('Blocks'), title: t('Table of contents'), titleEn: 'Table of contents', keywords: 'toc index outline headings', icon: <ListTree size={16} />, command: run((c) => c.insertToc().run()) },
     { section: t('Blocks'), title: t('Divider'), titleEn: 'Divider', keywords: 'hr horizontal rule line', icon: <Minus size={16} />, shortcut: '---', command: run((c) => c.setHorizontalRule().run()) },
     {
       section: t('Blocks'),
@@ -146,6 +151,70 @@ function slashItems(documentId) {
         c.insertContent(new Date().toLocaleDateString(getLanguage(), { year: 'numeric', month: 'long', day: 'numeric' })).run()
       ),
     },
+  ];
+}
+
+/** Inserts a mention, followed by a space */
+const insertMention = (type, modelId, label) => ({ editor, range }) =>
+  editor
+    .chain()
+    .focus()
+    .insertContentAt(range, [
+      { type: 'mention', attrs: { id: newMentionId(), type, modelId, label } },
+      { type: 'text', text: ' ' },
+    ])
+    .run();
+
+/**
+ * Items of the "@" menu, as in Outline: people and groups (notified), then documents and collections.
+ * Without a query: everyone and the recently viewed documents.
+ */
+async function mentionItems(query) {
+  const q = query.trim();
+  const lower = q.toLowerCase();
+  const [users, groups, docs, collections] = await Promise.all([
+    api('users.list', { query: q }).catch(() => []),
+    api('groups.list', { query: q }).catch(() => []),
+    (q ? api('documents.search', { query: q, limit: 5 }).then((r) => r.map((x) => x.document)) : api('documents.viewed', { limit: 5 })).catch(
+      () => []
+    ),
+    api('collections.list').catch(() => []),
+  ]);
+  return [
+    ...users.slice(0, 6).map((u) => ({
+      key: `user-${u.id}`,
+      section: t('People'),
+      title: u.name,
+      icon: <Avatar name={u.name} color={u.color} size={18} />,
+      command: insertMention('user', u.id, u.name),
+    })),
+    ...groups
+      .filter((g) => !g.disableMentions)
+      .slice(0, 4)
+      .map((g) => ({
+        key: `group-${g.id}`,
+        section: t('Groups'),
+        title: g.name,
+        icon: <Users size={16} />,
+        command: insertMention('group', g.id, g.name),
+      })),
+    ...docs.slice(0, 5).map((d) => ({
+      key: `doc-${d.id}`,
+      section: t('Documents'),
+      title: d.title || t('Untitled'),
+      icon: <DocIcon doc={d} />,
+      command: insertMention('document', d.id, d.title || t('Untitled')),
+    })),
+    ...collections
+      .filter((c) => c.name.toLowerCase().includes(lower))
+      .slice(0, 3)
+      .map((c) => ({
+        key: `collection-${c.id}`,
+        section: t('Collections'),
+        title: c.name,
+        icon: <CollectionIcon collection={c} size={16} />,
+        command: insertMention('collection', c.id, c.name),
+      })),
   ];
 }
 
@@ -329,13 +398,15 @@ export default function Editor({
   value,
   onChange,
   editable = true,
-  placeholder = t("Type '/' to insert, or start writing…"),
+  placeholder = t("Type '/' to insert, '@' to mention, or start writing…"),
   documentId,
   autoFocus,
   onReady,
   className = '',
 }) {
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   const editorRef = useRef(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -359,7 +430,10 @@ export default function Editor({
       Underline,
       CodeBlock.configure({ lowlight }),
       Notice,
+      Toc,
+      Mention.configure({ navigate: (path) => navigateRef.current(path) }),
       createSlashCommand(() => slashItems(documentId)),
+      createMentionSuggestion(mentionItems),
       Markdown.configure({
         html: true,
         tightLists: true,
@@ -405,7 +479,8 @@ export default function Editor({
             const a = event.target.closest?.('a[href]');
             if (!a) return false;
             const isEditable = editorRef.current?.isEditable;
-            if (isEditable && !(event.metaKey || event.ctrlKey)) return false;
+            // links need Ctrl/Cmd while editing; mentions of documents and collections open with a click, as in Outline
+            if (isEditable && !a.classList.contains('mention') && !(event.metaKey || event.ctrlKey)) return false;
             event.preventDefault();
             const href = a.getAttribute('href');
             if (href.startsWith('/') && !href.startsWith('/files/')) navigate(href);

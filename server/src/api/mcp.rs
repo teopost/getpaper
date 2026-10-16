@@ -27,7 +27,7 @@ const SUPPORTED_VERSIONS: &[&str] = &["2025-06-18", "2025-03-26", "2024-11-05"];
 
 const INSTRUCTIONS: &str = "GetPaper is a team wiki (Outline compatible). Content is organised in collections; \
 documents can be nested and are written in Markdown (GitHub flavoured, plus notice blocks `:::info … :::`, \
-`:::warning`, `:::tip`, `:::success`). Start with list_collections or search_documents. Documents can be referenced \
+`:::warning`, `:::tip`, `:::success`, and a `[[toc]]` line for a table of contents built from the headings). Start with list_collections or search_documents. Documents can be referenced \
 by id, urlId or full URL; collections by id, urlId or name. New documents are published by default; pass \
 publish=false to keep a private draft. Prefer update_document with append_text to add content without rewriting. \
 The API key may be valid in several workspaces: list_workspaces shows them; every tool takes an optional `workspace` \

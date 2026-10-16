@@ -41,7 +41,7 @@ const CommandList = forwardRef(function CommandList({ items, command }, ref) {
   return (
     <div className="command-list" ref={listRef}>
       {items.map((item, i) => (
-        <React.Fragment key={item.title}>
+        <React.Fragment key={item.key || item.title}>
           {item.section && (i === 0 || items[i - 1].section !== item.section) && (
             <div className="command-section">{item.section}</div>
           )}
