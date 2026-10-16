@@ -261,8 +261,14 @@
   outline: 2px solid var(--accent);
   border-radius: 6px;
 }
+/* mermaid's svg has width="100%" and its natural width as max-width: the wrapper must span the column,
+   or in the flex container the svg falls back to 300px and the diagram is scaled down */
+.mermaid-diagram-svg {
+  width: 100%;
+}
 .mermaid-diagram-svg svg {
-  max-width: 100%;
+  display: block;
+  margin: 0 auto;
   height: auto;
 }
 .mermaid-diagram-message {
