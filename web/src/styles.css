@@ -2175,12 +2175,63 @@ body.resizing-sidebar {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-/* workspace logo (Settings → Details) */
+/* workspace logo (Settings → Details): click it to upload another one */
 .team-logo {
   object-fit: contain;
 }
-.workspace-logo-actions {
+.workspace-logo {
+  position: relative;
+  flex-shrink: 0;
+}
+.workspace-logo-button {
+  position: relative;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.workspace-logo-button .team-avatar {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+}
+.workspace-logo-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.workspace-logo-button:hover .workspace-logo-overlay,
+.workspace-logo-button:focus-visible .workspace-logo-overlay {
+  opacity: 1;
+}
+.workspace-logo-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--divider);
+  border-radius: 50%;
+  background: var(--menu-bg);
+  color: var(--text-secondary);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.workspace-logo:hover .workspace-logo-remove,
+.workspace-logo-remove:focus-visible {
+  opacity: 1;
+}
+.workspace-logo-remove:hover {
+  color: var(--danger);
 }

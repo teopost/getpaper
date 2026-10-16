@@ -300,11 +300,10 @@ export default {
     'I membri di {name} perdono l’accesso dato tramite il gruppo. Persone e documenti restano.',
   Edit: 'Modifica',
   // workspace logo
-  'Upload logo…': 'Carica logo…',
-  'Change logo…': 'Cambia logo…',
+  'Upload logo': 'Carica logo',
+  'Change logo': 'Cambia logo',
+  'Remove logo': 'Rimuovi logo',
   'Logo updated': 'Logo aggiornato',
   'Logo removed': 'Logo rimosso',
   'This file is not an image': 'Questo file non è un’immagine',
-  'Square images work best; others are fitted in a square. Without a logo the initial on the colour below is shown.':
-    'Le immagini quadrate rendono meglio; le altre vengono adattate in un quadrato. Senza logo viene mostrata l’iniziale sul colore qui sotto.',
 };

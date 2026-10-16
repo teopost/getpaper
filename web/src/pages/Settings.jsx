@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { Copy, Plus, Trash2, UserPlus, Check, Download, Mail, Send, ImageUp } from 'lucide-react';
+import { Copy, Plus, Trash2, UserPlus, Check, Download, Mail, Send, ImageUp, X } from 'lucide-react';
 import { api, collectionUrl, copyToClipboard, docUrl, formatDate, downloadFile, timeAgo, upload, uploadFile } from '../api';
 import { useApp } from '../store';
 import Scene from '../components/Scene';
@@ -238,38 +238,41 @@ function WorkspaceLogo({ team, name, color, onChange }) {
     }
   };
   return (
-    <div className="row gap">
-      <TeamAvatar team={{ name, color, avatarUrl: team.avatarUrl }} size={56} />
-      <div className="workspace-logo-actions">
-        <div className="row gap-sm">
-          <Button type="button" variant="secondary" small icon={<ImageUp size={14} />} disabled={busy} onClick={() => inputRef.current?.click()}>
-            {team.avatarUrl ? t('Change logo…') : t('Upload logo…')}
-          </Button>
-          {team.avatarUrl && (
-            <Button type="button" variant="secondary" small disabled={busy} onClick={() => save('', t('Logo removed'))}>
-              {t('Remove')}
-            </Button>
-          )}
-        </div>
-        <div className="field-hint">{t('Square images work best; others are fitted in a square. Without a logo the initial on the colour below is shown.')}</div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            e.target.value = '';
-            if (!file) return;
-            try {
-              const res = await uploadFile(await squareLogo(file));
-              await save(res.url, t('Logo updated'));
-            } catch (err) {
-              toast(err.message, 'error');
-            }
-          }}
-        />
-      </div>
+    <div className="workspace-logo">
+      <button
+        type="button"
+        className="workspace-logo-button"
+        title={team.avatarUrl ? t('Change logo') : t('Upload logo')}
+        disabled={busy}
+        onClick={() => inputRef.current?.click()}
+      >
+        <TeamAvatar team={{ name, color, avatarUrl: team.avatarUrl }} size={56} />
+        <span className="workspace-logo-overlay">
+          <ImageUp size={20} />
+        </span>
+      </button>
+      {team.avatarUrl && (
+        <button type="button" className="workspace-logo-remove" title={t('Remove logo')} disabled={busy} onClick={() => save('', t('Logo removed'))}>
+          <X size={12} />
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (!file) return;
+          try {
+            const res = await uploadFile(await squareLogo(file));
+            await save(res.url, t('Logo updated'));
+          } catch (err) {
+            toast(err.message, 'error');
+          }
+        }}
+      />
     </div>
   );
 }
@@ -302,8 +305,10 @@ function Workspace() {
           }
         }}
       >
-        <WorkspaceLogo team={team} name={name} color={color} onChange={refreshAuth} />
-        {!team.avatarUrl && <ColorPicker value={color} onChange={setColor} />}
+        <div className="row gap">
+          <WorkspaceLogo team={team} name={name} color={color} onChange={refreshAuth} />
+          {!team.avatarUrl && <ColorPicker value={color} onChange={setColor} />}
+        </div>
         <Field label={t('Name')}>
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>
