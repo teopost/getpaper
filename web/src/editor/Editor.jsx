@@ -58,7 +58,7 @@ import { api, uploadFile } from '../api';
 import { t, getLanguage } from '../i18n';
 import { Avatar } from '../components/ui';
 import { CollectionIcon, DocIcon } from '../components/icons';
-import { Mention, Notice, Toc, createMentionSuggestion, createSlashCommand, newMentionId } from './extensions';
+import { Mention, Notice, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable } from './extensions';
 import CodeBlockView from './CodeBlockView';
 
 const lowlight = createLowlight(common);
@@ -69,6 +69,16 @@ lowlight.register({ apache, dockerfile, dos, groovy, nginx, powershell, properti
 const CodeBlock = CodeBlockLowlight.extend({
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockView);
+  },
+});
+
+/**
+ * Tables with resizable columns, as in Outline. Markdown has no column widths, so resized tables are
+ * saved as HTML blocks (see serializeTable); the others stay Markdown tables.
+ */
+const ResizableTable = Table.extend({
+  addStorage() {
+    return { markdown: { serialize: serializeTable, parse: {} } };
   },
 });
 
@@ -422,7 +432,7 @@ export default function Editor({
       Image.configure({ inline: false, allowBase64: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: false }),
+      ResizableTable.configure({ resizable: true, cellMinWidth: 60, lastColumnResizable: false }),
       TableRow,
       TableHeader,
       TableCell,

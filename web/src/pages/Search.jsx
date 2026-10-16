@@ -15,6 +15,9 @@ function escapeHtml(s) {
 /** Turn a ts_headline snippet (markdown with ⟪ ⟫ markers) into safe HTML. */
 function contextToHtml(ctx) {
   const cleaned = ctx
+    // HTML (tables with resized columns are stored as HTML), also a tag cut by the snippet
+    .replace(/<[^<>]*>/g, ' ')
+    .replace(/\b(?:colspan|rowspan|colwidth)="[^"]*"/g, ' ')
     // table of contents marker, also when the search highlighted "toc" in it
     .replace(/\[\[⟪?toc⟫?\]\]/gi, ' ')
     // mentions of documents and collections show their title (people and groups keep the @)

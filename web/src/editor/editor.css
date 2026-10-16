@@ -289,6 +289,20 @@
 .ProseMirror .tableWrapper {
   overflow-x: auto;
 }
+/* column resizing (drag the right border of a cell) */
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: -2px;
+  right: -2px;
+  width: 4px;
+  background: var(--accent);
+  pointer-events: none;
+  z-index: 1;
+}
+.ProseMirror.resize-cursor {
+  cursor: col-resize;
+}
 
 /* table of contents */
 .ProseMirror .toc {

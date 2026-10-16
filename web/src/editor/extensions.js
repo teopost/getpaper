@@ -1,4 +1,5 @@
-import { Extension, Node, mergeAttributes } from '@tiptap/core';
+import { Extension, Node, getHTMLFromFragment, mergeAttributes } from '@tiptap/core';
+import { Fragment } from '@tiptap/pm/model';
 import { ReactNodeViewRenderer, ReactRenderer } from '@tiptap/react';
 import Suggestion from '@tiptap/suggestion';
 import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
@@ -124,6 +125,72 @@ export const Toc = Node.create({
     };
   },
 });
+
+// ---------------------------------------------------------------------------
+// tables
+// ---------------------------------------------------------------------------
+
+const cells = (table) => {
+  const out = [];
+  table.forEach((row) => row.forEach((cell) => out.push(cell)));
+  return out;
+};
+
+/**
+ * A table fits in Markdown (GFM) when the first row is all headers, the others have none, and every
+ * cell is a single paragraph without spans. Column widths set by resizing don't fit either.
+ * (Same rules as tiptap-markdown, plus the widths.)
+ */
+function fitsMarkdown(table) {
+  let ok = true;
+  table.forEach((row, _, r) =>
+    row.forEach((cell) => {
+      const header = cell.type.name === 'tableHeader';
+      if ((r === 0) !== header || cell.attrs.colspan > 1 || cell.attrs.rowspan > 1 || cell.childCount > 1) ok = false;
+    })
+  );
+  return ok && !cells(table).some((c) => c.attrs.colwidth?.some((w) => w > 0));
+}
+
+/**
+ * Markdown of a table: a GFM table, or an HTML block (which keeps the column widths in the
+ * colwidth attribute of the cells) when it doesn't fit, like tiptap-markdown does for spans.
+ */
+export function serializeTable(state, node, parent) {
+  if (!fitsMarkdown(node)) {
+    const html = getHTMLFromFragment(Fragment.from(node), node.type.schema);
+    const dom = new DOMParser().parseFromString(html, 'text/html');
+    const table = dom.body.firstElementChild;
+    // the widths are in the cells; the colgroup and inline sizes are recomputed from them
+    table.querySelector('colgroup')?.remove();
+    table.removeAttribute('style');
+    // an HTML block must start and end on its own lines, without blank lines inside (CommonMark):
+    // the only line breaks inside are in code, written as character references
+    const inner = table.innerHTML.trim().replace(/\n/g, '&#10;');
+    table.innerHTML = '';
+    const open = table.outerHTML.slice(0, -'</table>'.length);
+    state.write(parent?.type?.name === 'doc' || parent instanceof Fragment ? `${open}\n${inner}\n</table>` : html);
+    state.closeBlock(node);
+    return;
+  }
+  state.inTable = true;
+  node.forEach((row, _, i) => {
+    state.write('| ');
+    row.forEach((cell, __, j) => {
+      if (j) state.write(' | ');
+      const content = cell.firstChild;
+      if (content.textContent.trim()) state.renderInline(content);
+    });
+    state.write(' |');
+    state.ensureNewLine();
+    if (!i) {
+      state.write(`| ${Array.from({ length: row.childCount }, () => '---').join(' | ')} |`);
+      state.ensureNewLine();
+    }
+  });
+  state.closeBlock(node);
+  state.inTable = false;
+}
 
 /** Popup next to the cursor with a keyboard navigable list, for the "/" and "@" menus */
 function suggestionPopup() {
