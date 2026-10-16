@@ -2174,3 +2174,13 @@ body.resizing-sidebar {
 .public-badge:hover {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
+
+/* workspace logo (Settings → Details) */
+.team-logo {
+  object-fit: contain;
+}
+.workspace-logo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

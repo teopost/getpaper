@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { Copy, Plus, Trash2, UserPlus, Check, Download, Mail, Send } from 'lucide-react';
-import { api, collectionUrl, copyToClipboard, docUrl, formatDate, downloadFile, timeAgo, upload } from '../api';
+import { Copy, Plus, Trash2, UserPlus, Check, Download, Mail, Send, ImageUp } from 'lucide-react';
+import { api, collectionUrl, copyToClipboard, docUrl, formatDate, downloadFile, timeAgo, upload, uploadFile } from '../api';
 import { useApp } from '../store';
 import Scene from '../components/Scene';
 import { Avatar, Button, ConfirmModal, Empty, Field, Modal, Spinner, Switch, TeamAvatar } from '../components/ui';
@@ -193,6 +193,87 @@ function Profile() {
   );
 }
 
+const LOGO_SIZE = 256;
+
+/** The image as a square PNG logo: the whole image fitted in the square, transparent around it */
+async function squareLogo(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error(t('This file is not an image')));
+      img.src = url;
+    });
+    const w = img.naturalWidth || LOGO_SIZE;
+    const h = img.naturalHeight || LOGO_SIZE;
+    const scale = Math.min(LOGO_SIZE / w, LOGO_SIZE / h);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = LOGO_SIZE;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, (LOGO_SIZE - w * scale) / 2, (LOGO_SIZE - h * scale) / 2, w * scale, h * scale);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    return new File([blob], 'workspace-logo.png', { type: 'image/png' });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Logo of the workspace, as in Outline: uploaded and saved at once, shown in place of the initial */
+function WorkspaceLogo({ team, name, color, onChange }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const inputRef = React.useRef(null);
+  const save = async (avatarUrl, message) => {
+    setBusy(true);
+    try {
+      await api('teams.update', { avatarUrl });
+      await onChange();
+      toast(message);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="row gap">
+      <TeamAvatar team={{ name, color, avatarUrl: team.avatarUrl }} size={56} />
+      <div className="workspace-logo-actions">
+        <div className="row gap-sm">
+          <Button type="button" variant="secondary" small icon={<ImageUp size={14} />} disabled={busy} onClick={() => inputRef.current?.click()}>
+            {team.avatarUrl ? t('Change logo…') : t('Upload logo…')}
+          </Button>
+          {team.avatarUrl && (
+            <Button type="button" variant="secondary" small disabled={busy} onClick={() => save('', t('Logo removed'))}>
+              {t('Remove')}
+            </Button>
+          )}
+        </div>
+        <div className="field-hint">{t('Square images work best; others are fitted in a square. Without a logo the initial on the colour below is shown.')}</div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file) return;
+            try {
+              const res = await uploadFile(await squareLogo(file));
+              await save(res.url, t('Logo updated'));
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Workspace() {
   const { team, isAdmin, refreshAuth } = useApp();
   const toast = useToast();
@@ -221,10 +302,8 @@ function Workspace() {
           }
         }}
       >
-        <div className="row gap">
-          <TeamAvatar team={{ name, color }} size={56} />
-          <ColorPicker value={color} onChange={setColor} />
-        </div>
+        <WorkspaceLogo team={team} name={name} color={color} onChange={refreshAuth} />
+        {!team.avatarUrl && <ColorPicker value={color} onChange={setColor} />}
         <Field label={t('Name')}>
           <input value={name} onChange={(e) => setName(e.target.value)} required />
         </Field>

@@ -39,6 +39,7 @@ export function Avatar({ name, color, size = 24 }) {
 
 export function TeamAvatar({ team, size = 24 }) {
   const initial = (team?.name || '?').trim().charAt(0).toUpperCase();
+  if (team?.avatarUrl) return <img className="team-avatar team-logo" src={team.avatarUrl} alt="" style={{ width: size, height: size }} />;
   return (
     <span
       className="team-avatar"

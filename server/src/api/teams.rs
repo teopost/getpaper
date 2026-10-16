@@ -166,6 +166,29 @@ pub struct UpdateReq {
     sharing: Option<bool>,
     default_user_role: Option<String>,
     allowed_domains: Option<String>,
+    /// logo: an image uploaded to this workspace (attachments.create), "" removes it
+    avatar_url: Option<String>,
+}
+
+/// The logo must be a raster image uploaded to the workspace, addressed as /files/<id>/<name>.
+async fn valid_logo(st: &AppState, team: Uuid, url: &str) -> ApiResult<Option<String>> {
+    if url.is_empty() {
+        return Ok(None);
+    }
+    let id = url
+        .strip_prefix("/files/")
+        .and_then(|rest| rest.split('/').next())
+        .and_then(|id| Uuid::parse_str(id).ok())
+        .ok_or_else(|| ApiError::bad_request("The logo must be an image uploaded to the workspace"))?;
+    let ct: Option<(String,)> = sqlx::query_as("SELECT content_type FROM attachments WHERE id = $1 AND team_id = $2")
+        .bind(id)
+        .bind(team)
+        .fetch_optional(&st.db)
+        .await?;
+    match ct {
+        Some((ct,)) if ct.starts_with("image/") && ct != "image/svg+xml" => Ok(Some(url.to_string())),
+        _ => Err(ApiError::bad_request("The logo must be an image uploaded to the workspace")),
+    }
 }
 
 pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<UpdateReq>) -> ApiResult<Json<Value>> {
@@ -177,12 +200,18 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
         Some(n) => Some(non_empty(n, "Name")?),
         None => None,
     };
+    let team_id = auth.team()?;
+    let logo = match &b.avatar_url {
+        Some(url) => Some(valid_logo(&st, team_id, url.trim()).await?),
+        None => None,
+    };
     let team: Team = sqlx::query_as(
         "UPDATE teams SET name = COALESCE($2, name), color = COALESCE($3, color), sharing = COALESCE($4, sharing), \
          default_user_role = COALESCE($5, default_user_role), allowed_domains = COALESCE($6, allowed_domains), \
+         avatar_url = CASE WHEN $7 THEN $8 ELSE avatar_url END, \
          updated_at = now() WHERE id = $1 RETURNING *",
     )
-    .bind(auth.team()?)
+    .bind(team_id)
     .bind(name)
     .bind(&b.color)
     .bind(b.sharing)
@@ -194,6 +223,8 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
             .collect::<Vec<_>>()
             .join(", ")
     }))
+    .bind(logo.is_some())
+    .bind(logo.flatten())
     .fetch_one(&st.db)
     .await?;
     ok(team)
