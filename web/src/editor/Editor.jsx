@@ -45,6 +45,7 @@ import {
   Lightbulb,
   CheckCircle2,
   Braces,
+  Workflow,
   Link2,
   Underline as UnderlineIcon,
   Calendar,
@@ -64,11 +65,26 @@ import CodeBlockView from './CodeBlockView';
 const lowlight = createLowlight(common);
 // languages common in ops documentation that are not in lowlight's default set
 lowlight.register({ apache, dockerfile, dos, groovy, nginx, powershell, properties });
+// Mermaid sources stay plain text (otherwise lowlight would guess a language and color them)
+lowlight.register({ mermaid: () => ({ name: 'Mermaid', aliases: ['mermaidjs'], contains: [] }) });
 
-/** Code block with language picker, copy button and line wrapping toggle */
+const isMermaidBlock = (node) => node.type.name === 'codeBlock' && ['mermaid', 'mermaidjs'].includes(node.attrs.language);
+
+/** Code block with language picker, copy button and line wrapping toggle; "mermaid" blocks are drawn as diagrams */
 const CodeBlock = CodeBlockLowlight.extend({
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockView);
+  },
+  addKeyboardShortcuts() {
+    return {
+      ...this.parent?.(),
+      // Escape leaves the source of a diagram and selects the block, as in Outline
+      Escape: ({ editor }) => {
+        const { $from } = editor.state.selection;
+        if (!isMermaidBlock($from.parent)) return false;
+        return editor.commands.setNodeSelection($from.before());
+      },
+    };
   },
 });
 
@@ -126,6 +142,7 @@ function slashItems(documentId) {
     { section: t('Blocks'), title: t('Table'), titleEn: 'Table', keywords: 'grid', icon: <TableIcon size={16} />, command: run((c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()) },
     { section: t('Blocks'), title: t('Quote'), titleEn: 'Quote', keywords: 'blockquote citation', icon: <Quote size={16} />, shortcut: '>', command: run((c) => c.toggleBlockquote().run()) },
     { section: t('Blocks'), title: t('Code block'), titleEn: 'Code block', keywords: 'pre snippet', icon: <Braces size={16} />, shortcut: '```', command: run((c) => c.toggleCodeBlock().run()) },
+    { section: t('Blocks'), title: t('Mermaid diagram'), titleEn: 'Mermaid diagram', keywords: 'diagram chart graph flowchart sequence gantt mermaidjs', icon: <Workflow size={16} />, command: run((c) => c.setCodeBlock({ language: 'mermaid' }).run()) },
     { section: t('Blocks'), title: t('Table of contents'), titleEn: 'Table of contents', keywords: 'toc index outline headings', icon: <ListTree size={16} />, command: run((c) => c.insertToc().run()) },
     { section: t('Blocks'), title: t('Divider'), titleEn: 'Divider', keywords: 'hr horizontal rule line', icon: <Minus size={16} />, shortcut: '---', command: run((c) => c.setHorizontalRule().run()) },
     {

@@ -17,6 +17,7 @@ export default {
   Table: 'Tabella',
   Quote: 'Citazione',
   'Code block': 'Blocco di codice',
+  'Mermaid diagram': 'Diagramma Mermaid',
   'Table of contents': 'Indice',
   Divider: 'Divisore',
   Image: 'Immagine',
@@ -67,4 +68,9 @@ export default {
   // "@" menu: sections
   People: 'Persone',
   Documents: 'Documenti',
+  // Mermaid diagrams
+  'Empty diagram': 'Diagramma vuoto',
+  'Loading diagram…': 'Caricamento del diagramma…',
+  'Edit diagram': 'Modifica diagramma',
+  'Hide diagram source': 'Nascondi il codice del diagramma',
 };
