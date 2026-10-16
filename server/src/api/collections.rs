@@ -464,7 +464,7 @@ pub async fn export(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
             Some(e) => format!("{e} {title}"),
             None => title,
         };
-        md.push_str(&format!("---\n\n## {t}\n\n{text}\n\n"));
+        md.push_str(&format!("---\n\n## {t}\n\n{}\n\n", crate::html_md::html_tables_to_gfm(&text)));
     }
     ok(json!({ "name": c.name, "markdown": md }))
 }

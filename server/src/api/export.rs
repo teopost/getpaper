@@ -360,7 +360,9 @@ async fn obsidian(st: &AppState, auth: &Auth) -> ApiResult<Vec<(String, Vec<u8>)
     .unwrap();
     for d in &docs {
         let Some(path) = path_of.get(&d.id) else { continue };
-        let text = link.replace_all(&d.text, |c: &Captures| {
+        // tables saved as HTML become Markdown tables first, so the links in them are rewritten too
+        let source = crate::html_md::html_tables_to_gfm(&d.text);
+        let text = link.replace_all(&source, |c: &Captures| {
             let (bang, label, kind, rest) = (&c[1], &c[2], &c[3], &c[4]);
             let alias = |l: &str| if l.is_empty() { String::new() } else { format!("|{l}") };
             if kind == "files" {

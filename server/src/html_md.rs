@@ -27,6 +27,67 @@ pub fn convert(html: &str) -> String {
     convert_element(root)
 }
 
+/// Markdown with the HTML tables turned into GFM tables, for Markdown exports. The editor saves a
+/// table as an HTML block (`<table>` … `</table>` on their own lines) when Markdown can't hold it:
+/// resized columns, merged cells, several paragraphs in a cell. The column widths are dropped,
+/// merged cells are padded with empty ones. Code blocks are left alone.
+pub fn html_tables_to_gfm(md: &str) -> String {
+    if !md.contains("<table") {
+        return md.to_string();
+    }
+    let mut out: Vec<String> = vec![];
+    let mut fence: Option<String> = None;
+    let mut table: Option<Vec<&str>> = None;
+    let to_gfm = |html: String| {
+        let gfm = convert(&html);
+        if gfm.trim().is_empty() {
+            html
+        } else {
+            gfm
+        }
+    };
+    for line in md.lines() {
+        if let Some(t) = table.as_mut() {
+            t.push(line);
+            if line.trim() == "</table>" {
+                out.push(to_gfm(t.join("\n")));
+                table = None;
+            }
+            continue;
+        }
+        if let Some(open) = &fence {
+            if code_fence(line).is_some_and(|f| f.starts_with(open.as_str())) {
+                fence = None;
+            }
+            out.push(line.to_string());
+            continue;
+        }
+        if let Some(f) = code_fence(line) {
+            fence = Some(f);
+            out.push(line.to_string());
+            continue;
+        }
+        if line.starts_with("<table") {
+            if line.trim_end().ends_with("</table>") {
+                out.push(to_gfm(line.to_string()));
+            } else {
+                table = Some(vec![line]);
+            }
+            continue;
+        }
+        out.push(line.to_string());
+    }
+    // a table that never ends is kept as it is
+    if let Some(t) = table {
+        out.extend(t.into_iter().map(str::to_string));
+    }
+    let mut s = out.join("\n");
+    if md.ends_with('\n') {
+        s.push('\n');
+    }
+    s
+}
+
 /// The fence (``` or ~~~, any length) when `line` opens or closes a fenced code block, also inside
 /// list items ("1. ```bash") and quotes.
 pub fn code_fence(line: &str) -> Option<String> {
@@ -937,6 +998,16 @@ int b = 2;</pre></div></div>
             md,
             ":::warning\n**Careful**\n\nBody text\n:::\n\n```java\nint a = 1;\nint b = 2;\n```\n\n- [x] done\n- [ ] todo"
         );
+    }
+
+    #[test]
+    fn html_tables_in_markdown() {
+        let md = "Intro\n\n<table>\n<tbody><tr><th colspan=\"1\" rowspan=\"1\" colwidth=\"180\"><p>A</p></th><th><p>B <strong>b</strong></p></th></tr><tr><td colwidth=\"180\"><p>1</p></td><td><p><a href=\"/doc/x-abc\">link</a></p></td></tr></tbody>\n</table>\n\n```html\n<table>\n</table>\n```\n\nEnd\n";
+        assert_eq!(
+            super::html_tables_to_gfm(md),
+            "Intro\n\n| A | B **b** |\n| --- | --- |\n| 1 | [link](/doc/x-abc) |\n\n```html\n<table>\n</table>\n```\n\nEnd\n"
+        );
+        assert_eq!(super::html_tables_to_gfm("| a |\n| --- |\n"), "| a |\n| --- |\n");
     }
 
     #[test]

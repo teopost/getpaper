@@ -890,7 +890,7 @@ pub async fn export(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
         Some(e) => format!("{e} {}", d.title),
         None => d.title.clone(),
     };
-    ok(format!("# {title}\n\n{}", d.text))
+    ok(format!("# {title}\n\n{}", crate::html_md::html_tables_to_gfm(&d.text)))
 }
 
 pub async fn import(State(st): State<AppState>, auth: Auth, mut mp: Multipart) -> ApiResult<Json<Value>> {
