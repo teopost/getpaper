@@ -87,7 +87,11 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
 - **Gruppi**, come in Outline: li creano gli amministratori del workspace, i membri li gestiscono gli amministratori
   del workspace e del gruppo; a un gruppo si può dare accesso in lettura o modifica a una collezione e menzionarlo
   con `@gruppo` avvisa tutti i suoi membri (le menzioni si possono disattivare per gruppo).
-- Import ed export Markdown, interfaccia in inglese e italiano, tema chiaro, scuro o automatico.
+- Import ed export Markdown; ogni documento si può scaricare in Markdown, HTML (autonomo, con le immagini
+  incorporate), PDF (dalla finestra di stampa del browser) o Word (.docx).
+- **Modalità presentazione**, come in Outline: il documento diventa una serie di slide a schermo intero, divise ai
+  titoli grandi e medi e ai separatori (frecce, spazio, F per lo schermo intero, Esc per uscire).
+- Interfaccia in inglese e italiano, tema chiaro, scuro o automatico.
 
 ## Accesso con Microsoft (SSO)
 

@@ -88,7 +88,11 @@ Most common commands (`make` with no arguments shows the list):
 - **Groups**, as in Outline: workspace admins create them, workspace and group admins manage their members; a
   group can be given read or edit access to a collection, and mentioning it with `@group` notifies all of its
   members (mentions can be turned off per group).
-- Markdown import and export, interface in English and Italian, light, dark or automatic theme.
+- Markdown import and export; single documents can be downloaded as Markdown, HTML (standalone, images
+  embedded), PDF (through the browser's print dialog) or Word (.docx).
+- **Presentation mode**, as in Outline: a document becomes full screen slides, split at big and medium headings
+  and at dividers (arrows, space, F for full screen, Esc to leave).
+- Interface in English and Italian, light, dark or automatic theme.
 
 ## Microsoft sign-in (SSO)
 

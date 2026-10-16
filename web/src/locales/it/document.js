@@ -108,4 +108,14 @@ export default {
   'Move to another workspace?': 'Spostare in un altro workspace?',
   '“{title}” and its nested documents will be moved to {workspace} ({target}), with history, comments and attachments. Only members of {workspace} will be able to see them, and their public links will be revoked.': '“{title}” e le sue sottopagine verranno spostati in {workspace} ({target}), con cronologia, commenti e allegati. Potranno vederli solo i membri di {workspace} e i loro link pubblici verranno revocati.',
   'Move': 'Sposta',
+  // download and presentation
+  Present: 'Presenta',
+  'Download as': 'Scarica come',
+  'Word (.docx)': 'Word (.docx)',
+  'Previous slide': 'Slide precedente',
+  'Next slide': 'Slide successiva',
+  'Toggle full screen': 'Schermo intero',
+  'Create your presentation': 'Crea la tua presentazione',
+  'Add content to your document, then use headings or dividers to separate it into slides.':
+    'Aggiungi contenuti al documento, poi usa titoli o separatori per dividerlo in slide.',
 };

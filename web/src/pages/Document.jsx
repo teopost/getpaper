@@ -21,6 +21,10 @@ import {
   Smile,
   FolderInput,
   FileText,
+  FileCode,
+  FileType,
+  Printer,
+  Presentation,
 } from 'lucide-react';
 import {
   api,
@@ -39,6 +43,7 @@ import { CollectionIcon, DocIcon } from '../components/icons';
 import { Avatar, Button, ConfirmModal, Field, IconButton, Menu, Modal, Popover, Spinner, Switch } from '../components/ui';
 import EmojiPicker from '../components/EmojiPicker';
 import { notificationsChanged } from '../components/Notifications';
+import PresentationMode from '../components/PresentationMode';
 import { useToast } from '../components/Toast';
 import { t } from '../i18n';
 import { getProductName } from '../prefs';
@@ -469,6 +474,8 @@ export default function DocumentPage() {
   const [editorKey, setEditorKey] = useState(0);
   const [moving, setMoving] = useState(false);
   const [confirm, setConfirm] = useState(null);
+  // editor content shown as slides (presentation mode)
+  const [presenting, setPresenting] = useState(null);
 
   const pending = useRef({});
   const timer = useRef(null);
@@ -731,15 +738,42 @@ export default function DocumentPage() {
       icon: <History size={16} />,
       onClick: () => setPanel(panel === 'history' ? null : 'history'),
     },
-    app.instance.allowMarkdownExport !== false && {
-      label: t('Download'),
-      icon: <Download size={16} />,
-      onClick: () =>
-        runAction(async () => {
-          const md = await api('documents.export', { id: doc.id });
-          downloadText(`${slugify(doc.title)}.md`, md);
-        }),
+    !revision && {
+      label: t('Present'),
+      icon: <Presentation size={16} />,
+      onClick: () => editorRef.current && setPresenting(editorRef.current.getJSON()),
     },
+    ...(app.instance.allowMarkdownExport !== false
+      ? [
+          { separator: true },
+          { heading: t('Download as') },
+          {
+            label: 'Markdown',
+            icon: <Download size={16} />,
+            onClick: () =>
+              runAction(async () => {
+                const md = await api('documents.export', { id: doc.id });
+                downloadText(`${slugify(doc.title)}.md`, md);
+              }),
+          },
+          ...[
+            { label: 'HTML', icon: <FileCode size={16} />, run: (x) => x.downloadHtml },
+            { label: 'PDF', icon: <Printer size={16} />, run: (x) => x.printPdf },
+            { label: t('Word (.docx)'), icon: <FileType size={16} />, run: (x) => x.downloadDocx },
+          ].map((f) => ({
+            label: f.label,
+            icon: f.icon,
+            onClick: () =>
+              runAction(async () => {
+                if (!editorRef.current) return;
+                // the exporters (and the Word library) are loaded only when used
+                const exporters = await import('../editor/exporters');
+                await f.run(exporters)(editorRef.current, { title, emoji: doc.emoji });
+              }),
+          })),
+          canWrite && !doc.deletedAt && { separator: true },
+        ]
+      : []),
     canWrite && !doc.deletedAt && {
       label: t('Full width'),
       icon: <Maximize2 size={16} />,
@@ -1081,6 +1115,9 @@ export default function DocumentPage() {
       )}
       {panel === 'comments' && <CommentsPanel doc={doc} canResolve={canWrite} onClose={() => setPanel(null)} />}
 
+      {presenting && (
+        <PresentationMode title={title} emoji={doc.emoji} content={presenting} onClose={() => setPresenting(null)} />
+      )}
       {moving && <MoveModal doc={doc} onClose={() => setMoving(false)} onMoved={async () => { await refreshAllTrees(); load(); }} />}
       {confirm === 'delete' && (
         <ConfirmModal
