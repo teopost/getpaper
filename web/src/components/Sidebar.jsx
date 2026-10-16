@@ -116,6 +116,22 @@ function TeamSwitcher() {
   );
 }
 
+/** Label of a tree row; the full text appears as a tooltip when it doesn't fit */
+function TruncatedLabel({ text }) {
+  return (
+    <span
+      className="sidebar-label"
+      onMouseEnter={(e) => {
+        const el = e.currentTarget;
+        if (el.scrollWidth > el.clientWidth) el.title = text;
+        else el.removeAttribute('title');
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
 function SidebarLink({ to, icon, children, end, badge }) {
   return (
     <NavLink to={to} end={end} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
@@ -215,7 +231,7 @@ function DocNode({ node, collection, parentId, index, depth, expanded, toggleExp
             {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </span>
           {node.emoji && <span className="sidebar-emoji">{node.emoji}</span>}
-          <span className="sidebar-label">{node.title || t('Untitled')}</span>
+          <TruncatedLabel text={node.title || t('Untitled')} />
           {node.sharedAt && (
             <span
               className="sidebar-public"
@@ -322,7 +338,7 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed
           <span className="sidebar-icon">
             <CollectionIcon collection={collection} size={16} />
           </span>
-          <span className="sidebar-label">{collection.name}</span>
+          <TruncatedLabel text={collection.name} />
           <span className="sidebar-actions">
             {canWrite && (
               <span
@@ -447,7 +463,7 @@ export default function Sidebar() {
                 <span className="sidebar-icon">
                   {d.emoji ? <span className="sidebar-emoji">{d.emoji}</span> : <Star size={16} />}
                 </span>
-                <span className="sidebar-label">{d.title || t('Untitled')}</span>
+                <TruncatedLabel text={d.title || t('Untitled')} />
               </NavLink>
             ))}
           </div>
