@@ -40,12 +40,15 @@ function usePersistentSet(key) {
       return new Set();
     }
   });
-  const toggle = (id, value) => {
+  /** toggles id, or sets it (and the other ids, e.g. a whole branch) to value */
+  const toggle = (id, value, others = []) => {
     setSet((s) => {
       const n = new Set(s);
       const v = value ?? !n.has(id);
-      if (v) n.add(id);
-      else n.delete(id);
+      for (const i of [id, ...others]) {
+        if (v) n.add(i);
+        else n.delete(i);
+      }
       try {
         localStorage.setItem(key, JSON.stringify([...n]));
       } catch {
@@ -55,6 +58,48 @@ function usePersistentSet(key) {
     });
   };
   return [set, toggle];
+}
+
+/**
+ * Collections opened or closed by hand, remembered in this browser: { id: true | false }. The
+ * others follow Outline: only the collection being viewed is open. Collections closed with the
+ * previous sidebar (which started with everything open) stay closed.
+ */
+function useCollectionState() {
+  const KEY = 'sidebar-collections-open';
+  const [state, setState] = useState(() => {
+    try {
+      const saved = localStorage.getItem(KEY);
+      if (saved) return JSON.parse(saved);
+      const closed = JSON.parse(localStorage.getItem('sidebar-collapsed-collections') || '[]');
+      return Object.fromEntries(closed.map((id) => [id, false]));
+    } catch {
+      return {};
+    }
+  });
+  const set = (id, open) => {
+    setState((s) => {
+      const n = { ...s, [id]: open };
+      try {
+        localStorage.setItem(KEY, JSON.stringify(n));
+      } catch {
+        /* ignore */
+      }
+      return n;
+    });
+  };
+  return [state, set];
+}
+
+/** ids of the documents with children in a branch of the tree (for Alt+click) */
+function branchIds(nodes, out = []) {
+  for (const n of nodes) {
+    if (n.children.length) {
+      out.push(n.id);
+      branchIds(n.children, out);
+    }
+  }
+  return out;
 }
 
 function TeamSwitcher() {
@@ -222,10 +267,13 @@ function DocNode({ node, collection, parentId, index, depth, expanded, toggleExp
         >
           <span
             className={`disclosure ${hasChildren ? '' : 'invisible'}`}
+            title={hasChildren ? t('Alt+click (Option on Mac) to expand or collapse all') : undefined}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              toggleExpanded(node.id);
+              // Alt+click: the whole branch, as in Outline
+              if (e.altKey) toggleExpanded(node.id, !isOpen, branchIds(node.children));
+              else toggleExpanded(node.id);
             }}
           >
             {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
@@ -276,21 +324,24 @@ function DocNode({ node, collection, parentId, index, depth, expanded, toggleExp
   );
 }
 
-function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed, toggleCollapsed, onMove, onMoveCollection }) {
+function CollectionNode({ collection, index, expanded, toggleExpanded, openState, setOpen, onMove, onMoveCollection }) {
   const { trees, activeDoc, createDoc, refreshCollections, refreshAllTrees, isAdmin, user } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
-  const isOpen = !collapsed.has(collection.id);
   const nodes = trees[collection.id] || [];
   const canWrite = collection.access === 'write';
   const isActive = location.pathname.endsWith(`-${collection.urlId}`);
+  // the collection being viewed (its page or one of its documents)
+  const isCurrent = isActive || activeDoc.collectionId === collection.id;
+  const isOpen = openState[collection.id] ?? isCurrent;
 
+  // opening a document or the page of a collection closed by hand opens it again, as in Outline
   useEffect(() => {
-    if (activeDoc.collectionId === collection.id && !isOpen) toggleCollapsed(collection.id, false);
+    if (isCurrent && openState[collection.id] === false) setOpen(collection.id, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDoc]);
+  }, [isCurrent, activeDoc]);
 
   const remove = async () => {
     if (!window.confirm(t('Delete the "{name}" collection and all of its documents?', { name: collection.name }))) return;
@@ -330,8 +381,14 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              toggleCollapsed(collection.id);
+              setOpen(collection.id, !isOpen);
+              // Alt+click: also every document in it
+              if (e.altKey) {
+                const ids = branchIds(nodes);
+                if (ids.length) toggleExpanded(ids[0], !isOpen, ids.slice(1));
+              }
             }}
+            title={t('Alt+click (Option on Mac) to expand or collapse all')}
           >
             {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </span>
@@ -347,7 +404,7 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  toggleCollapsed(collection.id, false);
+                  setOpen(collection.id, true);
                   createDoc({ collectionId: collection.id });
                 }}
               >
@@ -403,7 +460,7 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, collapsed
 export default function Sidebar() {
   const { collections, starred, canWrite, refreshAllTrees, refreshCollections } = useApp();
   const [expanded, toggleExpanded] = usePersistentSet('sidebar-expanded');
-  const [collapsed, toggleCollapsed] = usePersistentSet('sidebar-collapsed-collections');
+  const [openState, setOpen] = useCollectionState();
   const [creating, setCreating] = useState(false);
   const [draftCount, setDraftCount] = useState(0);
   const location = useLocation();
@@ -485,8 +542,8 @@ export default function Sidebar() {
               index={i}
               expanded={expanded}
               toggleExpanded={toggleExpanded}
-              collapsed={collapsed}
-              toggleCollapsed={toggleCollapsed}
+              openState={openState}
+              setOpen={setOpen}
               onMove={onMove}
               onMoveCollection={onMoveCollection}
             />

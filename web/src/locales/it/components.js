@@ -189,4 +189,5 @@ export default {
   'Showing {shown} of {total}: type to narrow the search.': 'Ne vedi {shown} su {total}: scrivi per restringere la ricerca.',
   'Add people': 'Aggiungi persone',
   'Public: anyone with the link can read it (since {date})': 'Pubblico: chiunque abbia il link può leggerlo (dal {date})',
+  'Alt+click (Option on Mac) to expand or collapse all': 'Alt+clic (Option su Mac) per espandere o chiudere tutto',
 };
