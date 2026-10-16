@@ -60,6 +60,38 @@ pub struct DocReq {
     document_id: String,
 }
 
+/// Whether public links of documents in this workspace and collection work: sharing must be
+/// allowed by the installation, the workspace and the collection (documents outside a collection
+/// can't be shared). Same rules as documents.info with a share id.
+pub async fn sharing_enabled(st: &AppState, team_id: Uuid, collection_id: Option<Uuid>) -> ApiResult<bool> {
+    let Some(cid) = collection_id else { return Ok(false) };
+    if !st.settings().allow_public_sharing {
+        return Ok(false);
+    }
+    let row: Option<(bool, bool)> = sqlx::query_as(
+        "SELECT t.sharing, c.sharing FROM teams t JOIN collections c ON c.team_id = t.id \
+         WHERE t.id = $1 AND c.id = $2 AND c.deleted_at IS NULL",
+    )
+    .bind(team_id)
+    .bind(cid)
+    .fetch_optional(&st.db)
+    .await?;
+    Ok(row.is_some_and(|(team, collection)| team && collection))
+}
+
+/// When the working public link of the document was created, None without one
+pub async fn public_since(st: &AppState, d: &crate::models::DocRow) -> ApiResult<Option<chrono::DateTime<chrono::Utc>>> {
+    if d.published_at.is_none() || d.deleted_at.is_some() || !sharing_enabled(st, d.team_id, d.collection_id).await? {
+        return Ok(None);
+    }
+    let (at,): (Option<chrono::DateTime<chrono::Utc>>,) =
+        sqlx::query_as("SELECT min(created_at) FROM shares WHERE document_id = $1 AND revoked_at IS NULL")
+            .bind(d.id)
+            .fetch_one(&st.db)
+            .await?;
+    Ok(at)
+}
+
 pub async fn info(State(st): State<AppState>, auth: Auth, Json(b): Json<DocReq>) -> ApiResult<Json<Value>> {
     let (d, _) = load_doc(&st.db, &auth, &b.document_id, Access::Read).await?;
     let row: Option<ShareRow> = sqlx::query_as(&format!(

@@ -118,4 +118,5 @@ export default {
   'Create your presentation': 'Crea la tua presentazione',
   'Add content to your document, then use headings or dividers to separate it into slides.':
     'Aggiungi contenuti al documento, poi usa titoli o separatori per dividerlo in slide.',
+  Public: 'Pubblico',
 };

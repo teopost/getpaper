@@ -52,7 +52,8 @@ import { getProductName } from '../prefs';
 // Share popover
 // ---------------------------------------------------------------------------
 
-function SharePanel({ doc }) {
+/** onChange(share): the public link was created (share) or revoked (null) */
+function SharePanel({ doc, onChange }) {
   const { instance } = useApp();
   const [share, setShare] = useState(undefined);
   const [busy, setBusy] = useState(false);
@@ -64,10 +65,14 @@ function SharePanel({ doc }) {
   const toggle = async (on) => {
     setBusy(true);
     try {
-      if (on) setShare(await api('shares.create', { documentId: doc.id }));
-      else {
+      if (on) {
+        const created = await api('shares.create', { documentId: doc.id });
+        setShare(created);
+        onChange?.(created);
+      } else {
         await api('shares.revoke', { id: share.id });
         setShare(null);
+        onChange?.(null);
       }
     } catch (e) {
       toast(e.message, 'error');
@@ -655,6 +660,12 @@ export default function DocumentPage() {
     refreshStarred();
   };
 
+  // keeps the "Public" badge and the globe in the sidebar in step with the share panel
+  const onShareChange = (share) => {
+    setData((d) => ({ ...d, publicSince: share ? share.createdAt : null }));
+    refreshTree(doc.collectionId);
+  };
+
   const runAction = async (fn, message) => {
     try {
       await flush();
@@ -845,6 +856,23 @@ export default function DocumentPage() {
                 </Link>
               </React.Fragment>
             ))}
+            {data.publicSince && !doc.deletedAt && (
+              <Popover
+                align="left"
+                width={380}
+                trigger={
+                  <span
+                    className="public-badge"
+                    title={t('Public: anyone with the link can read it (since {date})', { date: formatDate(data.publicSince) })}
+                  >
+                    <Globe size={13} />
+                    {t('Public')}
+                  </span>
+                }
+              >
+                <SharePanel doc={doc} onChange={onShareChange} />
+              </Popover>
+            )}
           </span>
         }
         actions={
@@ -875,7 +903,7 @@ export default function DocumentPage() {
             )}
             {!doc.template && !doc.deletedAt && (
               <Popover trigger={<Button variant="secondary">{t('Share')}</Button>} width={380}>
-                <SharePanel doc={doc} />
+                <SharePanel doc={doc} onChange={onShareChange} />
               </Popover>
             )}
             {!isDraft && !doc.deletedAt && (

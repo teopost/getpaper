@@ -239,6 +239,8 @@ struct NodeRow {
     title: String,
     emoji: Option<String>,
     parent_document_id: Option<Uuid>,
+    /// when the active public link was created, None without one
+    shared_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Serialize)]
@@ -248,6 +250,8 @@ pub struct Node {
     url_id: String,
     title: String,
     emoji: Option<String>,
+    /// readable on the internet through a public link (/s/…) that currently works
+    shared_at: Option<DateTime<Utc>>,
     children: Vec<Node>,
 }
 
@@ -264,6 +268,7 @@ fn build(parent: Option<Uuid>, by_parent: &HashMap<Option<Uuid>, Vec<NodeRow>>, 
                     url_id: r.url_id.clone(),
                     title: r.title.clone(),
                     emoji: r.emoji.clone(),
+                    shared_at: r.shared_at,
                     children: build(Some(r.id), by_parent, depth + 1),
                 })
                 .collect()
@@ -273,12 +278,17 @@ fn build(parent: Option<Uuid>, by_parent: &HashMap<Option<Uuid>, Vec<NodeRow>>, 
 
 pub async fn documents(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
     let (c, _) = load_collection(&st.db, &auth, &b.id, Access::Read).await?;
+    // public links work only while sharing is allowed by the installation, the workspace and the collection
+    let sharing = crate::api::shares::sharing_enabled(&st, c.team_id, Some(c.id)).await?;
     let rows: Vec<NodeRow> = sqlx::query_as(
-        "SELECT id, url_id, title, emoji, parent_document_id FROM documents WHERE collection_id = $1 \
-         AND published_at IS NOT NULL AND deleted_at IS NULL AND archived_at IS NULL AND template = false \
-         ORDER BY position, title",
+        "SELECT d.id, d.url_id, d.title, d.emoji, d.parent_document_id, \
+         CASE WHEN $2 THEN (SELECT min(s.created_at) FROM shares s WHERE s.document_id = d.id AND s.revoked_at IS NULL) END AS shared_at \
+         FROM documents d WHERE d.collection_id = $1 \
+         AND d.published_at IS NOT NULL AND d.deleted_at IS NULL AND d.archived_at IS NULL AND d.template = false \
+         ORDER BY d.position, d.title",
     )
     .bind(c.id)
+    .bind(sharing)
     .fetch_all(&st.db)
     .await?;
     let ids: HashSet<Uuid> = rows.iter().map(|r| r.id).collect();

@@ -188,4 +188,5 @@ export default {
   'Everyone is already added.': 'Sono già state aggiunte tutte.',
   'Showing {shown} of {total}: type to narrow the search.': 'Ne vedi {shown} su {total}: scrivi per restringere la ricerca.',
   'Add people': 'Aggiungi persone',
+  'Public: anyone with the link can read it (since {date})': 'Pubblico: chiunque abbia il link può leggerlo (dal {date})',
 };

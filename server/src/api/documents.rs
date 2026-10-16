@@ -317,9 +317,11 @@ pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<
     let path = doc_path(&st.db, d.id).await?;
     let children = doc_children(&st.db, d.id).await?;
     let collection = collection_link(&st.db, d.collection_id).await?;
+    let public_since = crate::api::shares::public_since(&st, &d).await?;
     ok(json!({
         "document": d,
         "access": a.as_str(),
+        "publicSince": public_since,
         "collection": collection,
         "path": path,
         "children": children,

@@ -2149,3 +2149,28 @@ body.resizing-sidebar {
 .presentation-instructions p {
   font-size: 1.2em;
 }
+
+/* documents readable on the internet through a public link */
+.sidebar-public {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 0 2px;
+  color: var(--text-tertiary);
+}
+.public-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.public-badge:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}

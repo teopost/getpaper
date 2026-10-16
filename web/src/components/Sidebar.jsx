@@ -17,8 +17,9 @@ import {
   UserPlus,
   Check,
   Building2,
+  Globe,
 } from 'lucide-react';
-import { api, collectionUrl, docUrl } from '../api';
+import { api, collectionUrl, docUrl, formatDate } from '../api';
 import { useApp } from '../store';
 import { useToast } from './Toast';
 import { CollectionIcon, DocIcon } from './icons';
@@ -215,6 +216,14 @@ function DocNode({ node, collection, parentId, index, depth, expanded, toggleExp
           </span>
           {node.emoji && <span className="sidebar-emoji">{node.emoji}</span>}
           <span className="sidebar-label">{node.title || t('Untitled')}</span>
+          {node.sharedAt && (
+            <span
+              className="sidebar-public"
+              title={t('Public: anyone with the link can read it (since {date})', { date: formatDate(node.sharedAt) })}
+            >
+              <Globe size={14} />
+            </span>
+          )}
           {canWrite && (
             <span className="sidebar-actions">
               <span
