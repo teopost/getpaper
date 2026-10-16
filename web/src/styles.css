@@ -2006,3 +2006,41 @@ body.resizing-sidebar {
   background: var(--accent);
   flex-shrink: 0;
 }
+
+/* people search (adding members to groups and collections) */
+.people-search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.people-search-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.people-search-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 8px 0;
+  background: none;
+  outline: none;
+  box-shadow: none;
+}
+.people-search-input:focus-within {
+  border-color: var(--accent);
+}
+.people-search-results,
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.member-list {
+  max-height: 320px;
+  overflow-y: auto;
+}

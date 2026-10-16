@@ -182,4 +182,10 @@ export default {
   'Groups with access': 'Gruppi con accesso',
   'Add a group…': 'Aggiungi un gruppo…',
   'No groups yet.': 'Ancora nessun gruppo.',
+  // PeopleSearch
+  'Search people by name or email…': 'Cerca persone per nome o email…',
+  'No people found.': 'Nessuna persona trovata.',
+  'Everyone is already added.': 'Sono già state aggiunte tutte.',
+  'Showing {shown} of {total}: type to narrow the search.': 'Ne vedi {shown} su {total}: scrivi per restringere la ricerca.',
+  'Add people': 'Aggiungi persone',
 };

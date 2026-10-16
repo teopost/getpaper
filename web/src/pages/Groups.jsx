@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useApp } from '../store';
 import { Avatar, Button, ConfirmModal, Empty, Field, Modal, Switch } from '../components/ui';
 import { useToast } from '../components/Toast';
+import PeopleSearch from '../components/PeopleSearch';
 import { t } from '../i18n';
 
 /** Create (no group) or edit a group */
@@ -65,15 +66,12 @@ function GroupMembersModal({ group, onClose, onChanged }) {
   const { user } = useApp();
   const toast = useToast();
   const [members, setMembers] = useState(null);
-  const [all, setAll] = useState([]);
-  const [selected, setSelected] = useState('');
   const load = () =>
     api('groups.memberships', { id: group.id })
       .then(setMembers)
       .catch((err) => toast(err.message, 'error'));
   useEffect(() => {
     load();
-    if (group.canUpdate) api('users.list').then(setAll);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group.id]);
   const run = async (method, body) => {
@@ -85,55 +83,41 @@ function GroupMembersModal({ group, onClose, onChanged }) {
       toast(err.message, 'error');
     }
   };
-  const candidates = all.filter((u) => !members?.some((m) => m.id === u.id));
   return (
     <Modal title={t('Members of {name}', { name: group.name })} onClose={onClose} width={540}>
       <div className="members-editor">
-        {members?.map((m) => (
-          <div key={m.id} className="member-row">
-            <Avatar name={m.name} color={m.color} size={24} />
-            <span className="member-name">
-              {m.name} {m.id === user.id && <span className="muted">{t('(you)')}</span>}
-              <div className="muted small">{m.email}</div>
-            </span>
-            {group.canUpdate ? (
-              <>
-                <select value={m.permission} onChange={(e) => run('groups.addUser', { userId: m.id, permission: e.target.value })}>
-                  <option value="member">{t('Member')}</option>
-                  <option value="admin">{t('Group admin')}</option>
-                </select>
-                <button className="icon-btn" title={t('Remove')} onClick={() => run('groups.removeUser', { userId: m.id })}>
-                  <Trash2 size={14} />
-                </button>
-              </>
-            ) : (
-              <span className="badge">{m.permission === 'admin' ? t('Group admin') : t('Member')}</span>
-            )}
-          </div>
-        ))}
-        {members?.length === 0 && <div className="muted small">{t('This group has no members yet.')}</div>}
-        {group.canUpdate && candidates.length > 0 && (
-          <div className="row gap">
-            <select value={selected} onChange={(e) => setSelected(e.target.value)} className="grow">
-              <option value="">{t('Add a member…')}</option>
-              {candidates.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.email})
-                </option>
-              ))}
-            </select>
-            <Button
-              variant="secondary"
-              disabled={!selected}
-              onClick={async () => {
-                await run('groups.addUser', { userId: selected });
-                setSelected('');
-              }}
-            >
-              {t('Add')}
-            </Button>
-          </div>
+        {group.canUpdate && members && (
+          <>
+            <div className="field-label">{t('Add people')}</div>
+            <PeopleSearch autoFocus exclude={members.map((m) => m.id)} onAdd={(u) => run('groups.addUser', { userId: u.id })} />
+          </>
         )}
+        {members && <div className="field-label">{t(members.length === 1 ? '{count} member' : '{count} members', { count: members.length })}</div>}
+        <div className="member-list">
+          {members?.map((m) => (
+            <div key={m.id} className="member-row">
+              <Avatar name={m.name} color={m.color} size={24} />
+              <span className="member-name">
+                {m.name} {m.id === user.id && <span className="muted">{t('(you)')}</span>}
+                <div className="muted small">{m.email}</div>
+              </span>
+              {group.canUpdate ? (
+                <>
+                  <select value={m.permission} onChange={(e) => run('groups.addUser', { userId: m.id, permission: e.target.value })}>
+                    <option value="member">{t('Member')}</option>
+                    <option value="admin">{t('Group admin')}</option>
+                  </select>
+                  <button className="icon-btn" title={t('Remove')} onClick={() => run('groups.removeUser', { userId: m.id })}>
+                    <Trash2 size={14} />
+                  </button>
+                </>
+              ) : (
+                <span className="badge">{m.permission === 'admin' ? t('Group admin') : t('Member')}</span>
+              )}
+            </div>
+          ))}
+          {members?.length === 0 && <div className="muted small">{t('This group has no members yet.')}</div>}
+        </div>
       </div>
       <div className="modal-actions">
         <Button onClick={onClose}>{t('Done')}</Button>

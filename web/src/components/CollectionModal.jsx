@@ -4,6 +4,7 @@ import { Trash2, Users } from 'lucide-react';
 import { api, collectionUrl } from '../api';
 import { useApp } from '../store';
 import { useToast } from './Toast';
+import PeopleSearch from './PeopleSearch';
 import { Button, Field, Modal, Switch, Avatar } from './ui';
 import { COLLECTION_ICONS, COLORS } from './icons';
 import { t } from '../i18n';
@@ -43,26 +44,20 @@ const ICON_LABELS = {
 function MembersEditor({ collection }) {
   const { auth } = useApp();
   const [members, setMembers] = useState([]);
-  const [all, setAll] = useState([]);
-  const [selected, setSelected] = useState('');
   const toast = useToast();
   const load = () => api('collections.memberships', { id: collection.id }).then(setMembers);
   useEffect(() => {
     load();
-    api('users.list').then(setAll);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collection.id]);
-  const add = async () => {
-    if (!selected) return;
+  const add = async (u) => {
     try {
-      await api('collections.addUser', { id: collection.id, userId: selected, permission: 'read_write' });
-      setSelected('');
-      load();
+      await api('collections.addUser', { id: collection.id, userId: u.id, permission: 'read_write' });
+      await load();
     } catch (e) {
       toast(e.message, 'error');
     }
   };
-  const candidates = all.filter((u) => !members.some((m) => m.id === u.id));
   return (
     <div className="members-editor">
       <div className="field-label">{t('Members with access')}</div>
@@ -95,21 +90,7 @@ function MembersEditor({ collection }) {
         </div>
       ))}
       {members.length === 0 && <div className="muted small">{t('No individual members yet.')}</div>}
-      {candidates.length > 0 && (
-        <div className="row gap">
-          <select value={selected} onChange={(e) => setSelected(e.target.value)} className="grow">
-            <option value="">{t('Add a member…')}</option>
-            {candidates.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name} ({u.email})
-              </option>
-            ))}
-          </select>
-          <Button variant="secondary" onClick={add} disabled={!selected}>
-            {t('Add')}
-          </Button>
-        </div>
-      )}
+      <PeopleSearch exclude={members.map((m) => m.id)} onAdd={add} />
     </div>
   );
 }
