@@ -15,6 +15,10 @@ function escapeHtml(s) {
 /** Turn a ts_headline snippet (markdown with ⟪ ⟫ markers) into safe HTML. */
 function contextToHtml(ctx) {
   const cleaned = ctx
+    // table of contents marker, also when the search highlighted "toc" in it
+    .replace(/\[\[⟪?toc⟫?\]\]/gi, ' ')
+    // mentions of documents and collections show their title (people and groups keep the @)
+    .replace(/@\[((?:[^\]\\]|\\.)*)\]\(mention:\/\/[^/)]+\/(?:document|collection)\/[^)]*\)/g, '$1')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/[#*_`>|]+/g, ' ')
