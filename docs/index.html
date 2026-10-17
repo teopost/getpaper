@@ -3,226 +3,98 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GetPaper - the self-hosted wiki for teams</title>
-<meta name="description" content="GetPaper is an open-source, self-hosted team wiki: a fast Markdown editor, multiple workspaces, Microsoft sign-in, imports from Confluence, Outline, Notion and Obsidian, and a built-in MCP server for AI assistants.">
-<meta property="og:title" content="GetPaper - the self-hosted wiki for teams">
-<meta property="og:description" content="Fast Markdown editor, multiple workspaces, Microsoft sign-in, Confluence import and a built-in MCP server for AI assistants.">
-<meta property="og:image" content="assets/document.webp">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #ffffff;
-    --bg-soft: #f6f7f9;
-    --bg-card: #ffffff;
-    --text: #0f1115;
-    --text-2: #4b5563;
-    --text-3: #8a94a3;
-    --line: #e7e9ee;
-    --accent: #2563eb;
-    --accent-2: #7c3aed;
-    --accent-soft: #eef3ff;
-    --code-bg: #0f1115;
-    --code-text: #e6e9ef;
-    --shadow: 0 1px 2px rgba(15, 17, 21, 0.04), 0 12px 32px -8px rgba(15, 17, 21, 0.14), 0 40px 80px -24px rgba(37, 99, 235, 0.18);
-    color-scheme: light;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme='light']) {
-      --bg: #0c0e12;
-      --bg-soft: #12151b;
-      --bg-card: #151921;
-      --text: #eef0f4;
-      --text-2: #aab3c0;
-      --text-3: #6e7887;
-      --line: #232833;
-      --accent: #5b8cff;
-      --accent-2: #a78bfa;
-      --accent-soft: #172036;
-      --code-bg: #0a0c10;
-      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 64px -16px rgba(0, 0, 0, 0.7), 0 40px 100px -30px rgba(91, 140, 255, 0.25);
-      color-scheme: dark;
+<title>GetPaper - open-source, self-hosted wiki for teams</title>
+<meta name="description" content="GetPaper is an open-source (MIT) wiki and knowledge base you install on your own infrastructure. Multiple workspaces, Microsoft Entra ID SSO, Confluence and Outline import, built-in MCP server.">
+<link rel="canonical" href="https://getpaper.it/">
+<link rel="alternate" hreflang="en" href="https://getpaper.it/">
+<link rel="alternate" hreflang="it" href="https://getpaper.it/it/">
+<link rel="alternate" hreflang="x-default" href="https://getpaper.it/">
+<meta name="theme-color" content="#2563eb">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="GetPaper">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="it_IT">
+<meta property="og:url" content="https://getpaper.it/">
+<meta property="og:title" content="GetPaper - the open-source wiki for your team, on your infrastructure">
+<meta property="og:description" content="Self-hosted team wiki under the MIT license: multiple workspaces, Microsoft Entra ID sign-in, Confluence and Outline import, and an MCP server for AI assistants.">
+<meta property="og:image" content="https://getpaper.it/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="GetPaper: the open-source wiki for your team, on your infrastructure">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css">
+<script>
+  document.documentElement.classList.add('js');
+  // Italian browsers land on /it/ unless the visitor picked a language with the switch.
+  (function () {
+    var lang = null;
+    try { lang = localStorage.getItem('getpaper-lang'); } catch (e) {}
+    if (!lang && /^it\b/i.test(navigator.language || '')) lang = 'it';
+    if (lang === 'it') location.replace('/it/' + location.hash);
+  })();
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://getpaper.it/#software",
+      "name": "GetPaper",
+      "url": "https://getpaper.it/",
+      "description": "Open-source, self-hosted wiki and knowledge base for teams, with multiple workspaces, Microsoft Entra ID single sign-on, import from Confluence, Outline, Notion and Obsidian, and a built-in Model Context Protocol (MCP) server for AI assistants.",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Wiki, knowledge base",
+      "operatingSystem": "Linux (Docker image for amd64 and arm64)",
+      "softwareRequirements": "Docker with Compose, PostgreSQL",
+      "license": "https://opensource.org/licenses/MIT",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+      "inLanguage": ["en", "it"],
+      "image": "https://getpaper.it/assets/document.webp",
+      "screenshot": "https://getpaper.it/assets/document.webp",
+      "sameAs": ["https://github.com/teopost/getpaper"],
+      "featureList": [
+        "Self-hosted with Docker Compose and PostgreSQL",
+        "Multiple isolated workspaces",
+        "Microsoft Entra ID single sign-on (OpenID Connect with PKCE)",
+        "Import from Confluence (XML and HTML space exports), Outline, Notion, Obsidian, Wiki.js, GitBook and BookStack Markdown exports",
+        "Built-in MCP server with scoped, expiring API keys",
+        "Full-text search across workspaces",
+        "Markdown editor with tables, checklists, callouts, code blocks and Mermaid diagrams",
+        "Revision history, comments, mentions and groups",
+        "Workspace backups and export as an Obsidian vault"
+      ]
+    },
+    {
+      "@type": "SoftwareSourceCode",
+      "name": "GetPaper",
+      "codeRepository": "https://github.com/teopost/getpaper",
+      "programmingLanguage": ["Rust", "JavaScript"],
+      "runtimePlatform": "Docker",
+      "license": "https://opensource.org/licenses/MIT",
+      "targetProduct": { "@id": "https://getpaper.it/#software" }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "Is GetPaper free and open source?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The source code is on GitHub under the MIT license, and the Docker image is published on GitHub Container Registry. You can use, study, modify and redistribute it under the terms of the license." } },
+        { "@type": "Question", "name": "Where are my documents stored?", "acceptedAnswer": { "@type": "Answer", "text": "In the PostgreSQL database and the attachments volume of your own installation. Wherever you run GetPaper - your own server, a virtual machine or a cloud account you manage - that is where the documentation lives." } },
+        { "@type": "Question", "name": "Do I need an account or a licence key from the GetPaper project?", "acceptedAnswer": { "@type": "Answer", "text": "No. You install the software yourself. The server only connects to the external services you configure: Microsoft Entra ID for sign-in and your SMTP server for emails. It contains no telemetry and no licence check." } },
+        { "@type": "Question", "name": "Which single sign-on providers are supported?", "acceptedAnswer": { "@type": "Answer", "text": "Microsoft Entra ID (formerly Azure AD) through OpenID Connect. Email and password sign-in is also available and can be turned off. Google, Slack and generic OIDC providers are not supported." } },
+        { "@type": "Question", "name": "Can I migrate from Confluence or Outline?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. GetPaper imports Confluence space exports in XML or HTML format, with page tree, dates, attachments and the most common macros, and Outline Markdown exports with collections, nested documents and attachments. Authors, comments, version history, labels and permissions are not imported." } },
+        { "@type": "Question", "name": "Does the MCP server send my documents to an AI provider?", "acceptedAnswer": { "@type": "Answer", "text": "GetPaper does not send anything to AI providers. The MCP server answers the AI assistants you connect with an API key, within the permissions of that key. What the assistant then does with the content depends on the assistant and the model you use." } },
+        { "@type": "Question", "name": "How is GetPaper different from Outline?", "acceptedAnswer": { "@type": "Answer", "text": "GetPaper is inspired by Outline and has a Rust backend. Multiple workspaces, Confluence import and an MCP server are included. It has no real-time co-editing (conflicts are detected on save), comments refer to the whole document and the only SSO provider is Microsoft Entra ID." } }
+      ]
     }
-  }
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 16px/1.6 Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  a { color: inherit; text-decoration: none; }
-  img { max-width: 100%; height: auto; display: block; }
-  code, pre { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
-
-  /* nav */
-  nav {
-    position: sticky; top: 0; z-index: 10;
-    background: color-mix(in srgb, var(--bg) 82%, transparent);
-    backdrop-filter: saturate(160%) blur(14px);
-    border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
-  }
-  .nav { display: flex; align-items: center; gap: 28px; height: 64px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -0.02em; }
-  .brand svg { width: 28px; height: 28px; color: var(--text); }
-  .brand b { color: var(--accent); font-weight: 700; }
-  .nav-links { display: flex; gap: 22px; margin-left: 12px; font-size: 14px; color: var(--text-2); }
-  .nav-links a:hover { color: var(--text); }
-  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-  .lang { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 12px; font-weight: 600; }
-  .lang button { border: 0; background: transparent; color: var(--text-3); padding: 6px 10px; cursor: pointer; font: inherit; }
-  .lang button.on { background: var(--accent-soft); color: var(--accent); }
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px;
-    border-radius: 10px; font-weight: 600; font-size: 15px; transition: transform 120ms, box-shadow 120ms, background 120ms;
-  }
-  .btn svg { width: 18px; height: 18px; }
-  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 6px 20px -6px color-mix(in srgb, var(--accent) 70%, transparent); }
-  .btn-primary:hover { transform: translateY(-1px); }
-  .btn-ghost { border: 1px solid var(--line); background: var(--bg-card); }
-  .btn-ghost:hover { border-color: var(--text-3); }
-  .btn-sm { height: 34px; padding: 0 12px; font-size: 14px; }
-
-  /* hero */
-  .hero { position: relative; padding: 88px 0 40px; text-align: center; overflow: hidden; }
-  .hero::before {
-    content: ''; position: absolute; inset: -40% -10% auto; height: 760px; z-index: -1;
-    background:
-      radial-gradient(40% 50% at 30% 30%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
-      radial-gradient(35% 45% at 70% 25%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 70%);
-    filter: blur(10px);
-  }
-  .eyebrow {
-    display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px;
-    border: 1px solid var(--line); background: var(--bg-card); color: var(--text-2); font-size: 13px; font-weight: 500;
-  }
-  .eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 20%, transparent); }
-  h1 {
-    margin: 22px auto 18px; max-width: 880px;
-    font-size: clamp(40px, 6.4vw, 72px); line-height: 1.04; letter-spacing: -0.045em; font-weight: 800;
-  }
-  .grad { background: linear-gradient(100deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .lead { max-width: 680px; margin: 0 auto; color: var(--text-2); font-size: 19px; }
-  .cta { display: flex; justify-content: center; gap: 12px; margin: 32px 0 14px; flex-wrap: wrap; }
-  .note { color: var(--text-3); font-size: 13px; }
-
-  .shot {
-    margin: 56px auto 0; max-width: 1080px; border-radius: 14px; overflow: hidden;
-    border: 1px solid var(--line); background: var(--bg-card); box-shadow: var(--shadow);
-  }
-  .shot-bar { display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--bg-soft); }
-  .shot-bar i { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
-  .shot-bar span { margin: 0 auto; font-size: 12px; color: var(--text-3); padding-right: 44px; }
-  .shot img { width: 100%; height: auto; }
-
-  /* strip */
-  .strip { display: flex; justify-content: center; gap: 36px; flex-wrap: wrap; padding: 40px 0 8px; color: var(--text-3); font-size: 14px; font-weight: 500; }
-  .strip span { display: inline-flex; align-items: center; gap: 8px; }
-  .strip svg { width: 18px; height: 18px; }
-
-  section { padding: 96px 0; }
-  .center { text-align: center; }
-  .kicker { color: var(--accent); font-weight: 600; font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase; }
-  h2 { font-size: clamp(30px, 4vw, 44px); line-height: 1.12; letter-spacing: -0.035em; margin: 10px 0 14px; font-weight: 800; }
-  .sub { color: var(--text-2); font-size: 18px; max-width: 640px; margin: 0 auto; }
-
-  /* features */
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 52px; }
-  .card {
-    padding: 26px; border-radius: 16px; border: 1px solid var(--line); background: var(--bg-card);
-    transition: transform 160ms, border-color 160ms;
-  }
-  .card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
-  .icon {
-    width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 16px;
-    background: var(--accent-soft); color: var(--accent);
-  }
-  .icon svg { width: 22px; height: 22px; }
-  .card h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: -0.01em; }
-  .card p { margin: 0; color: var(--text-2); font-size: 15px; }
-
-  /* showcase */
-  .alt { background: var(--bg-soft); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .row { display: grid; grid-template-columns: 1fr 1.25fr; gap: 64px; align-items: center; }
-  .row + .row { margin-top: 110px; }
-  .row > *, .grid > *, .steps > * { min-width: 0; }
-  .row.flip .text { order: 2; }
-  .text h2 { font-size: clamp(28px, 3.4vw, 38px); }
-  .text p { color: var(--text-2); font-size: 17px; }
-  .ticks { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 10px; }
-  .ticks li { display: flex; gap: 10px; color: var(--text-2); font-size: 15px; }
-  .ticks li::before {
-    content: ''; flex: none; width: 18px; height: 18px; margin-top: 3px; border-radius: 50%;
-    background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 11px no-repeat;
-  }
-  .frame { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--bg-card); }
-
-  /* code */
-  .term {
-    margin-top: 22px; border-radius: 12px; background: var(--code-bg); color: var(--code-text);
-    padding: 18px 20px; font-size: 13.5px; line-height: 1.7; overflow-x: auto; border: 1px solid #1d2230;
-  }
-  .term .c { color: #6b7686; }
-  .term .k { color: #8ab4ff; }
-  .term .s { color: #a5e3b6; }
-
-  /* quick start */
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 48px; text-align: left; }
-  .step { padding: 24px; border-radius: 16px; border: 1px solid var(--line); background: var(--bg-card); }
-  .num {
-    width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; margin-bottom: 14px;
-  }
-  .step h3 { margin: 0 0 6px; font-size: 16px; }
-  .step p { margin: 0; color: var(--text-2); font-size: 14.5px; }
-  .step pre { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--code-bg); color: var(--code-text); font-size: 12.5px; overflow-x: auto; }
-
-  /* final cta */
-  .final {
-    margin: 0 auto; max-width: 980px; text-align: center; padding: 64px 32px; border-radius: 24px; color: #fff;
-    background:
-      radial-gradient(60% 120% at 0% 0%, rgba(255, 255, 255, 0.18), transparent 60%),
-      linear-gradient(120deg, #1d4ed8, #6d28d9);
-    box-shadow: 0 30px 80px -30px rgba(79, 70, 229, 0.6);
-  }
-  .final h2 { color: #fff; }
-  .final p { color: rgba(255, 255, 255, 0.82); font-size: 18px; max-width: 560px; margin: 0 auto 28px; }
-  .final .btn-primary { background: #fff; color: #1d2a5c; box-shadow: none; }
-  .final .btn-ghost { background: transparent; border-color: rgba(255, 255, 255, 0.4); color: #fff; }
-
-  footer { padding: 48px 0 56px; color: var(--text-3); font-size: 14px; }
-  .foot { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 28px; }
-  .foot .brand { font-size: 15px; color: var(--text-2); }
-  .foot .brand svg { width: 22px; height: 22px; }
-  .foot a:hover { color: var(--text); }
-  .foot .sp { margin-left: auto; display: flex; gap: 18px; }
-
-  .reveal { opacity: 0; transform: translateY(16px); transition: opacity 600ms ease, transform 600ms ease; }
-  .reveal.in { opacity: 1; transform: none; }
-  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
-
-  @media (max-width: 920px) {
-    .grid, .steps { grid-template-columns: 1fr 1fr; }
-    .row, .row.flip { grid-template-columns: 1fr; gap: 28px; }
-    .row.flip .text { order: 0; }
-    .nav-links { display: none; }
-  }
-  @media (max-width: 620px) {
-    .wrap { padding: 0 16px; }
-    .grid, .steps { grid-template-columns: 1fr; }
-    .hero { padding-top: 56px; }
-    section { padding: 72px 0; }
-    .gh-label { display: none; }
-    .final { padding: 48px 20px; border-radius: 18px; }
-  }
-</style>
+  ]
+}
+</script>
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="logo" viewBox="0 0 64 64">
@@ -234,238 +106,336 @@
     <rect x="24" y="40" width="9" height="3" rx="1.5" fill="currentColor"/>
   </symbol>
   <symbol id="gh" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/></g></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></g></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-5-5 5 5-5 5"/></symbol>
 </svg>
 
-<nav>
+<header class="top">
   <div class="wrap nav">
-    <a class="brand" href="#"><svg><use href="#logo"/></svg><span>Get<b>Paper</b></span></a>
-    <div class="nav-links">
-      <a href="#features" data-i18n="nav.features">Features</a>
-      <a href="#ai" data-i18n="nav.ai">AI &amp; MCP</a>
-      <a href="#migrate" data-i18n="nav.migrate">Migration</a>
-      <a href="#start" data-i18n="nav.start">Self-host</a>
-    </div>
+    <a class="brand" href="/" aria-label="GetPaper home"><svg aria-hidden="true"><use href="#logo"/></svg><span>Get<b>Paper</b></span></a>
+    <nav aria-label="Sections">
+      <ul class="nav-links">
+        <li><a href="#control">Data control</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#migrate">Migration</a></li>
+        <li><a href="#ai">AI &amp; MCP</a></li>
+        <li><a href="#start">Install</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </nav>
     <div class="nav-right">
       <div class="lang" role="group" aria-label="Language">
-        <button type="button" data-lang="en">EN</button>
-        <button type="button" data-lang="it">IT</button>
+        <a href="/" hreflang="en" lang="en" aria-current="page">EN</a>
+        <a href="/it/" hreflang="it" lang="it">IT</a>
       </div>
-      <a class="btn btn-ghost btn-sm" href="https://github.com/teopost/getpaper"><svg><use href="#gh"/></svg><span class="gh-label">GitHub</span></a>
-    </div>
-  </div>
-</nav>
-
-<header class="hero">
-  <div class="wrap">
-    <span class="eyebrow"><i></i><span data-i18n="hero.eyebrow">Open source · Self-hosted · Built in Rust</span></span>
-    <h1 data-i18n="hero.title">Your team's knowledge, <span class="grad">beautifully organised</span>.</h1>
-    <p class="lead" data-i18n="hero.lead">GetPaper is a fast, self-hosted wiki for teams: a delightful Markdown editor, multiple workspaces, Microsoft sign-in and a built-in MCP server so your AI assistant can read and write your documentation.</p>
-    <div class="cta">
-      <a class="btn btn-primary" href="#start" data-i18n="hero.cta">Get started in 2 minutes</a>
-      <a class="btn btn-ghost" href="https://github.com/teopost/getpaper"><svg><use href="#gh"/></svg><span data-i18n="hero.github">Star on GitHub</span></a>
-    </div>
-    <div class="note" data-i18n="hero.note">One Docker Compose file · PostgreSQL · Your data stays on your servers</div>
-
-    <div class="shot reveal">
-      <div class="shot-bar"><i></i><i></i><i></i><span>docs.acme.example</span></div>
-      <picture>
-        <source srcset="assets/document-dark.webp" media="(prefers-color-scheme: dark)">
-        <img src="assets/document.webp" width="2880" height="1800" alt="A runbook in GetPaper with a checklist, a code block and a table">
-      </picture>
-    </div>
-
-    <div class="strip">
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg><span data-i18n="strip.workspaces">Multiple workspaces</span></span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span data-i18n="strip.sso">Microsoft Entra ID SSO</span></span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></svg><span data-i18n="strip.mcp">MCP server for AI</span></span>
-      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12M7 2h1"/><path d="m22 22-5-10-5 10M14 18h6"/></svg><span data-i18n="strip.i18n">English &amp; Italian</span></span>
+      <a class="btn btn-ghost btn-sm" href="https://github.com/teopost/getpaper"><svg aria-hidden="true"><use href="#gh"/></svg><span class="gh-label">GitHub</span><span class="sr"> repository</span></a>
     </div>
   </div>
 </header>
 
-<section id="features">
+<main id="main">
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap">
+    <p class="eyebrow"><span>Open source</span><span>MIT license</span><span>Self-hosted</span></p>
+    <h1 id="hero-title">The open-source wiki for your team, <span class="grad">on your infrastructure</span>.</h1>
+    <p class="lead">GetPaper is a wiki and knowledge base you install wherever you choose: your own servers, a private cloud or a cloud account you manage. Your team gets workspaces, Microsoft sign-in and a clean editor; your organisation keeps control of where the documentation lives.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#start">Get started with GetPaper</a>
+      <a class="btn btn-ghost" href="https://github.com/teopost/getpaper"><svg aria-hidden="true"><use href="#gh"/></svg>Explore the project on GitHub</a>
+    </div>
+    <p class="note">Free under the MIT license · One Docker Compose file with PostgreSQL · Images for amd64 and arm64</p>
+
+    <div class="shot reveal">
+      <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i><span>wiki.example.com</span></div>
+      <picture>
+        <source srcset="/assets/document-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/assets/document.webp" width="2880" height="1800" fetchpriority="high" alt="The GetPaper editor showing a runbook with a checklist, a code block and a table, with the workspace sidebar on the left">
+      </picture>
+    </div>
+
+    <h2 class="sr">Why GetPaper</h2>
+    <div class="pillars">
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-code"/></svg></span>Open source</h3><p>The full source code is public under the MIT license: you can read how it works, verify it and adapt it.</p></div>
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-server"/></svg></span>Self-hosted</h3><p>Runs from a Docker Compose file on a server, a virtual machine or a cloud account you manage.</p></div>
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>Your data, your control</h3><p>Documents and attachments stay in your database and storage. You decide on access, backups and updates.</p></div>
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-team"/></svg></span>Built for teams</h3><p>Multiple workspaces, groups and roles, Microsoft Entra ID sign-in, migration tools and an MCP server.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="control" aria-labelledby="control-title">
   <div class="wrap">
     <div class="center reveal">
-      <div class="kicker" data-i18n="features.kicker">Everything a team wiki needs</div>
-      <h2 data-i18n="features.title">Write, organise, find. Without friction.</h2>
-      <p class="sub" data-i18n="features.sub">A focused editor and a clean structure keep documentation alive - and the details that make admins happy are already there.</p>
+      <p class="kicker">Data control</p>
+      <h2 id="control-title">Your documentation. Your infrastructure. Your control.</h2>
+      <p class="sub">GetPaper is software you run, not a service you sign up for. Install it yourself and your documentation is never handed to a platform hosted by the GetPaper project: it stays in the environment you choose and administer.</p>
+    </div>
+
+    <figure class="reveal" style="margin:0">
+      <div class="arch" role="group" aria-label="How a GetPaper installation is organised">
+        <div class="arch-col">
+          <h3>Who connects</h3>
+          <ul>
+            <li class="node"><strong>People</strong>in the browser, after signing in</li>
+            <li class="node"><strong>AI assistants</strong>through MCP, with an API key</li>
+            <li class="node"><strong>Scripts and tools</strong>through the REST API, with an API key</li>
+          </ul>
+        </div>
+        <div class="arrow" aria-hidden="true"><svg><use href="#i-arrow"/></svg></div>
+        <div class="arch-col infra">
+          <h3>Your infrastructure</h3>
+          <div class="node app"><strong>GetPaper</strong>Rust server and web app, in a Docker container</div>
+          <span class="down" aria-hidden="true">↓</span>
+          <div class="store">
+            <div class="node"><strong>PostgreSQL</strong>documents, revisions, comments, users</div>
+            <div class="node"><strong>Storage volume</strong>images and attachments</div>
+          </div>
+        </div>
+        <div class="arrow" aria-hidden="true"><svg><use href="#i-arrow"/></svg></div>
+        <div class="arch-col optional">
+          <h3>Optional, if you configure them</h3>
+          <ul>
+            <li class="node"><strong>Microsoft Entra ID</strong>single sign-on</li>
+            <li class="node"><strong>Your SMTP server</strong>invitations and notifications</li>
+          </ul>
+        </div>
+      </div>
+      <figcaption class="arch-cap">Your infrastructure can be an on-premises server, a private cloud or a public cloud account you manage. The GetPaper server connects to nothing else: no telemetry, no licence check.</figcaption>
+    </figure>
+
+    <div class="grid two">
+      <div class="card reveal"><h3>Choose where it runs</h3><p>Any host that runs Docker containers (amd64 or arm64): on premises, in your data centre or with the cloud provider you already use. You can also build it from source.</p></div>
+      <div class="card reveal"><h3>Know where the data is</h3><p>Everything lives in two places you control: the PostgreSQL database and the attachments volume. Nothing is kept anywhere else by the application.</p></div>
+      <div class="card reveal"><h3>Back up on your terms</h3><p>Use your usual database and volume backup tools. Workspace admins can also export a complete GetPaper backup (ZIP) and restore it on another installation.</p></div>
+      <div class="card reveal"><h3>Decide who gets in</h3><p>Microsoft Entra ID or password sign-in, invite-only access, allowed email domains, private collections. Superadmins can switch off exports and public links for the whole installation.</p></div>
+    </div>
+    <p class="caveat reveal"><strong>A note on AI tools.</strong> Self-hosting controls where GetPaper stores your documentation. When you connect an AI assistant through MCP, the content it reads is processed by that assistant and the model it uses, under their own terms. Choose and configure those tools with the same care.</p>
+  </div>
+</section>
+
+<section id="features" aria-labelledby="features-title">
+  <div class="wrap">
+    <div class="center reveal">
+      <p class="kicker">Features</p>
+      <h2 id="features-title">Everything a team wiki needs, ready on day one.</h2>
+      <p class="sub">A focused editor and a clear structure keep documentation alive. Organise it by team, project or client and find it again in seconds.</p>
     </div>
     <div class="grid">
-      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg></div><h3 data-i18n="f1.t">A Markdown editor you'll love</h3><p data-i18n="f1.d">Slash commands, tables, checklists, callouts and code blocks with syntax highlighting, copy and line wrapping. Saved as plain Markdown.</p></div>
-      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></div><h3 data-i18n="f2.t">Workspaces for every team</h3><p data-i18n="f2.d">Fully isolated workspaces with their own members, roles and collections. Move pages between them in a click.</p></div>
-      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><h3 data-i18n="f3.t">Search that finds it</h3><p data-i18n="f3.d">Full-text search with highlighted results, filters by collection and one switch to search every workspace you belong to.</p></div>
-      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><h3 data-i18n="f4.t">Sign-in and invitations</h3><p data-i18n="f4.d">Microsoft Entra ID single sign-on, invite-only access and beautiful invitation emails. Admins, editors and viewers.</p></div>
-      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3 data-i18n="f5.t">Data protection built in</h3><p data-i18n="f5.d">Private collections, scoped API keys and superadmin switches to turn off exports and public links installation-wide.</p></div>
-      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7H17a5 5 0 0 0 5-5C22 6 17.5 2 12 2z"/></svg></div><h3 data-i18n="f6.t">Make it yours</h3><p data-i18n="f6.d">Your product name, header and accent colours, light or dark theme, English or Italian - per user, with installation defaults.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg></div><h3>A Markdown editor that stays out of the way</h3><p>Slash commands, tables, checklists, callouts, code blocks with syntax highlighting and Mermaid diagrams. Saved as plain Markdown.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></div><h3>Multiple workspaces</h3><p>Separate workspaces for teams, departments or clients, each with its own members, roles, collections and API keys. Move documents between them with their history.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><h3>Search across workspaces</h3><p>Full-text search with highlighted matches, a collection filter and one switch to search every workspace you belong to.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h3>Roles, groups and permissions</h3><p>Admins, editors and viewers; groups with read or edit access; collections that are editable, read-only or private.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></div><h3>History and collaboration</h3><p>Revision history with restore, comments with replies, @mentions with notifications, templates, drafts and a 30-day trash.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4M12 2v13"/></svg></div><h3>Share and export</h3><p>Read-only public links (kept out of search engines), downloads as Markdown, HTML, PDF or Word, and a presentation mode.</p></div>
     </div>
   </div>
 </section>
 
-<section class="alt" id="ai">
+<section class="alt" aria-labelledby="sso-title">
   <div class="wrap">
     <div class="row">
       <div class="text reveal">
-        <div class="kicker" data-i18n="ai.kicker">AI ready</div>
-        <h2 data-i18n="ai.title">Your docs, available to your AI assistant.</h2>
-        <p data-i18n="ai.p">GetPaper ships a Model Context Protocol server. Connect Claude, Cursor or any MCP client and let it search, read and write documentation - always within the limits you choose.</p>
+        <p class="kicker">For IT administrators</p>
+        <h2 id="sso-title">Sign in with Microsoft Entra ID, on your rules.</h2>
+        <p>If your organisation uses Microsoft 365, people sign in with their work account. GetPaper uses Microsoft Entra ID (formerly Azure AD) through OpenID Connect, with the authorization code flow and PKCE.</p>
         <ul class="ticks">
-          <li data-i18n="ai.l1">Read-only or read/write keys, with an expiry date</li>
-          <li data-i18n="ai.l2">One key for several workspaces, or only the collections you pick</li>
-          <li data-i18n="ai.l3">Never more permissions than the person who created the key</li>
+          <li>Accept a single tenant or restrict sign-in to your email domains</li>
+          <li>Create accounts at the first sign-in, or let in invited people only</li>
+          <li>Turn off password sign-in for an SSO-only installation</li>
+          <li>Superadmin switches for backups, Markdown export and public links</li>
+          <li>Your product name and colours on every page and email</li>
         </ul>
-<pre class="term"><span class="c"># one command, and your assistant knows your wiki</span>
+        <p class="more"><a href="https://github.com/teopost/getpaper#microsoft-sign-in-sso">Entra ID setup guide →</a></p>
+      </div>
+      <div class="frame reveal"><img src="/assets/settings.webp" width="2880" height="1800" loading="lazy" alt="GetPaper general settings for superadmins: product name and colours, data protection switches and defaults for new users"></div>
+    </div>
+
+    <div class="row flip">
+      <div class="text reveal">
+        <p class="kicker">Across workspaces</p>
+        <h2>One search box for the whole organisation.</h2>
+        <p>Runbooks, project plans, HR policies: search everything you have access to and jump straight into the right workspace.</p>
+        <ul class="ticks">
+          <li>Ranked full-text results with highlighted matches</li>
+          <li>Permissions respected in every workspace</li>
+        </ul>
+      </div>
+      <div class="frame reveal"><img src="/assets/search.webp" width="2880" height="1800" loading="lazy" alt="GetPaper search results coming from two different workspaces"></div>
+    </div>
+  </div>
+</section>
+
+<section id="migrate" aria-labelledby="migrate-title">
+  <div class="wrap">
+    <div class="row">
+      <div class="text reveal">
+        <p class="kicker">Migration</p>
+        <h2 id="migrate-title">Move to GetPaper without starting over.</h2>
+        <p>Looking for a self-hosted alternative to Confluence or Outline? Export your spaces or collections, upload the ZIP, and GetPaper rebuilds the page tree, rewrites links and keeps your attachments. The import recognises the format automatically.</p>
+        <p class="more"><a href="https://github.com/teopost/getpaper#import">Read the import guide →</a></p>
+      </div>
+      <div class="frame reveal"><img src="/assets/import.webp" width="2880" height="1800" loading="lazy" alt="The GetPaper import page with the source selector and a Confluence export being uploaded"></div>
+    </div>
+
+    <div class="sources">
+      <article class="source reveal">
+        <h3>Confluence</h3>
+        <p class="fmt">Cloud, Server and Data Center · XML or HTML space export (ZIP)</p>
+        <h4 class="yes">Imported</h4>
+        <ul>
+          <li>Page hierarchy and order; with XML, creation and modification dates</li>
+          <li>Images, attachments and links between pages</li>
+          <li>Info, note, warning and tip panels as callouts; code blocks with their language; expand, task lists, tables and statuses</li>
+        </ul>
+        <h4 class="not">Not imported</h4>
+        <ul>
+          <li>Authors, comments, version history, labels and permissions</li>
+          <li>Dynamic macros; PDF exports are not supported</li>
+        </ul>
+      </article>
+      <article class="source reveal">
+        <h3>Outline</h3>
+        <p class="fmt">Markdown export (ZIP)</p>
+        <h4 class="yes">Imported</h4>
+        <ul>
+          <li>Collections and nested documents</li>
+          <li>Images, attachments and links between documents</li>
+          <li>Microsoft sign-in can reuse the app registration of an Outline instance on the same domain</li>
+        </ul>
+        <h4 class="not">Not imported</h4>
+        <ul>
+          <li>What the Markdown export does not contain: comments, revision history, users and permissions</li>
+        </ul>
+      </article>
+      <article class="source reveal">
+        <h3>Notion, Obsidian and more</h3>
+        <p class="fmt">Markdown, HTML or text files, alone or in a ZIP</p>
+        <h4 class="yes">Imported</h4>
+        <ul>
+          <li>Markdown exports from Notion, Obsidian, Wiki.js, GitBook and BookStack</li>
+          <li>Folders as collections and nested documents; Obsidian <code>[[wiki links]]</code> rewritten</li>
+          <li>GetPaper backups, to move a workspace between installations</li>
+        </ul>
+      </article>
+    </div>
+    <p class="fine">Imports are a one-time conversion of exported files, not a live sync. Try a test workspace before moving a whole team. Confluence, Outline, Notion and the other names are trademarks of their owners; GetPaper is not affiliated with them.</p>
+  </div>
+</section>
+
+<section class="alt" id="ai" aria-labelledby="ai-title">
+  <div class="wrap">
+    <div class="row">
+      <div class="text reveal">
+        <p class="kicker">AI &amp; MCP</p>
+        <h2 id="ai-title">Connect AI assistants, within the limits you set.</h2>
+        <p>GetPaper includes a <a href="https://modelcontextprotocol.io">Model Context Protocol</a> (MCP) server. Compatible clients such as Claude Code, Claude Desktop or Cursor can search and read your documentation and, if the key allows it, create and update documents.</p>
+        <ul class="ticks">
+          <li>Read-only or read/write API keys, with an optional expiry</li>
+          <li>Limit a key to some workspaces or some collections</li>
+          <li>Never more permissions than the person who created the key; keys cannot manage members or settings</li>
+        </ul>
+<pre class="term"><span class="c"># add your wiki to Claude Code</span>
 <span class="k">claude</span> mcp add --transport http getpaper \
-  https://docs.acme.example/mcp \
+  https://wiki.example.com/mcp \
   --header <span class="s">"Authorization: Bearer ol_api_…"</span></pre>
+        <p class="more"><a href="https://github.com/teopost/getpaper#mcp-server-for-llms">MCP tools and configuration →</a></p>
       </div>
-      <div class="frame reveal"><img src="assets/mcp-key.webp" width="2880" height="1800" loading="lazy" alt="Creating a scoped API key for the MCP server"></div>
-    </div>
-
-    <div class="row flip">
-      <div class="text reveal">
-        <div class="kicker" data-i18n="search.kicker">Across workspaces</div>
-        <h2 data-i18n="search.title">One search box for the whole company.</h2>
-        <p data-i18n="search.p">Engineering runbooks, marketing plans, HR policies: search everything you have access to and jump straight into the right workspace.</p>
-        <ul class="ticks">
-          <li data-i18n="search.l1">Ranked full-text results with highlighted matches</li>
-          <li data-i18n="search.l2">Permissions respected in every workspace</li>
-        </ul>
-      </div>
-      <div class="frame reveal"><img src="assets/search.webp" width="2880" height="1800" loading="lazy" alt="Search results from two workspaces"></div>
+      <div class="frame reveal"><img src="/assets/mcp-key.webp" width="2880" height="1800" loading="lazy" alt="Creating an API key for the MCP server, with access level, workspaces, collections and expiry"></div>
     </div>
   </div>
 </section>
 
-<section id="migrate">
-  <div class="wrap">
-    <div class="row">
-      <div class="text reveal">
-        <div class="kicker" data-i18n="mig.kicker">Bring your content</div>
-        <h2 data-i18n="mig.title">Leave Confluence behind - keep everything else.</h2>
-        <p data-i18n="mig.p">Import Confluence spaces (XML or HTML exports) with page tree, dates, attachments and macros. Outline, Notion, Obsidian and plain Markdown work too.</p>
-        <ul class="ticks">
-          <li data-i18n="mig.l1">Info, note and warning panels become callouts; code macros keep their language</li>
-          <li data-i18n="mig.l2">Links between pages and images are rewritten automatically</li>
-          <li data-i18n="mig.l3">Full backups to move between instances, Obsidian vault export</li>
-        </ul>
-      </div>
-      <div class="frame reveal"><img src="assets/import.webp" width="2880" height="1800" loading="lazy" alt="Importing a Confluence export"></div>
-    </div>
-
-    <div class="row flip">
-      <div class="text reveal">
-        <div class="kicker" data-i18n="admin.kicker">For administrators</div>
-        <h2 data-i18n="admin.title">Settings that cover the whole installation.</h2>
-        <p data-i18n="admin.p">Superadmins brand the product, decide which exports are allowed and set the defaults every new user starts with.</p>
-        <ul class="ticks">
-          <li data-i18n="admin.l1">Custom product name and colours</li>
-          <li data-i18n="admin.l2">Switches for backups, Markdown export and public links</li>
-          <li data-i18n="admin.l3">Default language, theme and page width</li>
-        </ul>
-      </div>
-      <div class="frame reveal"><img src="assets/settings.webp" width="2880" height="1800" loading="lazy" alt="General settings for superadmins"></div>
-    </div>
-  </div>
-</section>
-
-<section class="alt" id="start">
+<section id="start" aria-labelledby="start-title">
   <div class="wrap center">
     <div class="reveal">
-      <div class="kicker" data-i18n="start.kicker">Self-host</div>
-      <h2 data-i18n="start.title">Up and running in three steps.</h2>
-      <p class="sub" data-i18n="start.sub">A single Docker Compose file starts GetPaper and PostgreSQL from the image on GitHub Container Registry. No external services required.</p>
+      <p class="kicker">Install</p>
+      <h2 id="start-title">Up and running in three steps.</h2>
+      <p class="sub">One Docker Compose file starts GetPaper and PostgreSQL from the image on GitHub Container Registry. No build, no external services required.</p>
     </div>
     <div class="steps">
-      <div class="step reveal"><div class="num">1</div><h3 data-i18n="s1.t">Download</h3><p data-i18n="s1.d">The Compose file uses the published image (amd64 and arm64): no build needed.</p><pre>curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml</pre></div>
-      <div class="step reveal"><div class="num">2</div><h3 data-i18n="s2.t">Configure</h3><p data-i18n="s2.d">Set your public URL and a database password; Microsoft sign-in and email are optional.</p><pre>curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
+      <div class="step reveal"><div class="num" aria-hidden="true">1</div><h3>Download</h3><p>The Compose file uses the published image for amd64 and arm64.</p><pre>mkdir getpaper &amp;&amp; cd getpaper
+curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml</pre></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">2</div><h3>Configure</h3><p>Set at least the public URL and a database password. Microsoft sign-in and email are optional.</p><pre>curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
 nano .env</pre></div>
-      <div class="step reveal"><div class="num">3</div><h3 data-i18n="s3.t">Start</h3><p data-i18n="s3.d">Open the URL and create the first account and workspace.</p><pre>docker compose up -d</pre></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">3</div><h3>Start</h3><p>Open the URL and create the first account: it becomes the superadmin.</p><pre>docker compose up -d</pre></div>
+    </div>
+    <div class="facts">
+      <div class="fact reveal"><h3>Requirements</h3><p>A host with Docker and Compose. PostgreSQL 16 is included in the Compose file.</p></div>
+      <div class="fact reveal"><h3>Updates</h3><p><code>docker compose pull &amp;&amp; docker compose up -d</code>. Pin a release (e.g. <code>0.1.0</code>) in <code>.env</code> for controlled updates.</p></div>
+      <div class="fact reveal"><h3>Where data lives</h3><p>Docker volumes <code>pgdata</code> (database) and <code>uploads</code> (attachments): include both in your backups.</p></div>
+      <div class="fact reveal"><h3>Configuration</h3><p>Sign-up policy, Entra ID, SMTP, defaults: all through environment variables.</p></div>
+    </div>
+    <p class="more"><a href="https://github.com/teopost/getpaper#quick-start-docker-image">Full installation and configuration guide →</a></p>
+  </div>
+</section>
+
+<section class="alt" id="project" aria-labelledby="project-title">
+  <div class="wrap center">
+    <div class="reveal">
+      <p class="kicker">The project</p>
+      <h2 id="project-title">An open project you can check for yourself.</h2>
+      <p class="sub">GetPaper is a young project built with Rust (axum, sqlx), PostgreSQL, React and TipTap. Read the code, the documentation and the known differences from Outline before you adopt it.</p>
+    </div>
+    <div class="links">
+      <a class="reveal" href="https://github.com/teopost/getpaper"><strong>Source code</strong><span>The repository on GitHub</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper/blob/main/LICENSE"><strong>MIT license</strong><span>Use, modify and redistribute</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper/pkgs/container/getpaper"><strong>Docker image</strong><span>ghcr.io/teopost/getpaper</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper#readme"><strong>Documentation</strong><span>Installation, SSO, import, MCP and API</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper/issues"><strong>Issues</strong><span>Report a bug or propose a change</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper#differences-from-outline"><strong>Known limitations</strong><span>What GetPaper does differently from Outline</span></a>
     </div>
   </div>
 </section>
 
-<section>
+<section id="faq" aria-labelledby="faq-title">
+  <div class="wrap">
+    <div class="center reveal">
+      <p class="kicker">FAQ</p>
+      <h2 id="faq-title">Frequently asked questions</h2>
+    </div>
+    <div class="faq">
+      <details><summary>Is GetPaper free and open source?</summary><p>Yes. The source code is on GitHub under the MIT license, and the Docker image is published on GitHub Container Registry. You can use, study, modify and redistribute it under the terms of the license.</p></details>
+      <details><summary>Where are my documents stored?</summary><p>In the PostgreSQL database and the attachments volume of your own installation. Wherever you run GetPaper - your own server, a virtual machine or a cloud account you manage - that is where the documentation lives.</p></details>
+      <details><summary>Do I need an account or a licence key from the GetPaper project?</summary><p>No. You install the software yourself. The server only connects to the external services you configure: Microsoft Entra ID for sign-in and your SMTP server for emails. It contains no telemetry and no licence check.</p></details>
+      <details><summary>Which single sign-on providers are supported?</summary><p>Microsoft Entra ID (formerly Azure AD) through OpenID Connect. Email and password sign-in is also available and can be turned off. Google, Slack and generic OIDC providers are not supported.</p></details>
+      <details><summary>Can I migrate from Confluence or Outline?</summary><p>Yes. GetPaper imports Confluence space exports in XML or HTML format, with page tree, dates, attachments and the most common macros, and Outline Markdown exports with collections, nested documents and attachments. Authors, comments, version history, labels and permissions are not imported.</p></details>
+      <details><summary>Does the MCP server send my documents to an AI provider?</summary><p>GetPaper does not send anything to AI providers. The MCP server answers the AI assistants you connect with an API key, within the permissions of that key. What the assistant then does with the content depends on the assistant and the model you use.</p></details>
+      <details><summary>How is GetPaper different from Outline?</summary><p>GetPaper is inspired by Outline and has a Rust backend. Multiple workspaces, Confluence import and an MCP server are included. It has no real-time co-editing (conflicts are detected on save), comments refer to the whole document and the only SSO provider is Microsoft Entra ID.</p></details>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="final-title" style="padding-top:0">
   <div class="wrap">
     <div class="final reveal">
-      <h2 data-i18n="final.title">Give your team a home for what it knows.</h2>
-      <p data-i18n="final.p">GetPaper is free and open source. Host it yourself, make it yours.</p>
+      <h2 id="final-title">Give your team a wiki you fully control.</h2>
+      <p>GetPaper is free and open source. Install it on your infrastructure and keep your documentation where you decide.</p>
       <div class="cta" style="margin:0">
-        <a class="btn btn-primary" href="https://github.com/teopost/getpaper"><svg><use href="#gh"/></svg><span data-i18n="final.cta">Get GetPaper on GitHub</span></a>
-        <a class="btn btn-ghost" href="#start" data-i18n="final.cta2">Read the quick start</a>
+        <a class="btn btn-primary" href="#start">Get started with GetPaper</a>
+        <a class="btn btn-ghost" href="https://github.com/teopost/getpaper"><svg aria-hidden="true"><use href="#gh"/></svg>Explore the project on GitHub</a>
       </div>
     </div>
   </div>
 </section>
+</main>
 
 <footer>
   <div class="wrap foot">
-    <span class="brand"><svg><use href="#logo"/></svg><span>Get<b>Paper</b></span></span>
-    <span data-i18n="foot.tag">The self-hosted wiki for teams. MIT licensed.</span>
+    <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg><span>Get<b>Paper</b></span></span>
+    <span>Open-source, self-hosted wiki for teams. MIT license.</span>
     <span class="sp">
       <a href="https://github.com/teopost/getpaper">GitHub</a>
-      <a href="https://github.com/teopost/getpaper#readme">Docs</a>
+      <a href="https://github.com/teopost/getpaper#readme">Documentation</a>
+      <a href="https://github.com/teopost/getpaper/issues">Issues</a>
+      <a href="https://github.com/teopost/getpaper/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="/it/" hreflang="it" lang="it">Italiano</a>
     </span>
   </div>
 </footer>
 
-<script>
-  const IT = {
-    'nav.features': 'Funzionalità', 'nav.ai': 'AI e MCP', 'nav.migrate': 'Migrazione', 'nav.start': 'Installazione',
-    'hero.eyebrow': 'Open source · Self-hosted · Scritto in Rust',
-    'hero.title': 'La conoscenza del tuo team, <span class="grad">organizzata con eleganza</span>.',
-    'hero.lead': 'GetPaper è un wiki per team veloce e self-hosted: un editor Markdown piacevole da usare, più workspace, accesso con Microsoft e un server MCP integrato, così il tuo assistente AI può leggere e scrivere la documentazione.',
-    'hero.cta': 'Inizia in 2 minuti', 'hero.github': 'Su GitHub',
-    'hero.note': 'Un solo file Docker Compose · PostgreSQL · I dati restano sui tuoi server',
-    'strip.workspaces': 'Più workspace', 'strip.sso': 'SSO Microsoft Entra ID', 'strip.mcp': 'Server MCP per l’AI', 'strip.i18n': 'Italiano e inglese',
-    'features.kicker': 'Tutto ciò che serve a un wiki', 'features.title': 'Scrivi, organizza, trova. Senza attriti.',
-    'features.sub': 'Un editor essenziale e una struttura pulita tengono viva la documentazione - e i dettagli che piacciono agli amministratori ci sono già.',
-    'f1.t': 'Un editor Markdown da amare', 'f1.d': 'Comandi con /, tabelle, checklist, avvisi e blocchi di codice con evidenziazione, copia e a capo. Salvato come Markdown semplice.',
-    'f2.t': 'Un workspace per ogni team', 'f2.d': 'Workspace isolati con membri, ruoli e collezioni propri. Sposta le pagine dall’uno all’altro con un clic.',
-    'f3.t': 'Una ricerca che trova', 'f3.d': 'Ricerca full-text con risultati evidenziati, filtri per collezione e un interruttore per cercare in tutti i tuoi workspace.',
-    'f4.t': 'Accesso e inviti', 'f4.d': 'Single sign-on con Microsoft Entra ID, accesso solo su invito ed eleganti email di invito. Amministratori, editor e lettori.',
-    'f5.t': 'Protezione dei dati integrata', 'f5.d': 'Collezioni private, chiavi API con permessi limitati e interruttori per disattivare export e link pubblici su tutta l’installazione.',
-    'f6.t': 'Fallo tuo', 'f6.d': 'Il nome del tuo prodotto, colori dell’header e di accento, tema chiaro o scuro, italiano o inglese - per utente, con valori predefiniti.',
-    'ai.kicker': 'Pronto per l’AI', 'ai.title': 'La tua documentazione, a disposizione del tuo assistente AI.',
-    'ai.p': 'GetPaper include un server Model Context Protocol. Collega Claude, Cursor o qualsiasi client MCP e lascialo cercare, leggere e scrivere - sempre nei limiti che scegli tu.',
-    'ai.l1': 'Chiavi in sola lettura o lettura/scrittura, con scadenza', 'ai.l2': 'Una chiave per più workspace, o solo per le collezioni che scegli', 'ai.l3': 'Mai più permessi di chi ha creato la chiave',
-    'search.kicker': 'Su tutti i workspace', 'search.title': 'Una sola ricerca per tutta l’azienda.',
-    'search.p': 'Runbook dell’IT, piani marketing, policy HR: cerca in tutto ciò a cui hai accesso e salta direttamente nel workspace giusto.',
-    'search.l1': 'Risultati full-text ordinati per pertinenza, con le corrispondenze evidenziate', 'search.l2': 'Permessi rispettati in ogni workspace',
-    'mig.kicker': 'Porta i tuoi contenuti', 'mig.title': 'Lascia Confluence - tieni tutto il resto.',
-    'mig.p': 'Importa gli spazi Confluence (export XML o HTML) con albero delle pagine, date, allegati e macro. Funzionano anche Outline, Notion, Obsidian e Markdown.',
-    'mig.l1': 'I pannelli info, note e warning diventano avvisi; il codice mantiene il linguaggio', 'mig.l2': 'Link tra pagine e immagini riscritti automaticamente', 'mig.l3': 'Backup completi per spostarsi tra installazioni, export come vault Obsidian',
-    'admin.kicker': 'Per gli amministratori', 'admin.title': 'Impostazioni per tutta l’installazione.',
-    'admin.p': 'I superadmin personalizzano il prodotto, decidono quali export sono permessi e impostano i valori predefiniti di ogni nuovo utente.',
-    'admin.l1': 'Nome del prodotto e colori personalizzati', 'admin.l2': 'Interruttori per backup, export Markdown e link pubblici', 'admin.l3': 'Lingua, tema e larghezza della pagina predefiniti',
-    'start.kicker': 'Self-hosting', 'start.title': 'Operativo in tre passi.', 'start.sub': 'Un solo file Docker Compose avvia GetPaper e PostgreSQL con l’immagine di GitHub Container Registry. Nessun servizio esterno necessario.',
-    's1.t': 'Scarica', 's1.d': 'Il file Compose usa l’immagine pubblicata (amd64 e arm64): niente da compilare.',
-    's2.t': 'Configura', 's2.d': 'Imposta l’URL pubblico e una password per il database; accesso Microsoft ed email sono facoltativi.',
-    's3.t': 'Avvia', 's3.d': 'Apri l’URL e crea il primo account e il primo workspace.',
-    'final.title': 'Dai al tuo team una casa per ciò che sa.', 'final.p': 'GetPaper è gratuito e open source. Installalo sui tuoi server, rendilo tuo.',
-    'final.cta': 'Scarica GetPaper da GitHub', 'final.cta2': 'Leggi la guida rapida',
-    'foot.tag': 'Il wiki self-hosted per i team. Licenza MIT.',
-  };
-  const EN = {};
-  document.querySelectorAll('[data-i18n]').forEach((el) => (EN[el.dataset.i18n] = el.innerHTML));
-  function setLang(lang) {
-    const dict = lang === 'it' ? IT : EN;
-    document.querySelectorAll('[data-i18n]').forEach((el) => {
-      const v = dict[el.dataset.i18n];
-      if (v) el.innerHTML = v;
-    });
-    document.documentElement.lang = lang;
-    document.querySelectorAll('.lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === lang));
-    try { localStorage.setItem('getpaper-lang', lang); } catch (e) {}
-  }
-  let saved = null;
-  try { saved = localStorage.getItem('getpaper-lang'); } catch (e) {}
-  setLang(saved || ((navigator.language || '').toLowerCase().startsWith('it') ? 'it' : 'en'));
-  document.querySelectorAll('.lang button').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
-
-  const io = new IntersectionObserver((entries) => entries.forEach((e) => {
-    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
-  }), { threshold: 0.12 });
-  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
-</script>
+<script src="/assets/site.js" defer></script>
 </body>
 </html>

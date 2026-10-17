@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GetPaper - wiki open source e self-hosted per i team</title>
+<meta name="description" content="GetPaper è un wiki e una knowledge base open source (MIT) da installare sulla tua infrastruttura. Più workspace, SSO Microsoft Entra ID, import da Confluence e Outline, server MCP integrato.">
+<link rel="canonical" href="https://getpaper.it/it/">
+<link rel="alternate" hreflang="en" href="https://getpaper.it/">
+<link rel="alternate" hreflang="it" href="https://getpaper.it/it/">
+<link rel="alternate" hreflang="x-default" href="https://getpaper.it/">
+<meta name="theme-color" content="#2563eb">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="GetPaper">
+<meta property="og:locale" content="it_IT">
+<meta property="og:locale:alternate" content="en_US">
+<meta property="og:url" content="https://getpaper.it/it/">
+<meta property="og:title" content="GetPaper - il wiki open source per il tuo team, sulla tua infrastruttura">
+<meta property="og:description" content="Wiki self-hosted con licenza MIT: più workspace, accesso con Microsoft Entra ID, import da Confluence e Outline e un server MCP per gli assistenti AI.">
+<meta property="og:image" content="https://getpaper.it/assets/og-image-it.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="GetPaper: il wiki open source per il tuo team, sulla tua infrastruttura">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/site.css">
+<script>document.documentElement.classList.add('js');</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://getpaper.it/#software",
+      "name": "GetPaper",
+      "url": "https://getpaper.it/it/",
+      "description": "Wiki e knowledge base open source e self-hosted per i team, con più workspace, single sign-on Microsoft Entra ID, import da Confluence, Outline, Notion e Obsidian e un server Model Context Protocol (MCP) integrato per gli assistenti AI.",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Wiki, knowledge base",
+      "operatingSystem": "Linux (immagine Docker per amd64 e arm64)",
+      "softwareRequirements": "Docker con Compose, PostgreSQL",
+      "license": "https://opensource.org/licenses/MIT",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+      "inLanguage": ["it", "en"],
+      "image": "https://getpaper.it/assets/document.webp",
+      "screenshot": "https://getpaper.it/assets/document.webp",
+      "sameAs": ["https://github.com/teopost/getpaper"],
+      "featureList": [
+        "Self-hosted con Docker Compose e PostgreSQL",
+        "Più workspace isolati",
+        "Single sign-on con Microsoft Entra ID (OpenID Connect con PKCE)",
+        "Import da Confluence (export XML e HTML degli spazi) ed export Markdown di Outline, Notion, Obsidian, Wiki.js, GitBook e BookStack",
+        "Server MCP integrato con chiavi API limitate e con scadenza",
+        "Ricerca full-text su tutti i workspace",
+        "Editor Markdown con tabelle, checklist, avvisi, blocchi di codice e diagrammi Mermaid",
+        "Cronologia delle revisioni, commenti, menzioni e gruppi",
+        "Backup dei workspace ed export come vault Obsidian"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "inLanguage": "it",
+      "mainEntity": [
+        { "@type": "Question", "name": "GetPaper è gratuito e open source?", "acceptedAnswer": { "@type": "Answer", "text": "Sì. Il codice sorgente è su GitHub con licenza MIT e l'immagine Docker è pubblicata su GitHub Container Registry. Puoi usarlo, studiarlo, modificarlo e ridistribuirlo secondo i termini della licenza." } },
+        { "@type": "Question", "name": "Dove sono conservati i miei documenti?", "acceptedAnswer": { "@type": "Answer", "text": "Nel database PostgreSQL e nel volume degli allegati della tua installazione. Ovunque tu esegua GetPaper - un tuo server, una macchina virtuale o un account cloud che gestisci - lì risiede la documentazione." } },
+        { "@type": "Question", "name": "Serve un account o una chiave di licenza del progetto GetPaper?", "acceptedAnswer": { "@type": "Answer", "text": "No. Installi il software in autonomia. Il server si collega solo ai servizi esterni che configuri: Microsoft Entra ID per l'accesso e il tuo server SMTP per le email. Non contiene telemetria né controlli di licenza." } },
+        { "@type": "Question", "name": "Quali provider di single sign-on sono supportati?", "acceptedAnswer": { "@type": "Answer", "text": "Microsoft Entra ID (ex Azure AD) tramite OpenID Connect. È disponibile anche l'accesso con email e password, che si può disattivare. Google, Slack e provider OIDC generici non sono supportati." } },
+        { "@type": "Question", "name": "Posso migrare da Confluence o da Outline?", "acceptedAnswer": { "@type": "Answer", "text": "Sì. GetPaper importa gli export XML o HTML degli spazi Confluence, con albero delle pagine, date, allegati e le macro più comuni, e gli export Markdown di Outline con collezioni, documenti annidati e allegati. Autori, commenti, cronologia delle versioni, etichette e permessi non vengono importati." } },
+        { "@type": "Question", "name": "Il server MCP invia i miei documenti a un fornitore di AI?", "acceptedAnswer": { "@type": "Answer", "text": "GetPaper non invia nulla ai fornitori di AI. Il server MCP risponde agli assistenti AI che colleghi con una chiave API, nei limiti dei permessi di quella chiave. Che cosa l'assistente faccia poi dei contenuti dipende dall'assistente e dal modello che utilizzi." } },
+        { "@type": "Question", "name": "In che cosa GetPaper è diverso da Outline?", "acceptedAnswer": { "@type": "Answer", "text": "GetPaper si ispira a Outline e ha un backend in Rust. Più workspace, import da Confluence e server MCP sono inclusi. Non ha la modifica simultanea in tempo reale (i conflitti vengono rilevati al salvataggio), i commenti si riferiscono all'intero documento e l'unico provider SSO è Microsoft Entra ID." } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Vai al contenuto</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 64 64">
+    <rect width="64" height="64" rx="14" fill="currentColor"/>
+    <path d="M21 13h15.5L45 21.5V48a3 3 0 0 1-3 3H21a3 3 0 0 1-3-3V16a3 3 0 0 1 3-3z" fill="var(--bg)"/>
+    <path d="M36.5 13v6.5a2 2 0 0 0 2 2H45z" fill="currentColor" opacity=".35"/>
+    <rect x="24" y="28" width="15" height="3" rx="1.5" fill="currentColor"/>
+    <rect x="24" y="34" width="15" height="3" rx="1.5" fill="currentColor"/>
+    <rect x="24" y="40" width="9" height="3" rx="1.5" fill="currentColor"/>
+  </symbol>
+  <symbol id="gh" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/></g></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></g></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12h15m-5-5 5 5-5 5"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="wrap nav">
+    <a class="brand" href="/it/" aria-label="GetPaper, pagina iniziale"><svg aria-hidden="true"><use href="#logo"/></svg><span>Get<b>Paper</b></span></a>
+    <nav aria-label="Sezioni">
+      <ul class="nav-links">
+        <li><a href="#control">Controllo dei dati</a></li>
+        <li><a href="#features">Funzionalità</a></li>
+        <li><a href="#migrate">Migrazione</a></li>
+        <li><a href="#ai">AI e MCP</a></li>
+        <li><a href="#start">Installazione</a></li>
+        <li><a href="#faq">Domande</a></li>
+      </ul>
+    </nav>
+    <div class="nav-right">
+      <div class="lang" role="group" aria-label="Lingua">
+        <a href="/" hreflang="en" lang="en">EN</a>
+        <a href="/it/" hreflang="it" lang="it" aria-current="page">IT</a>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="https://github.com/teopost/getpaper"><svg aria-hidden="true"><use href="#gh"/></svg><span class="gh-label">GitHub</span><span class="sr"> repository</span></a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap">
+    <p class="eyebrow"><span>Open source</span><span>Licenza MIT</span><span>Self-hosted</span></p>
+    <h1 id="hero-title">Il wiki open source per il tuo team, <span class="grad">sulla tua infrastruttura</span>.</h1>
+    <p class="lead">GetPaper è un wiki e una knowledge base che installi dove preferisci: sui tuoi server, in un cloud privato o in un account cloud che gestisci tu. Il team ha workspace, accesso con Microsoft e un editor essenziale; l'organizzazione mantiene il controllo di dove risiede la documentazione.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#start">Inizia con GetPaper</a>
+      <a class="btn btn-ghost" href="https://github.com/teopost/getpaper"><svg aria-hidden="true"><use href="#gh"/></svg>Esplora il progetto su GitHub</a>
+    </div>
+    <p class="note">Gratuito con licenza MIT · Un solo file Docker Compose con PostgreSQL · Immagini per amd64 e arm64</p>
+
+    <div class="shot reveal">
+      <div class="shot-bar" aria-hidden="true"><i></i><i></i><i></i><span>wiki.example.com</span></div>
+      <picture>
+        <source srcset="/assets/document-dark.webp" media="(prefers-color-scheme: dark)">
+        <img src="/assets/document.webp" width="2880" height="1800" fetchpriority="high" alt="L'editor di GetPaper con un runbook che contiene una checklist, un blocco di codice e una tabella, e la barra laterale del workspace a sinistra">
+      </picture>
+    </div>
+
+    <h2 class="sr">Perché scegliere GetPaper</h2>
+    <div class="pillars">
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-code"/></svg></span>Open source</h3><p>Tutto il codice è pubblico con licenza MIT: puoi leggere come funziona, verificarlo e adattarlo.</p></div>
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-server"/></svg></span>Self-hosted</h3><p>Si avvia con un file Docker Compose su un server, una macchina virtuale o un account cloud che gestisci tu.</p></div>
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>I tuoi dati, il tuo controllo</h3><p>Documenti e allegati restano nel tuo database e nel tuo storage. Accessi, backup e aggiornamenti li decidi tu.</p></div>
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-team"/></svg></span>Pensato per i team</h3><p>Più workspace, gruppi e ruoli, accesso con Microsoft Entra ID, strumenti di migrazione e un server MCP.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="control" aria-labelledby="control-title">
+  <div class="wrap">
+    <div class="center reveal">
+      <p class="kicker">Controllo dei dati</p>
+      <h2 id="control-title">La tua documentazione. La tua infrastruttura. Il tuo controllo.</h2>
+      <p class="sub">GetPaper è un software che esegui tu, non un servizio a cui ti iscrivi. Se lo installi in autonomia, la documentazione non viene mai affidata a una piattaforma ospitata dal progetto GetPaper: resta nell'ambiente che scegli e amministri.</p>
+    </div>
+
+    <figure class="reveal" style="margin:0">
+      <div class="arch" role="group" aria-label="Come è organizzata un'installazione di GetPaper">
+        <div class="arch-col">
+          <h3>Chi si collega</h3>
+          <ul>
+            <li class="node"><strong>Le persone</strong>dal browser, dopo l'accesso</li>
+            <li class="node"><strong>Gli assistenti AI</strong>tramite MCP, con una chiave API</li>
+            <li class="node"><strong>Script e strumenti</strong>tramite l'API REST, con una chiave API</li>
+          </ul>
+        </div>
+        <div class="arrow" aria-hidden="true"><svg><use href="#i-arrow"/></svg></div>
+        <div class="arch-col infra">
+          <h3>La tua infrastruttura</h3>
+          <div class="node app"><strong>GetPaper</strong>server Rust e applicazione web, in un container Docker</div>
+          <span class="down" aria-hidden="true">↓</span>
+          <div class="store">
+            <div class="node"><strong>PostgreSQL</strong>documenti, revisioni, commenti, utenti</div>
+            <div class="node"><strong>Volume di storage</strong>immagini e allegati</div>
+          </div>
+        </div>
+        <div class="arrow" aria-hidden="true"><svg><use href="#i-arrow"/></svg></div>
+        <div class="arch-col optional">
+          <h3>Facoltativi, se li configuri</h3>
+          <ul>
+            <li class="node"><strong>Microsoft Entra ID</strong>single sign-on</li>
+            <li class="node"><strong>Il tuo server SMTP</strong>inviti e notifiche</li>
+          </ul>
+        </div>
+      </div>
+      <figcaption class="arch-cap">La tua infrastruttura può essere un server on-premise, un cloud privato o un account su un cloud pubblico che gestisci tu. Il server di GetPaper non si collega ad altro: niente telemetria, nessun controllo di licenza.</figcaption>
+    </figure>
+
+    <div class="grid two">
+      <div class="card reveal"><h3>Scegli dove eseguirlo</h3><p>Qualsiasi host che esegue container Docker (amd64 o arm64): on-premise, nel tuo data center o presso il cloud provider che già usi. Puoi anche compilarlo dai sorgenti.</p></div>
+      <div class="card reveal"><h3>Sai dove sono i dati</h3><p>Tutto si trova in due posti che controlli tu: il database PostgreSQL e il volume degli allegati. L'applicazione non conserva nulla altrove.</p></div>
+      <div class="card reveal"><h3>Backup alle tue condizioni</h3><p>Usa i tuoi strumenti abituali per il backup di database e volumi. Gli amministratori di un workspace possono anche esportare un backup completo di GetPaper (ZIP) e ripristinarlo su un'altra installazione.</p></div>
+      <div class="card reveal"><h3>Decidi chi entra</h3><p>Accesso con Microsoft Entra ID o con password, accesso solo su invito, domini email consentiti, collezioni private. I superadmin possono disattivare export e link pubblici per tutta l'installazione.</p></div>
+    </div>
+    <p class="caveat reveal"><strong>Una nota sugli strumenti AI.</strong> Il self-hosting determina dove GetPaper conserva la documentazione. Quando colleghi un assistente AI tramite MCP, i contenuti che legge vengono elaborati da quell'assistente e dal modello che utilizza, secondo le loro condizioni. Scegli e configura questi strumenti con la stessa attenzione.</p>
+  </div>
+</section>
+
+<section id="features" aria-labelledby="features-title">
+  <div class="wrap">
+    <div class="center reveal">
+      <p class="kicker">Funzionalità</p>
+      <h2 id="features-title">Tutto ciò che serve a un wiki aziendale, pronto da subito.</h2>
+      <p class="sub">Un editor essenziale e una struttura chiara tengono viva la documentazione. Organizzala per team, progetto o cliente e ritrovala in pochi secondi.</p>
+    </div>
+    <div class="grid">
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg></div><h3>Un editor Markdown che non intralcia</h3><p>Comandi con /, tabelle, checklist, avvisi, blocchi di codice con evidenziazione e diagrammi Mermaid. Salvato come Markdown semplice.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg></div><h3>Più workspace</h3><p>Workspace separati per team, reparti o clienti, ognuno con membri, ruoli, collezioni e chiavi API propri. Sposta i documenti dall'uno all'altro con la loro cronologia.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><h3>Ricerca su tutti i workspace</h3><p>Ricerca full-text con le corrispondenze evidenziate, filtro per collezione e un interruttore per cercare in tutti i tuoi workspace.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h3>Ruoli, gruppi e permessi</h3><p>Amministratori, editor e lettori; gruppi con accesso in lettura o in modifica; collezioni modificabili, in sola lettura o private.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></div><h3>Cronologia e collaborazione</h3><p>Cronologia delle revisioni con ripristino, commenti con risposte, @menzioni con notifiche, modelli, bozze e cestino per 30 giorni.</p></div>
+      <div class="card reveal"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="m16 6-4-4-4 4M12 2v13"/></svg></div><h3>Condivisione ed export</h3><p>Link pubblici in sola lettura (esclusi dai motori di ricerca), download in Markdown, HTML, PDF o Word e modalità presentazione.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" aria-labelledby="sso-title">
+  <div class="wrap">
+    <div class="row">
+      <div class="text reveal">
+        <p class="kicker">Per gli amministratori IT</p>
+        <h2 id="sso-title">Accesso con Microsoft Entra ID, con le tue regole.</h2>
+        <p>Se la tua organizzazione usa Microsoft 365, le persone accedono con l'account di lavoro. GetPaper usa Microsoft Entra ID (ex Azure AD) tramite OpenID Connect, con authorization code flow e PKCE.</p>
+        <ul class="ticks">
+          <li>Accetta un solo tenant o limita l'accesso ai tuoi domini email</li>
+          <li>Crea gli account al primo accesso, oppure fai entrare solo le persone invitate</li>
+          <li>Disattiva l'accesso con password per un'installazione solo SSO</li>
+          <li>Interruttori dei superadmin per backup, export Markdown e link pubblici</li>
+          <li>Il nome e i colori del tuo prodotto su ogni pagina ed email</li>
+        </ul>
+        <p class="more"><a href="https://github.com/teopost/getpaper/blob/main/README_ITA.md#accesso-con-microsoft-sso">Guida alla configurazione di Entra ID →</a></p>
+      </div>
+      <div class="frame reveal"><img src="/assets/settings.webp" width="2880" height="1800" loading="lazy" alt="Le impostazioni generali di GetPaper per i superadmin: nome e colori del prodotto, interruttori per la protezione dei dati e valori predefiniti per i nuovi utenti"></div>
+    </div>
+
+    <div class="row flip">
+      <div class="text reveal">
+        <p class="kicker">Su tutti i workspace</p>
+        <h2>Una sola ricerca per tutta l'organizzazione.</h2>
+        <p>Runbook, piani di progetto, policy HR: cerca in tutto ciò a cui hai accesso e vai direttamente al workspace giusto.</p>
+        <ul class="ticks">
+          <li>Risultati full-text ordinati per pertinenza, con le corrispondenze evidenziate</li>
+          <li>Permessi rispettati in ogni workspace</li>
+        </ul>
+      </div>
+      <div class="frame reveal"><img src="/assets/search.webp" width="2880" height="1800" loading="lazy" alt="Risultati di ricerca di GetPaper provenienti da due workspace diversi"></div>
+    </div>
+  </div>
+</section>
+
+<section id="migrate" aria-labelledby="migrate-title">
+  <div class="wrap">
+    <div class="row">
+      <div class="text reveal">
+        <p class="kicker">Migrazione</p>
+        <h2 id="migrate-title">Passa a GetPaper senza ripartire da zero.</h2>
+        <p>Cerchi un'alternativa self-hosted a Confluence o a Outline? Esporta i tuoi spazi o le tue collezioni, carica lo ZIP e GetPaper ricostruisce l'albero delle pagine, riscrive i link e conserva gli allegati. Il formato viene riconosciuto automaticamente.</p>
+        <p class="more"><a href="https://github.com/teopost/getpaper/blob/main/README_ITA.md#import">Leggi la guida all'import →</a></p>
+      </div>
+      <div class="frame reveal"><img src="/assets/import.webp" width="2880" height="1800" loading="lazy" alt="La pagina di import di GetPaper con la scelta della sorgente e il caricamento di un export Confluence"></div>
+    </div>
+
+    <div class="sources">
+      <article class="source reveal">
+        <h3>Confluence</h3>
+        <p class="fmt">Cloud, Server e Data Center · export XML o HTML dello spazio (ZIP)</p>
+        <h4 class="yes">Importato</h4>
+        <ul>
+          <li>Gerarchia e ordine delle pagine; con l'XML, date di creazione e di modifica</li>
+          <li>Immagini, allegati e link tra le pagine</li>
+          <li>Pannelli info, note, warning e tip come avvisi; blocchi di codice con il loro linguaggio; expand, liste di attività, tabelle e stati</li>
+        </ul>
+        <h4 class="not">Non importato</h4>
+        <ul>
+          <li>Autori, commenti, cronologia delle versioni, etichette e permessi</li>
+          <li>Macro dinamiche; gli export PDF non sono supportati</li>
+        </ul>
+      </article>
+      <article class="source reveal">
+        <h3>Outline</h3>
+        <p class="fmt">Export Markdown (ZIP)</p>
+        <h4 class="yes">Importato</h4>
+        <ul>
+          <li>Collezioni e documenti annidati</li>
+          <li>Immagini, allegati e link tra i documenti</li>
+          <li>L'accesso Microsoft può riusare la app registration di un'istanza Outline sullo stesso dominio</li>
+        </ul>
+        <h4 class="not">Non importato</h4>
+        <ul>
+          <li>Ciò che l'export Markdown non contiene: commenti, cronologia delle revisioni, utenti e permessi</li>
+        </ul>
+      </article>
+      <article class="source reveal">
+        <h3>Notion, Obsidian e altri</h3>
+        <p class="fmt">File Markdown, HTML o di testo, singoli o in uno ZIP</p>
+        <h4 class="yes">Importato</h4>
+        <ul>
+          <li>Export Markdown di Notion, Obsidian, Wiki.js, GitBook e BookStack</li>
+          <li>Cartelle come collezioni e documenti annidati; i <code>[[wiki link]]</code> di Obsidian vengono riscritti</li>
+          <li>Backup di GetPaper, per spostare un workspace tra installazioni</li>
+        </ul>
+      </article>
+    </div>
+    <p class="fine">L'import è una conversione una tantum dei file esportati, non una sincronizzazione continua. Provalo su un workspace di test prima di spostare un intero team. Confluence, Outline, Notion e gli altri nomi sono marchi dei rispettivi proprietari; GetPaper non è affiliato con loro.</p>
+  </div>
+</section>
+
+<section class="alt" id="ai" aria-labelledby="ai-title">
+  <div class="wrap">
+    <div class="row">
+      <div class="text reveal">
+        <p class="kicker">AI e MCP</p>
+        <h2 id="ai-title">Collega gli assistenti AI, nei limiti che scegli tu.</h2>
+        <p>GetPaper include un server <a href="https://modelcontextprotocol.io" hreflang="en">Model Context Protocol</a> (MCP). Client compatibili come Claude Code, Claude Desktop o Cursor possono cercare e leggere la documentazione e, se la chiave lo consente, creare e aggiornare documenti.</p>
+        <ul class="ticks">
+          <li>Chiavi API in sola lettura o in lettura e scrittura, con scadenza facoltativa</li>
+          <li>Una chiave può essere limitata ad alcuni workspace o ad alcune collezioni</li>
+          <li>Mai più permessi della persona che ha creato la chiave; le chiavi non gestiscono membri né impostazioni</li>
+        </ul>
+<pre class="term"><span class="c"># aggiungi il tuo wiki a Claude Code</span>
+<span class="k">claude</span> mcp add --transport http getpaper \
+  https://wiki.example.com/mcp \
+  --header <span class="s">"Authorization: Bearer ol_api_…"</span></pre>
+        <p class="more"><a href="https://github.com/teopost/getpaper/blob/main/README_ITA.md#server-mcp-per-llm">Strumenti e configurazione MCP →</a></p>
+      </div>
+      <div class="frame reveal"><img src="/assets/mcp-key.webp" width="2880" height="1800" loading="lazy" alt="Creazione di una chiave API per il server MCP, con livello di accesso, workspace, collezioni e scadenza"></div>
+    </div>
+  </div>
+</section>
+
+<section id="start" aria-labelledby="start-title">
+  <div class="wrap center">
+    <div class="reveal">
+      <p class="kicker">Installazione</p>
+      <h2 id="start-title">Operativo in tre passi.</h2>
+      <p class="sub">Un solo file Docker Compose avvia GetPaper e PostgreSQL con l'immagine pubblicata su GitHub Container Registry. Niente da compilare, nessun servizio esterno necessario.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><div class="num" aria-hidden="true">1</div><h3>Scarica</h3><p>Il file Compose usa l'immagine pubblicata per amd64 e arm64.</p><pre>mkdir getpaper &amp;&amp; cd getpaper
+curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml</pre></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">2</div><h3>Configura</h3><p>Imposta almeno l'URL pubblico e una password per il database. Accesso Microsoft ed email sono facoltativi.</p><pre>curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
+nano .env</pre></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">3</div><h3>Avvia</h3><p>Apri l'URL e crea il primo account: diventa il superadmin.</p><pre>docker compose up -d</pre></div>
+    </div>
+    <div class="facts">
+      <div class="fact reveal"><h3>Requisiti</h3><p>Un host con Docker e Compose. PostgreSQL 16 è incluso nel file Compose.</p></div>
+      <div class="fact reveal"><h3>Aggiornamenti</h3><p><code>docker compose pull &amp;&amp; docker compose up -d</code>. Fissa una release (es. <code>0.1.0</code>) in <code>.env</code> per aggiornamenti controllati.</p></div>
+      <div class="fact reveal"><h3>Dove sono i dati</h3><p>Volumi Docker <code>pgdata</code> (database) e <code>uploads</code> (allegati): includili entrambi nei backup.</p></div>
+      <div class="fact reveal"><h3>Configurazione</h3><p>Registrazioni, Entra ID, SMTP, valori predefiniti: tutto tramite variabili d'ambiente.</p></div>
+    </div>
+    <p class="more"><a href="https://github.com/teopost/getpaper/blob/main/README_ITA.md#avvio-rapido-immagine-docker">Guida completa a installazione e configurazione →</a></p>
+  </div>
+</section>
+
+<section class="alt" id="project" aria-labelledby="project-title">
+  <div class="wrap center">
+    <div class="reveal">
+      <p class="kicker">Il progetto</p>
+      <h2 id="project-title">Un progetto aperto, che puoi verificare.</h2>
+      <p class="sub">GetPaper è un progetto giovane, scritto in Rust (axum, sqlx) con PostgreSQL, React e TipTap. Leggi il codice, la documentazione e le differenze note rispetto a Outline prima di adottarlo.</p>
+    </div>
+    <div class="links">
+      <a class="reveal" href="https://github.com/teopost/getpaper"><strong>Codice sorgente</strong><span>Il repository su GitHub</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper/blob/main/LICENSE"><strong>Licenza MIT</strong><span>Usa, modifica e ridistribuisci</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper/pkgs/container/getpaper"><strong>Immagine Docker</strong><span>ghcr.io/teopost/getpaper</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper/blob/main/README_ITA.md"><strong>Documentazione</strong><span>Installazione, SSO, import, MCP e API</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper/issues"><strong>Segnalazioni</strong><span>Segnala un problema o proponi una modifica</span></a>
+      <a class="reveal" href="https://github.com/teopost/getpaper/blob/main/README_ITA.md#differenze-rispetto-a-outline"><strong>Limiti noti</strong><span>Che cosa fa diversamente da Outline</span></a>
+    </div>
+  </div>
+</section>
+
+<section id="faq" aria-labelledby="faq-title">
+  <div class="wrap">
+    <div class="center reveal">
+      <p class="kicker">Domande</p>
+      <h2 id="faq-title">Domande frequenti</h2>
+    </div>
+    <div class="faq">
+      <details><summary>GetPaper è gratuito e open source?</summary><p>Sì. Il codice sorgente è su GitHub con licenza MIT e l'immagine Docker è pubblicata su GitHub Container Registry. Puoi usarlo, studiarlo, modificarlo e ridistribuirlo secondo i termini della licenza.</p></details>
+      <details><summary>Dove sono conservati i miei documenti?</summary><p>Nel database PostgreSQL e nel volume degli allegati della tua installazione. Ovunque tu esegua GetPaper - un tuo server, una macchina virtuale o un account cloud che gestisci - lì risiede la documentazione.</p></details>
+      <details><summary>Serve un account o una chiave di licenza del progetto GetPaper?</summary><p>No. Installi il software in autonomia. Il server si collega solo ai servizi esterni che configuri: Microsoft Entra ID per l'accesso e il tuo server SMTP per le email. Non contiene telemetria né controlli di licenza.</p></details>
+      <details><summary>Quali provider di single sign-on sono supportati?</summary><p>Microsoft Entra ID (ex Azure AD) tramite OpenID Connect. È disponibile anche l'accesso con email e password, che si può disattivare. Google, Slack e provider OIDC generici non sono supportati.</p></details>
+      <details><summary>Posso migrare da Confluence o da Outline?</summary><p>Sì. GetPaper importa gli export XML o HTML degli spazi Confluence, con albero delle pagine, date, allegati e le macro più comuni, e gli export Markdown di Outline con collezioni, documenti annidati e allegati. Autori, commenti, cronologia delle versioni, etichette e permessi non vengono importati.</p></details>
+      <details><summary>Il server MCP invia i miei documenti a un fornitore di AI?</summary><p>GetPaper non invia nulla ai fornitori di AI. Il server MCP risponde agli assistenti AI che colleghi con una chiave API, nei limiti dei permessi di quella chiave. Che cosa l'assistente faccia poi dei contenuti dipende dall'assistente e dal modello che utilizzi.</p></details>
+      <details><summary>In che cosa GetPaper è diverso da Outline?</summary><p>GetPaper si ispira a Outline e ha un backend in Rust. Più workspace, import da Confluence e server MCP sono inclusi. Non ha la modifica simultanea in tempo reale (i conflitti vengono rilevati al salvataggio), i commenti si riferiscono all'intero documento e l'unico provider SSO è Microsoft Entra ID.</p></details>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="final-title" style="padding-top:0">
+  <div class="wrap">
+    <div class="final reveal">
+      <h2 id="final-title">Dai al tuo team un wiki che controlli davvero.</h2>
+      <p>GetPaper è gratuito e open source. Installalo sulla tua infrastruttura e tieni la documentazione dove decidi tu.</p>
+      <div class="cta" style="margin:0">
+        <a class="btn btn-primary" href="#start">Inizia con GetPaper</a>
+        <a class="btn btn-ghost" href="https://github.com/teopost/getpaper"><svg aria-hidden="true"><use href="#gh"/></svg>Esplora il progetto su GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span class="brand"><svg aria-hidden="true"><use href="#logo"/></svg><span>Get<b>Paper</b></span></span>
+    <span>Wiki open source e self-hosted per i team. Licenza MIT.</span>
+    <span class="sp">
+      <a href="https://github.com/teopost/getpaper">GitHub</a>
+      <a href="https://github.com/teopost/getpaper/blob/main/README_ITA.md">Documentazione</a>
+      <a href="https://github.com/teopost/getpaper/issues">Segnalazioni</a>
+      <a href="https://github.com/teopost/getpaper/blob/main/CHANGELOG.md" hreflang="en">Changelog</a>
+      <a href="/" hreflang="en" lang="en">English</a>
+    </span>
+  </div>
+</footer>
+
+<script src="/assets/site.js" defer></script>
+</body>
+</html>

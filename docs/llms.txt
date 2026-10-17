@@ -1,0 +1,34 @@
+# GetPaper
+
+> GetPaper is an open-source (MIT), self-hosted wiki and knowledge base for teams. Organisations install it on infrastructure they choose and manage (on-premises server, private cloud or a public cloud account), so documentation stays in their own PostgreSQL database and storage volume. It offers multiple workspaces, Microsoft Entra ID single sign-on, import from Confluence and Outline, and a built-in Model Context Protocol (MCP) server for AI assistants.
+
+Facts, as documented in the repository:
+
+- License: MIT. Source code: https://github.com/teopost/getpaper. Docker image: ghcr.io/teopost/getpaper (amd64 and arm64).
+- Stack: Rust backend (axum, sqlx), PostgreSQL, React + TipTap frontend. Interface in English and Italian.
+- Deployment: one Docker Compose file that starts GetPaper and PostgreSQL 16. Data lives in the Docker volumes `pgdata` (database) and `uploads` (attachments). Updates with `docker compose pull && docker compose up -d`.
+- Outbound connections: only the optional services the administrator configures (Microsoft Entra ID for sign-in, an SMTP server for emails). No telemetry, no licence check, no hosted service required.
+- Sign-in: email and password (can be disabled) and Microsoft Entra ID via OpenID Connect with PKCE. No Google, Slack or generic OIDC providers.
+- Workspaces: multiple isolated workspaces with their own members, roles (admin, editor, viewer), groups, collections and API keys; documents can be moved between workspaces; search across workspaces.
+- Migration: Confluence XML or HTML space exports (page tree, dates with XML, attachments, common macros; not authors, comments, version history, labels or permissions); Markdown exports from Outline, Notion, Obsidian, Wiki.js, GitBook and BookStack; GetPaper backups between installations.
+- MCP: Streamable HTTP endpoint at `/mcp`, authenticated with personal API keys that are read-only or read/write, limited to chosen workspaces or collections, with optional expiry, and never exceed the creator's permissions. Content read by an assistant is processed by that assistant and its model.
+- Differences from Outline: no real-time co-editing (conflicts detected on save), comments refer to the whole document, Microsoft Entra ID is the only SSO provider.
+
+## Website
+
+- [GetPaper (English)](https://getpaper.it/): overview, data control, features, migration, MCP, installation, FAQ
+- [GetPaper (Italiano)](https://getpaper.it/it/): the same page in Italian
+
+## Documentation
+
+- [README (English)](https://github.com/teopost/getpaper/blob/main/README.md): installation, configuration, SSO, import, export, MCP server, API
+- [README (Italiano)](https://github.com/teopost/getpaper/blob/main/README_ITA.md)
+- [Docker Compose file](https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml)
+- [Environment variables example](https://raw.githubusercontent.com/teopost/getpaper/main/.env.example)
+- [Changelog](https://github.com/teopost/getpaper/blob/main/CHANGELOG.md): release notes; current release 0.1.0, Docker tag ghcr.io/teopost/getpaper:0.1.0
+- [Contributing](https://github.com/teopost/getpaper/blob/main/CONTRIBUTING.md)
+- [License](https://github.com/teopost/getpaper/blob/main/LICENSE)
+
+## Optional
+
+- [Issues](https://github.com/teopost/getpaper/issues): bug reports and proposals

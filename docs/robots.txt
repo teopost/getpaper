@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://getpaper.it/sitemap.xml
