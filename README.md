@@ -1,11 +1,32 @@
 # GetPaper
 
-**English** · [Italiano](README_ITA.md)
+**The open-source wiki for your team, on your infrastructure.**
 
-**Project site:** https://getpaper.it · MIT license · Docker image: `ghcr.io/teopost/getpaper`
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Docker image](https://github.com/teopost/getpaper/actions/workflows/docker.yml/badge.svg)](https://github.com/teopost/getpaper/pkgs/container/getpaper)
+[![Latest release](https://img.shields.io/github/v/release/teopost/getpaper)](https://github.com/teopost/getpaper/releases)
 
-A wiki / knowledge base inspired by [Outline](https://github.com/outline/outline), with a **Rust** backend and
-**multiple workspaces** included (a paid feature in Outline).
+**English** · [Italiano](README_ITA.md) · [Website](https://getpaper.it) · [Changelog](CHANGELOG.md)
+
+GetPaper is a self-hosted wiki and knowledge base for teams, inspired by [Outline](https://github.com/outline/outline),
+with a **Rust** backend and **multiple workspaces** included. You run it wherever you choose (your own server, a private
+cloud or a cloud account you manage), so the documentation stays in your own PostgreSQL database and storage volume.
+
+![A runbook in GetPaper with a checklist, a code block and a table](docs/assets/document.webp)
+
+- **Open source**: MIT license, no account, licence key or telemetry. The server only connects to the services you
+  configure (Microsoft Entra ID for sign-in, your SMTP server for emails).
+- **Self-hosted**: one Docker Compose file with PostgreSQL, images for amd64 and arm64.
+- **Built for teams**: multiple isolated workspaces, groups and roles, Microsoft Entra ID single sign-on.
+- **Migration**: imports Confluence space exports (XML or HTML) and Markdown exports from Outline, Notion, Obsidian,
+  Wiki.js, GitBook and BookStack.
+- **AI ready**: a built-in [MCP](https://modelcontextprotocol.io) server with scoped, expiring API keys.
+
+**Contents:** [Quick start](#quick-start-docker-image) · [Updating](#updating) ·
+[Backup and restore](#backup-and-restore) · [Running from source](#running-from-source) · [Features](#features) ·
+[Microsoft sign-in](#microsoft-sign-in-sso) · [Import](#import) · [Export](#export) ·
+[MCP server](#mcp-server-for-llms) · [API](#api) · [Differences from Outline](#differences-from-outline) ·
+[Contributing](#contributing)
 
 ## Quick start (Docker image)
 
@@ -20,8 +41,48 @@ curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example 
 docker compose up -d
 ```
 
-Update to the latest version: `docker compose pull && docker compose up -d`. For controlled updates, set a
-specific version in `.env`, for example `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:1.0.0`.
+Open the URL and create the first account: it becomes the superadmin.
+
+**Requirements:** a host with Docker and Docker Compose (Linux amd64 or arm64). The Compose file also starts
+PostgreSQL 16. Put a reverse proxy with HTTPS (for example Caddy, nginx or Traefik) in front of port 3000 for
+production use, and set `URL` to the public HTTPS address.
+
+### Updating
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Database migrations run automatically when the application starts. For controlled updates, pin a release in `.env`
+instead of `latest`, for example `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:0.1.0`, and read the
+[changelog](CHANGELOG.md) before moving to a newer one. Take a backup first.
+
+Image tags: `latest` (every change on `main`), `X.Y.Z` and `X.Y` (releases), `sha-<commit>` (every build).
+
+### Backup and restore
+
+All data lives in two Docker volumes: `getpaper_pgdata` (PostgreSQL) and `getpaper_uploads` (attachments). Back up
+both, from the directory that contains `docker-compose.yml`:
+
+```bash
+# database (custom format) and attachments
+docker compose exec -T postgres pg_dump -U getpaper -Fc getpaper > getpaper-$(date +%F).dump
+docker run --rm -v getpaper_uploads:/data:ro -v "$PWD":/backup alpine \
+  tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
+```
+
+Restore (this replaces the current data):
+
+```bash
+docker compose stop app
+docker compose exec -T postgres pg_restore -U getpaper -d getpaper --clean --if-exists < getpaper-2026-10-17.dump
+docker run --rm -v getpaper_uploads:/data -v "$PWD":/backup alpine \
+  tar xzf /backup/uploads-2026-10-17.tar.gz -C /data
+docker compose start app
+```
+
+Workspace admins can also download a **GetPaper backup** of a single workspace from **Settings → Export** and restore
+it on another installation (see [Export](#export)).
 
 ## Running from source
 
@@ -308,9 +369,15 @@ Frontend development with hot reload: start the stack, then `cd web && npm insta
 
 - No real-time collaboration (Y.js). Saving is automatic; if another user changed the document in the meantime,
   a conflict notice appears with a button to reload.
-- Sign-in with email and password or Microsoft Entra ID. No other SSO providers (Google, Slack, generic OIDC),
-  groups or integrations.
+- Sign-in with email and password or Microsoft Entra ID. No other SSO providers (Google, Slack, generic OIDC)
+  or integrations.
 - Comments refer to the whole document, they are not anchored to a text selection.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Please report security
+issues privately as described in [SECURITY.md](SECURITY.md). Changes between releases are listed in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

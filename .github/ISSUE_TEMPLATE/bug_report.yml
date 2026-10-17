@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in GetPaper doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. For security issues, do not use this form: see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: GetPaper version
+      description: Image tag (e.g. 0.1.0, latest, sha-abc1234) or commit, if built from source
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation
+      options:
+        - Published Docker image (deploy/docker-compose.yml)
+        - Built from source (docker compose up --build)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and screenshots
+      description: Relevant lines from `docker compose logs app`, browser console errors, screenshots. Remove secrets and personal data.
+      render: text
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system

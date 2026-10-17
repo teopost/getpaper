@@ -2,7 +2,7 @@
 
 [English](README.md) · **Italiano**
 
-**Sito del progetto:** https://getpaper.it · Licenza MIT · Immagine Docker: `ghcr.io/teopost/getpaper`
+**Sito del progetto:** https://getpaper.it · Licenza MIT · Immagine Docker: `ghcr.io/teopost/getpaper` · [Changelog](CHANGELOG.md)
 
 Wiki / knowledge base ispirata a [Outline](https://github.com/outline/outline), con backend in **Rust** e
 **workspace multipli** inclusi (in Outline sono una funzione a pagamento).
@@ -20,8 +20,48 @@ curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example 
 docker compose up -d
 ```
 
-Aggiornamento all'ultima versione: `docker compose pull && docker compose up -d`. Per aggiornamenti controllati
-imposta in `.env` una versione precisa, ad esempio `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:1.0.0`.
+Apri l'URL e crea il primo account: diventa il superadmin.
+
+**Requisiti:** un host con Docker e Docker Compose (Linux amd64 o arm64). Il file Compose avvia anche PostgreSQL 16.
+In produzione metti davanti alla porta 3000 un reverse proxy con HTTPS (ad esempio Caddy, nginx o Traefik) e imposta
+`URL` con l'indirizzo pubblico HTTPS.
+
+### Aggiornamento
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Le migrazioni del database vengono eseguite automaticamente all'avvio. Per aggiornamenti controllati imposta in `.env`
+una release precisa invece di `latest`, ad esempio `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:0.1.0`, e leggi il
+[changelog](CHANGELOG.md) prima di passare a una versione successiva. Fai prima un backup.
+
+Tag dell'immagine: `latest` (ogni modifica su `main`), `X.Y.Z` e `X.Y` (release), `sha-<commit>` (ogni build).
+
+### Backup e ripristino
+
+Tutti i dati si trovano in due volumi Docker: `getpaper_pgdata` (PostgreSQL) e `getpaper_uploads` (allegati). Fai il
+backup di entrambi, dalla cartella che contiene `docker-compose.yml`:
+
+```bash
+# database (formato custom) e allegati
+docker compose exec -T postgres pg_dump -U getpaper -Fc getpaper > getpaper-$(date +%F).dump
+docker run --rm -v getpaper_uploads:/data:ro -v "$PWD":/backup alpine \
+  tar czf /backup/uploads-$(date +%F).tar.gz -C /data .
+```
+
+Ripristino (sostituisce i dati attuali):
+
+```bash
+docker compose stop app
+docker compose exec -T postgres pg_restore -U getpaper -d getpaper --clean --if-exists < getpaper-2026-10-17.dump
+docker run --rm -v getpaper_uploads:/data -v "$PWD":/backup alpine \
+  tar xzf /backup/uploads-2026-10-17.tar.gz -C /data
+docker compose start app
+```
+
+Gli amministratori di un workspace possono anche scaricare un **backup GetPaper** del singolo workspace da
+**Impostazioni → Esporta** e ripristinarlo su un'altra installazione (vedi [Export](#export)).
 
 ## Avvio dai sorgenti
 
@@ -308,9 +348,15 @@ Sviluppo frontend con hot reload: avvia lo stack, poi `cd web && npm install && 
 
 - Niente collaborazione in tempo reale (Y.js). Il salvataggio è automatico; se un altro utente ha modificato
   il documento nel frattempo, compare un avviso di conflitto con il pulsante per ricaricare.
-- Accesso con email e password oppure Microsoft Entra ID. Non ci sono altri SSO (Google, Slack, OIDC generico),
-  gruppi e integrazioni.
+- Accesso con email e password oppure Microsoft Entra ID. Non ci sono altri SSO (Google, Slack, OIDC generico)
+  né integrazioni.
 - I commenti riguardano l'intero documento, non sono ancorati a una selezione di testo.
+
+## Contribuire
+
+Segnalazioni, idee e pull request sono benvenute: vedi [CONTRIBUTING.md](CONTRIBUTING.md) (in inglese). I problemi di
+sicurezza vanno segnalati in privato come descritto in [SECURITY.md](SECURITY.md). Le modifiche tra una release e
+l'altra sono elencate in [CHANGELOG.md](CHANGELOG.md).
 
 ## Licenza
 
