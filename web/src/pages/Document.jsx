@@ -47,6 +47,7 @@ import PresentationMode from '../components/PresentationMode';
 import { useToast } from '../components/Toast';
 import { t } from '../i18n';
 import { getProductName } from '../prefs';
+import { replaceTemplateVariables } from '../templates';
 
 // ---------------------------------------------------------------------------
 // Share popover
@@ -677,11 +678,12 @@ export default function DocumentPage() {
   };
 
   const applyTemplate = (tpl) => {
-    const newTitle = title.trim() ? title : tpl.title;
+    const newTitle = title.trim() ? title : replaceTemplateVariables(tpl.title, user);
+    const text = replaceTemplateVariables(tpl.text, user);
     setTitle(newTitle);
-    setData((d) => ({ ...d, document: { ...d.document, text: tpl.text, emoji: tpl.emoji || d.document.emoji } }));
+    setData((d) => ({ ...d, document: { ...d.document, text, emoji: tpl.emoji || d.document.emoji } }));
     setEditorKey((k) => k + 1);
-    queueSave({ title: newTitle, text: tpl.text, ...(tpl.emoji ? { emoji: tpl.emoji } : {}) });
+    queueSave({ title: newTitle, text, ...(tpl.emoji ? { emoji: tpl.emoji } : {}) });
   };
 
   const selectRevision = async (rid) => {
@@ -1013,7 +1015,11 @@ export default function DocumentPage() {
         )}
         {doc.template && !revision && (
           <div className="notice-bar info">
-            <LayoutTemplate size={16} /> {t('You’re editing a template. It will be available to everyone when creating a new document.')}
+            <LayoutTemplate size={16} />
+            <span className="notice-bar-text">
+              {t('You’re editing a template. It will be available to everyone when creating a new document.')}{' '}
+              {t('Select some text and use the placeholder button to add placeholders that can be filled out when creating new documents. {date}, {time}, {datetime} and {author} are replaced when the template is used.')}
+            </span>
           </div>
         )}
 
@@ -1100,7 +1106,7 @@ export default function DocumentPage() {
                   </Button>
                 }
                 items={templates.map((tpl) => ({
-                  label: tpl.title || t('Untitled'),
+                  label: replaceTemplateVariables(tpl.title, user) || t('Untitled'),
                   icon: <DocIcon doc={tpl} size={16} />,
                   onClick: () => applyTemplate(tpl),
                 }))}
@@ -1115,6 +1121,7 @@ export default function DocumentPage() {
               key={`${doc.id}-${editorKey}`}
               value={doc.text}
               editable={editable}
+              template={doc.template}
               documentId={doc.id}
               onReady={(ed) => (editorRef.current = ed)}
               onChange={(md) => queueSave({ text: md })}

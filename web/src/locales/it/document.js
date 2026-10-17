@@ -77,6 +77,8 @@ export default {
   'Restore this version': 'Ripristina questa versione',
   'You’re editing a template. It will be available to everyone when creating a new document.':
     'Stai modificando un modello. Sarà disponibile a tutti durante la creazione di un nuovo documento.',
+  'Select some text and use the placeholder button to add placeholders that can be filled out when creating new documents. {date}, {time}, {datetime} and {author} are replaced when the template is used.':
+    'Seleziona del testo e usa il pulsante segnaposto per aggiungere segnaposto da compilare quando si crea un nuovo documento. {date}, {time}, {datetime} e {author} vengono sostituiti quando si usa il modello.',
   'Choose an icon': 'Scegli un’icona',
   'Start your template…': 'Inizia il tuo modello…',
   Draft: 'Bozza',

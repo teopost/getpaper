@@ -54,12 +54,13 @@ import {
   Check,
   X,
   Users,
+  TextCursorInput,
 } from 'lucide-react';
 import { api, uploadFile } from '../api';
 import { t, getLanguage } from '../i18n';
 import { Avatar } from '../components/ui';
 import { CollectionIcon, DocIcon } from '../components/icons';
-import { Mention, Notice, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable } from './extensions';
+import { Mention, Notice, TemplatePlaceholder, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable } from './extensions';
 import CodeBlockView from './CodeBlockView';
 
 const lowlight = createLowlight(common);
@@ -245,7 +246,7 @@ async function mentionItems(query) {
   ];
 }
 
-function FormattingMenu({ editor }) {
+function FormattingMenu({ editor, template }) {
   const [linkMode, setLinkMode] = useState(false);
   const [href, setHref] = useState('');
   const inputRef = useRef(null);
@@ -340,6 +341,11 @@ function FormattingMenu({ editor }) {
             <B title={t('Code')} active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
               <Code size={16} />
             </B>
+            {template && (
+              <B title={t('Placeholder')} active={editor.isActive('placeholder')} onClick={() => editor.chain().focus().togglePlaceholder().run()}>
+                <TextCursorInput size={16} />
+              </B>
+            )}
             <span className="fmt-sep" />
             <B title={t('Heading')} active={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
               <Heading1 size={16} />
@@ -427,6 +433,7 @@ export default function Editor({
   editable = true,
   placeholder = t("Type '/' to insert, '@' to mention, or start writing…"),
   documentId,
+  template = false,
   autoFocus,
   onReady,
   className = '',
@@ -458,6 +465,7 @@ export default function Editor({
       CodeBlock.configure({ lowlight }),
       Notice,
       Toc,
+      TemplatePlaceholder.configure({ template }),
       Mention.configure({ navigate: (path) => navigateRef.current(path) }),
       createSlashCommand(() => slashItems(documentId)),
       createMentionSuggestion(mentionItems),
@@ -471,7 +479,7 @@ export default function Editor({
       }),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [documentId, placeholder]
+    [documentId, placeholder, template]
   );
 
   const editor = useEditor(
@@ -532,7 +540,7 @@ export default function Editor({
 
   return (
     <div className={`editor ${editable ? 'is-editable' : 'is-readonly'} ${className}`}>
-      {editor && editable && <FormattingMenu editor={editor} />}
+      {editor && editable && <FormattingMenu editor={editor} template={template} />}
       {editor && editable && <TableMenu editor={editor} />}
       <EditorContent editor={editor} />
     </div>

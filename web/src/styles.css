@@ -1281,6 +1281,9 @@ body.resizing-sidebar {
   color: var(--text-secondary);
   font-size: 14px;
 }
+.notice-bar-text {
+  flex: 1;
+}
 .notice-bar.column {
   flex-direction: column;
   align-items: stretch;

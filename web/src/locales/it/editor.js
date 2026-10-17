@@ -41,6 +41,7 @@ export default {
   Underline: 'Sottolineato',
   Strikethrough: 'Barrato',
   Highlight: 'Evidenzia',
+  Placeholder: 'Segnaposto',
   Code: 'Codice',
   Heading: 'Titolo',
   Subheading: 'Sottotitolo',

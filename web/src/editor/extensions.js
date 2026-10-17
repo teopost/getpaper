@@ -1,8 +1,8 @@
-import { Extension, Node, getHTMLFromFragment, mergeAttributes } from '@tiptap/core';
+import { Extension, Mark, Node, getHTMLFromFragment, markInputRule, mergeAttributes } from '@tiptap/core';
 import { Fragment } from '@tiptap/pm/model';
 import { ReactNodeViewRenderer, ReactRenderer } from '@tiptap/react';
 import Suggestion from '@tiptap/suggestion';
-import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
+import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import container from 'markdown-it-container';
 import CommandList from './CommandList';
 import TocView from './TocView';
@@ -119,6 +119,164 @@ export const Toc = Node.create({
               return true;
             });
             md.renderer.rules.toc = () => '<div data-type="toc"></div>\n';
+          },
+        },
+      },
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// template placeholders
+// ---------------------------------------------------------------------------
+
+/**
+ * Range of the placeholder that starts at $pos or contains it (only the text after $pos counts,
+ * so the cursor right after a placeholder is outside it).
+ */
+function placeholderRange($pos, type) {
+  const { parent, parentOffset } = $pos;
+  const after = parent.childAfter(parentOffset);
+  if (!after.node || !type.isInSet(after.node.marks)) return null;
+  let start = after.index;
+  let end = after.index + 1;
+  let from = $pos.start() + after.offset;
+  let to = from + after.node.nodeSize;
+  while (start > 0 && type.isInSet(parent.child(start - 1).marks)) from -= parent.child(--start).nodeSize;
+  while (end < parent.childCount && type.isInSet(parent.child(end).marks)) to += parent.child(end++).nodeSize;
+  return { from, to };
+}
+
+/**
+ * Placeholder in a template, as in Outline: highlighted text, stored in markdown as !!text!!, that the
+ * author of a new document replaces. Outside templates a click puts the cursor at its start, typing or
+ * pasting replaces it, Backspace removes it and the arrows skip it.
+ * Options: template, true while editing a template (the placeholder is then ordinary text).
+ */
+export const TemplatePlaceholder = Mark.create({
+  name: 'placeholder',
+  inclusive: false,
+
+  addOptions() {
+    return { template: false };
+  },
+
+  parseHTML() {
+    return [{ tag: 'span.template-placeholder' }];
+  },
+
+  renderHTML() {
+    return ['span', { class: 'template-placeholder' }, 0];
+  },
+
+  addCommands() {
+    return {
+      togglePlaceholder:
+        () =>
+        ({ commands }) =>
+          commands.toggleMark(this.name),
+    };
+  },
+
+  addInputRules() {
+    return [markInputRule({ find: /(?:^|\s)(!!(?!\s+!!)((?:[^!]+))!!(?!\s+!!))$/, type: this.type })];
+  },
+
+  addProseMirrorPlugins() {
+    const { type } = this;
+    const active = (view) => !this.options.template && view.editable;
+    // removes the placeholder around pos (the text after it, or before it with pos - 1) and returns the transaction
+    const remove = (state, $pos, text = '') => {
+      const range = placeholderRange($pos, type);
+      if (!range) return null;
+      const tr = state.tr.removeMark(range.from, range.to, type).insertText(text, range.from, range.to);
+      return tr.setSelection(TextSelection.near(tr.doc.resolve(range.from + text.length)));
+    };
+    const before = (state, pos) => state.doc.resolve(Math.max(0, pos - 1));
+
+    return [
+      new Plugin({
+        key: new PluginKey('templatePlaceholder'),
+        props: {
+          handleDOMEvents: {
+            paste: (view) => {
+              if (!active(view)) return false;
+              const { state } = view;
+              const tr = remove(state, state.selection.$to) || remove(state, before(state, state.selection.from));
+              if (tr) view.dispatch(tr);
+              return false;
+            },
+            mousedown: (view, event) => {
+              if (!active(view)) return false;
+              const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+              if (!pos) return false;
+              const { doc } = view.state;
+              const range = placeholderRange(doc.resolve(pos.pos), type) || placeholderRange(before(view.state, pos.pos), type);
+              if (!range) return false;
+              event.preventDefault();
+              view.dispatch(view.state.tr.setSelection(TextSelection.near(doc.resolve(range.from))).scrollIntoView());
+              view.focus();
+              return true;
+            },
+          },
+          handleTextInput: (view, from, to, text) => {
+            if (this.options.template) return false;
+            const { state } = view;
+            const range = placeholderRange(state.doc.resolve(from), type);
+            if (!range) return false;
+            const start = Math.min(from, range.from);
+            const end = Math.max(to, range.to);
+            const tr = state.tr.removeMark(range.from, range.to, type).insertText(text, start, end);
+            view.dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(start + text.length))));
+            return true;
+          },
+          handleKeyDown: (view, event) => {
+            if (!active(view)) return false;
+            const { state } = view;
+            const { selection } = state;
+            if (event.key === 'Backspace') {
+              const tr = remove(state, before(state, selection.from));
+              if (!tr) return false;
+              view.dispatch(tr);
+              return true;
+            }
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+              const left = event.key === 'ArrowLeft';
+              const range = placeholderRange(left ? before(state, selection.from) : selection.$from, type);
+              if (!range) return false;
+              view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(left ? range.from : range.to))));
+              return true;
+            }
+            return false;
+          },
+        },
+      }),
+    ];
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize: { open: '!!', close: '!!', mixable: true, expelEnclosingWhitespace: true },
+        parse: {
+          setup(md) {
+            md.inline.ruler.before('image', 'placeholder', (state, silent) => {
+              const start = state.pos;
+              if (state.src.charCodeAt(start) !== 0x21 || state.src.charCodeAt(start + 1) !== 0x21) return false;
+              const end = state.src.indexOf('!!', start + 2);
+              if (end < 0 || end > state.posMax || end === start + 2 || /\n/.test(state.src.slice(start + 2, end))) return false;
+              if (!silent) {
+                state.push('placeholder_open', 'span', 1).attrs = [['class', 'template-placeholder']];
+                const max = state.posMax;
+                state.pos = start + 2;
+                state.posMax = end;
+                state.md.inline.tokenize(state);
+                state.posMax = max;
+                state.push('placeholder_close', 'span', -1);
+              }
+              state.pos = end + 2;
+              return true;
+            });
           },
         },
       },

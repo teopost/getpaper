@@ -363,6 +363,31 @@ async fn save_revision(db: &PgPool, d: &DocRow, user_id: Uuid) -> ApiResult<()> 
     Ok(())
 }
 
+const MONTHS_IT: [&str; 12] = [
+    "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre",
+];
+
+/// Replaces the template variables {date}, {time}, {datetime} and {author}, as in Outline, with the
+/// formats the web app uses for the user's language (see `replaceTemplateVariables` in web/src/templates.js).
+pub fn replace_template_variables(text: &str, author: &str, language: Option<&str>, now: chrono::NaiveDateTime) -> String {
+    use chrono::{Datelike, Timelike};
+    let (date, time, datetime) = if language == Some("it") {
+        let date = format!("{} {} {}", now.day(), MONTHS_IT[now.month0() as usize], now.year());
+        let time = format!("{:02}:{:02}", now.hour(), now.minute());
+        let datetime = format!("{date} alle ore {time}");
+        (date, time, datetime)
+    } else {
+        let date = now.format("%B %-d, %Y").to_string();
+        let time = now.format("%-I:%M %p").to_string();
+        let datetime = format!("{date} at {time}");
+        (date, time, datetime)
+    };
+    text.replace("{date}", &date)
+        .replace("{time}", &time)
+        .replace("{datetime}", &datetime)
+        .replace("{author}", author)
+}
+
 pub struct NewDoc {
     pub title: String,
     pub text: String,
@@ -399,10 +424,12 @@ pub async fn create_doc(st: &AppState, auth: &Auth, n: NewDoc) -> ApiResult<DocR
         if !t.template {
             return Err(ApiError::bad_request("Not a template"));
         }
+        let now = chrono::Local::now().naive_local();
+        let lang = auth.user.language.as_deref();
         if title.trim().is_empty() {
-            title = t.title.clone();
+            title = replace_template_variables(&t.title, &auth.user.name, lang, now);
         }
-        text = t.text.clone();
+        text = replace_template_variables(&t.text, &auth.user.name, lang, now);
         if emoji.is_none() {
             emoji = t.emoji.clone();
         }
@@ -941,4 +968,24 @@ pub async fn import(State(st): State<AppState>, auth: Auth, mut mp: Multipart) -
     )
     .await?;
     ok(d)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::replace_template_variables;
+
+    #[test]
+    fn template_variables() {
+        let now = chrono::NaiveDate::from_ymd_opt(2026, 10, 7).unwrap().and_hms_opt(15, 5, 0).unwrap();
+        let text = "{date} | {time} | {datetime} | {author} | {other}";
+        assert_eq!(
+            replace_template_variables(text, "Ada", Some("en"), now),
+            "October 7, 2026 | 3:05 PM | October 7, 2026 at 3:05 PM | Ada | {other}"
+        );
+        assert_eq!(
+            replace_template_variables(text, "Ada", Some("it"), now),
+            "7 ottobre 2026 | 15:05 | 7 ottobre 2026 alle ore 15:05 | Ada | {other}"
+        );
+        assert_eq!(replace_template_variables("{author} {author}", "$1", None, now), "$1 $1");
+    }
 }

@@ -8,6 +8,13 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ## [Unreleased]
 
+### Added
+
+- **Template variables and placeholders**, as in Outline: `{date}`, `{time}`, `{datetime}` and `{author}` in the title
+  and text of a template are replaced when a new document is created from it (also through MCP); placeholders
+  (`!!text!!`, or the placeholder button in a template's formatting menu) are highlighted in the new document and
+  replaced by clicking and typing.
+
 ## [0.1.0] - 2026-10-17
 
 First public release.

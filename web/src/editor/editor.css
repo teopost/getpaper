@@ -297,6 +297,18 @@
   padding: 0 1px;
 }
 
+/* template placeholders (!!text!!), replaced by the author of a new document */
+.ProseMirror .template-placeholder {
+  color: var(--text-secondary);
+  background: var(--hover);
+  border-bottom: 1px dashed var(--text-tertiary);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+.ProseMirror[contenteditable='true'] .template-placeholder {
+  cursor: text;
+}
+
 .ProseMirror img {
   max-width: 100%;
   height: auto;

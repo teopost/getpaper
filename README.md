@@ -142,6 +142,9 @@ Most common commands (`make` with no arguments shows the list):
   (can be turned off in the profile preferences), if they can read the document.
 - Autosave, drafts, publishing, revision history with restore, stars, archive, trash kept for 30 days,
   templates, comments with replies and resolution.
+- **Templates** with variables and placeholders, as in Outline: `{date}`, `{time}`, `{datetime}` and `{author}` are
+  replaced when a document is created from the template; placeholders (`!!text!!`, or the placeholder button in the
+  formatting menu of a template) are highlighted in the new document and replaced by clicking and typing.
 - **Full-text search** in PostgreSQL with highlighted results, a collection filter and search across all your
   workspaces.
 - **Public sharing** of documents by link (`/s/...`).
