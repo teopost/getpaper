@@ -328,6 +328,27 @@
       </div>
       <div class="frame reveal"><img src="/assets/mcp-key.webp" width="2880" height="1800" loading="lazy" alt="Creazione di una chiave API per il server MCP, con livello di accesso, workspace, collezioni e scadenza"></div>
     </div>
+
+    <div class="convo reveal" aria-labelledby="ex-title">
+      <h3 id="ex-title" class="convo-title">Esempio: pubblicare un wiki Markdown locale</h3>
+      <div class="convo-grid">
+        <div>
+          <p class="convo-label">Chiedi al tuo assistente</p>
+          <blockquote class="bubble">Pubblica su GetPaper il mio wiki LLM in stile Karpathy che si trova in <code>~/notes/llm-wiki</code>, in una nuova collezione "Ricerca". Mantieni la struttura delle cartelle.</blockquote>
+          <p class="convo-note">Serve un assistente che possa leggere i tuoi file (ad esempio Claude Code) e una chiave GetPaper in lettura e scrittura.</p>
+        </div>
+        <div>
+          <p class="convo-label">Che cosa succede</p>
+          <ol class="trace">
+            <li><span>L'assistente legge i file Markdown sul tuo computer, con il proprio accesso ai file.</span></li>
+            <li><code>create_collection</code><span>crea "Ricerca" nel workspace consentito dalla chiave.</span></li>
+            <li><code>create_document</code><span>pubblica ogni pagina, annidata sotto la pagina della sua cartella con <code>parent_document</code>.</span></li>
+            <li><code>update_document</code><span>trasforma i <code>[[wiki link]]</code> in link ai nuovi documenti.</span></li>
+          </ol>
+          <p class="convo-note">Immagini e allegati non vengono caricati tramite MCP: per una cartella con allegati conviene l'<a href="#migrate">import da ZIP</a>.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -339,11 +360,22 @@
       <p class="sub">Un solo file Docker Compose avvia GetPaper e PostgreSQL con l'immagine pubblicata su GitHub Container Registry. Niente da compilare, nessun servizio esterno necessario.</p>
     </div>
     <div class="steps">
-      <div class="step reveal"><div class="num" aria-hidden="true">1</div><h3>Scarica</h3><p>Il file Compose usa l'immagine pubblicata per amd64 e arm64.</p><pre>mkdir getpaper &amp;&amp; cd getpaper
-curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml</pre></div>
-      <div class="step reveal"><div class="num" aria-hidden="true">2</div><h3>Configura</h3><p>Imposta almeno l'URL pubblico e una password per il database. Accesso Microsoft ed email sono facoltativi.</p><pre>curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
-nano .env</pre></div>
-      <div class="step reveal"><div class="num" aria-hidden="true">3</div><h3>Avvia</h3><p>Apri l'URL e crea il primo account: diventa il superadmin.</p><pre>docker compose up -d</pre></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">1</div><h3>Scarica</h3><p>Il file Compose usa l'immagine pubblicata per amd64 e arm64.</p></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">2</div><h3>Configura</h3><p>Imposta almeno l'URL pubblico e una password per il database. Accesso Microsoft ed email sono facoltativi.</p></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">3</div><h3>Avvia</h3><p>Apri l'URL e crea il primo account: diventa il superadmin.</p></div>
+    </div>
+    <div class="install reveal">
+      <button type="button" class="copy" data-copy="install-cmds" data-done="Copiato" aria-label="Copia i comandi di installazione">Copia</button>
+<pre class="term" id="install-cmds" aria-label="Comandi di installazione"><span class="c"># 1. Scarica</span>
+mkdir getpaper &amp;&amp; cd getpaper
+curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml
+
+<span class="c"># 2. Configura: imposta almeno URL e POSTGRES_PASSWORD</span>
+curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
+nano .env
+
+<span class="c"># 3. Avvia</span>
+docker compose up -d</pre>
     </div>
     <div class="facts">
       <div class="fact reveal"><h3>Requisiti</h3><p>Un host con Docker e Compose. PostgreSQL 16 è incluso nel file Compose.</p></div>

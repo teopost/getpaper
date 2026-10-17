@@ -12,3 +12,18 @@ if ('IntersectionObserver' in window) {
 } else {
   document.querySelectorAll('.reveal').forEach((el) => el.classList.add('in'));
 }
+
+// Copy buttons for code blocks (shown only when JavaScript runs).
+document.querySelectorAll('.copy').forEach((btn) => btn.addEventListener('click', async () => {
+  const pre = document.getElementById(btn.dataset.copy);
+  const label = btn.textContent;
+  try {
+    await navigator.clipboard.writeText(pre.textContent);
+    btn.textContent = btn.dataset.done;
+  } catch (e) {
+    const r = document.createRange();
+    r.selectNodeContents(pre);
+    getSelection().removeAllRanges(); getSelection().addRange(r);
+  }
+  setTimeout(() => (btn.textContent = label), 1600);
+}));

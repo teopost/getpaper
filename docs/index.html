@@ -345,6 +345,27 @@
       </div>
       <div class="frame reveal"><img src="/assets/mcp-key.webp" width="2880" height="1800" loading="lazy" alt="Creating an API key for the MCP server, with access level, workspaces, collections and expiry"></div>
     </div>
+
+    <div class="convo reveal" aria-labelledby="ex-title">
+      <h3 id="ex-title" class="convo-title">Example: publish a local Markdown wiki</h3>
+      <div class="convo-grid">
+        <div>
+          <p class="convo-label">You ask your assistant</p>
+          <blockquote class="bubble">Publish my local Karpathy-style LLM wiki in <code>~/notes/llm-wiki</code> to GetPaper, in a new collection called "Research". Keep the folder structure.</blockquote>
+          <p class="convo-note">An assistant that can read your files (for example Claude Code) and has a read/write GetPaper key.</p>
+        </div>
+        <div>
+          <p class="convo-label">What happens</p>
+          <ol class="trace">
+            <li><span>The assistant reads the Markdown files on your computer, with its own file access.</span></li>
+            <li><code>create_collection</code><span>creates "Research" in the workspace allowed by the key.</span></li>
+            <li><code>create_document</code><span>publishes each page, nested under its folder page with <code>parent_document</code>.</span></li>
+            <li><code>update_document</code><span>turns <code>[[wiki links]]</code> into links to the new documents.</span></li>
+          </ol>
+          <p class="convo-note">Images and attachments are not uploaded through MCP: for a folder with attachments, the <a href="#migrate">ZIP import</a> is the better route.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -356,11 +377,22 @@
       <p class="sub">One Docker Compose file starts GetPaper and PostgreSQL from the image on GitHub Container Registry. No build, no external services required.</p>
     </div>
     <div class="steps">
-      <div class="step reveal"><div class="num" aria-hidden="true">1</div><h3>Download</h3><p>The Compose file uses the published image for amd64 and arm64.</p><pre>mkdir getpaper &amp;&amp; cd getpaper
-curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml</pre></div>
-      <div class="step reveal"><div class="num" aria-hidden="true">2</div><h3>Configure</h3><p>Set at least the public URL and a database password. Microsoft sign-in and email are optional.</p><pre>curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
-nano .env</pre></div>
-      <div class="step reveal"><div class="num" aria-hidden="true">3</div><h3>Start</h3><p>Open the URL and create the first account: it becomes the superadmin.</p><pre>docker compose up -d</pre></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">1</div><h3>Download</h3><p>The Compose file uses the published image for amd64 and arm64.</p></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">2</div><h3>Configure</h3><p>Set at least the public URL and a database password. Microsoft sign-in and email are optional.</p></div>
+      <div class="step reveal"><div class="num" aria-hidden="true">3</div><h3>Start</h3><p>Open the URL and create the first account: it becomes the superadmin.</p></div>
+    </div>
+    <div class="install reveal">
+      <button type="button" class="copy" data-copy="install-cmds" data-done="Copied" aria-label="Copy the install commands">Copy</button>
+<pre class="term" id="install-cmds" aria-label="Install commands"><span class="c"># 1. Download</span>
+mkdir getpaper &amp;&amp; cd getpaper
+curl -fsSLO https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml
+
+<span class="c"># 2. Configure: set at least URL and POSTGRES_PASSWORD</span>
+curl -fsSL https://raw.githubusercontent.com/teopost/getpaper/main/.env.example -o .env
+nano .env
+
+<span class="c"># 3. Start</span>
+docker compose up -d</pre>
     </div>
     <div class="facts">
       <div class="fact reveal"><h3>Requirements</h3><p>A host with Docker and Compose. PostgreSQL 16 is included in the Compose file.</p></div>
