@@ -7,7 +7,10 @@ server/target/
 .env
 .env.*
 !.env.example
-.claude/
+# Claude Code: local settings stay private, shared skills are committed
+.claude/*
+!.claude/skills/
+CLAUDE.local.md
 
 # editors / OS
 .DS_Store
