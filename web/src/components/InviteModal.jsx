@@ -89,11 +89,16 @@ export default function InviteModal({ onClose, onInvited }) {
                 <div className="error-text">{r.error}</div>
               ) : r.added ? (
                 <div className="muted small">
-                  {t('Added to the workspace.')} {r.emailSent && t('An email was sent to let them know.')}
+                  {r.user
+                    ? t('{name} already has an account: added to the workspace right away, no invite needed.', { name: r.user.name })
+                    : t('Added to the workspace.')}{' '}
+                  {r.emailSent && t('An email was sent to let them know.')}
                   {r.emailError && <span className="error-text"> {t('Email not sent: {error}', { error: r.emailError })}</span>}
                 </div>
               ) : r.alreadyMember ? (
-                <div className="muted small">{t('Already a member.')}</div>
+                <div className="muted small">
+                  {r.user ? t('{name} is already a member of this workspace.', { name: r.user.name }) : t('Already a member.')}
+                </div>
               ) : (
                 <>
                 {r.emailSent && <div className="success-text small">{t('Invitation email sent.')}</div>}

@@ -92,6 +92,9 @@ export default {
   'Send invites': 'Invia inviti',
   'Added to the workspace.': 'Aggiunto al workspace.',
   'Already a member.': 'È già un membro.',
+  '{name} already has an account: added to the workspace right away, no invite needed.':
+    '{name} ha già un account: aggiunto subito al workspace, senza bisogno di invito.',
+  '{name} is already a member of this workspace.': '{name} è già membro di questo workspace.',
   'Invite link copied': 'Link di invito copiato',
   Copy: 'Copia',
   Done: 'Fatto',

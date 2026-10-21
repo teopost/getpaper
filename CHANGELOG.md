@@ -15,6 +15,13 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
   (`!!text!!`, or the placeholder button in a template's formatting menu) are highlighted in the new document and
   replaced by clicking and typing.
 
+### Fixed
+
+- The email sent to people who already have an account and are added to a workspace now opens that workspace,
+  instead of the last one they used.
+- When inviting people who already have an account, the invite window says so by name: they are added right away,
+  no invite is created.
+
 ## [0.1.0] - 2026-10-17
 
 First public release.

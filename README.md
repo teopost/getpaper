@@ -245,7 +245,8 @@ API: `POST /api/collections.import` (multipart: `file`, optional `source` among 
 
 With an SMTP server configured, invites are sent by email: a message in the inviter's language, with workspace,
 role and an *Accept invitation* button (with Microsoft sign-in enabled it says to sign in with the work
-account). People who already have an account and are added to a workspace get a notice.
+account). People who already have an account are added to the workspace right away (the invite window says so) and get a
+notice whose link opens that workspace.
 
 - In **Settings → Members → Invite people…** the *Send the invitation by email* checkbox (on by default).
 - In the pending invites: *Send email* / *Send again*, the date of the last email and *Email all pending invites*.

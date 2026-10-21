@@ -224,7 +224,8 @@ API: `POST /api/collections.import` (multipart: `file`, `source` opzionale tra `
 
 Con un server SMTP configurato, gli inviti vengono spediti per email: un messaggio nella lingua di chi invita, con
 workspace, ruolo e il pulsante *Accetta l'invito* (con l'accesso Microsoft attivo indica di entrare con l'account
-aziendale). Chi ha già un account e viene aggiunto a un workspace riceve un avviso.
+aziendale). Chi ha già un account viene aggiunto subito al workspace (la finestra di invito lo segnala) e riceve un avviso il
+cui link apre quel workspace.
 
 - In **Impostazioni → Membri → Invita** la casella *Invia l'invito per email* (attiva di default).
 - Negli inviti in sospeso: *Invia email* / *Invia di nuovo*, la data dell'ultimo invio e *Invia email a tutti gli inviti

@@ -88,9 +88,10 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
         .execute(&st.db)
         .await?;
         let added = res.rows_affected() > 0;
-        // tell them they were added; the link opens the app
+        // tell them they were added; the link opens the app on this workspace, not on the last one they used
+        let link = format!("{}/?workspace={team}", st.cfg.url.trim_end_matches('/'));
         let email_error = if send && added {
-            send_invite_email(&st, &auth.user, team, &u.email, &role, st.cfg.url.trim_end_matches('/'), true)
+            send_invite_email(&st, &auth.user, team, &u.email, &role, &link, true)
                 .await
                 .err()
                 .map(|e| e.message)

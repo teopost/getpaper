@@ -27,7 +27,17 @@ function AuthenticatedApp() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api('auth.info')
+    // ?workspace=<id> (link in the "you were added" email): open that workspace instead of the last one used
+    const params = new URLSearchParams(location.search);
+    const wanted = params.get('workspace');
+    const switched = wanted ? api('teams.switch', { id: wanted }).catch((e) => (e.status === 401 ? Promise.reject(e) : null)) : Promise.resolve();
+    if (wanted) {
+      params.delete('workspace');
+      const rest = params.toString();
+      navigate(location.pathname + (rest ? `?${rest}` : '') + location.hash, { replace: true });
+    }
+    switched
+      .then(() => api('auth.info'))
       .then(setAuth)
       .catch((e) => {
         if (e.status === 401) {
