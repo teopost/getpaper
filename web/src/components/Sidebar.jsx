@@ -16,7 +16,6 @@ import {
   Trash2,
   UserPlus,
   Check,
-  Building2,
   Globe,
 } from 'lucide-react';
 import { api, collectionUrl, docUrl, formatDate } from '../api';
@@ -567,9 +566,6 @@ export default function Sidebar() {
           </SidebarLink>
           <SidebarLink to="/trash" icon={<Trash2 size={18} />}>
             {t('Trash')}
-          </SidebarLink>
-          <SidebarLink to="/settings/workspaces" icon={<Building2 size={18} />}>
-            {t('Workspaces')}
           </SidebarLink>
         </div>
       </div>

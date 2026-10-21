@@ -15,6 +15,11 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
   (`!!text!!`, or the placeholder button in a template's formatting menu) are highlighted in the new document and
   replaced by clicking and typing.
 
+### Changed
+
+- The "Workspaces" link at the bottom of the sidebar is removed: the workspace settings are in the menu that opens
+  from the workspace name.
+
 ### Fixed
 
 - The email sent to people who already have an account and are added to a workspace now opens that workspace,
