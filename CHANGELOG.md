@@ -21,6 +21,8 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ### Changed
 
+- "Templates" moved from the sidebar to the settings, below "Groups" (`/settings/templates`; the old `/templates`
+  address still works).
 - "Settings" and "Invite people…" moved from the workspace menu to the bottom of the sidebar, below the trash;
   "Invite people…" is shown only to those who can invite.
 - The workspace menu stays short with many workspaces: the list scrolls on its own and, from 8 workspaces, a search

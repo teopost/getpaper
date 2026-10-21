@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronRight,
   Home,
-  LayoutTemplate,
   LogOut,
   MoreHorizontal,
   Pencil,
@@ -838,9 +837,6 @@ export default function Sidebar() {
         </div>
 
         <div className="sidebar-section sidebar-bottom">
-          <SidebarLink to="/templates" icon={<LayoutTemplate size={18} />}>
-            {t('Templates')}
-          </SidebarLink>
           <SidebarLink to="/archive" icon={<Archive size={18} />}>
             {t('Archive')}
           </SidebarLink>

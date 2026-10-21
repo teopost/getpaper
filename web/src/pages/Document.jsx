@@ -841,7 +841,7 @@ export default function DocumentPage() {
                 <span>{collection.name}</span>
               </Link>
             ) : doc.template ? (
-              <Link to="/templates" className="crumb">
+              <Link to="/settings/templates" className="crumb">
                 <LayoutTemplate size={16} /> <span>{t('Templates')}</span>
               </Link>
             ) : (

@@ -1,6 +1,19 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { ChevronLeft, User, Building2, Users, UsersRound, Globe, Key, Layers, Upload, Download, SlidersHorizontal } from 'lucide-react';
+import {
+  ChevronLeft,
+  User,
+  Building2,
+  Users,
+  UsersRound,
+  LayoutTemplate,
+  Globe,
+  Key,
+  Layers,
+  Upload,
+  Download,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { useApp } from '../store';
 import { TeamAvatar } from './ui';
 import { t } from '../i18n';
@@ -47,6 +60,9 @@ export default function SettingsSidebar() {
           </Item>
           <Item to="/settings/groups" icon={<UsersRound size={18} />}>
             {t('Groups')}
+          </Item>
+          <Item to="/settings/templates" icon={<LayoutTemplate size={18} />}>
+            {t('Templates')}
           </Item>
           <Item to="/settings/shares" icon={<Globe size={18} />}>
             {t('Shared Links')}

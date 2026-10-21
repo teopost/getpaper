@@ -84,7 +84,8 @@ function AuthenticatedApp() {
           <Route path="/drafts" element={<Drafts />} />
           <Route path="/archive" element={<Archive />} />
           <Route path="/trash" element={<Trash />} />
-          <Route path="/templates" element={<Templates />} />
+          <Route path="/templates" element={<Navigate to="/settings/templates" replace />} />
+          <Route path="/settings/templates" element={<Templates />} />
           <Route path="/collection/:id" element={<CollectionPage />} />
           <Route path="/doc/:id" element={<DocumentPage />} />
           <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
