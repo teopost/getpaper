@@ -746,6 +746,31 @@ function StarredSection({ expanded, toggleExpanded, onMove }) {
   );
 }
 
+/** Documents shared with the user that they can't reach through a collection, as in Outline */
+function SharedWithMe() {
+  const location = useLocation();
+  const [docs, setDocs] = useState([]);
+  useEffect(() => {
+    api('documents.sharedWithMe')
+      .then(setDocs)
+      .catch(() => setDocs([]));
+  }, [location.pathname]);
+  if (!docs.length) return null;
+  return (
+    <div className="sidebar-section">
+      <div className="sidebar-heading">{t('Shared with me')}</div>
+      {docs.map((d) => (
+        <NavLink key={d.id} to={docUrl(d)} className={({ isActive }) => `sidebar-link doc-link ${isActive ? 'active' : ''}`}>
+          <span className="sidebar-icon">
+            <DocIcon doc={d} size={16} />
+          </span>
+          <TruncatedLabel text={d.title || t('Untitled')} />
+        </NavLink>
+      ))}
+    </div>
+  );
+}
+
 export default function Sidebar() {
   const { collections, canWrite, refreshAllTrees, refreshCollections } = useApp();
   const [expanded, toggleExpanded] = usePersistentSet('sidebar-expanded');
@@ -803,6 +828,7 @@ export default function Sidebar() {
         </nav>
 
         <StarredSection expanded={expanded} toggleExpanded={toggleExpanded} onMove={onMove} />
+        <SharedWithMe />
 
         <div className="sidebar-section">
           <div className="sidebar-heading">

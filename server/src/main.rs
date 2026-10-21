@@ -8,6 +8,7 @@ mod mail;
 mod mentions;
 mod models;
 mod perm;
+mod subscriptions;
 mod util;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
@@ -206,6 +207,7 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 let retention = instance.read().map(|s| s.audit_retention_days).unwrap_or(0);
                 audit::cleanup(&db, retention).await;
+                let _ = sqlx::query("DELETE FROM link_previews WHERE fetched_at < now() - interval '7 days'").execute(&db).await;
                 let _ = sqlx::query("DELETE FROM sessions WHERE expires_at < now()").execute(&db).await;
                 let _ = sqlx::query(
                     "DELETE FROM documents WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '30 days'",

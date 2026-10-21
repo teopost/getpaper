@@ -20,8 +20,14 @@ pub struct User {
     pub is_superadmin: bool,
     /// also send an email when someone mentions the user
     pub email_on_mention: bool,
+    /// also send an email for followed documents and documents shared with the user
+    #[sqlx(default)]
+    pub email_on_subscription: bool,
     pub created_at: DateTime<Utc>,
     pub last_active_at: Option<DateTime<Utc>>,
+    /// suspended by a superadmin: can't sign in anywhere
+    #[sqlx(default)]
+    pub suspended_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, FromRow, Serialize)]

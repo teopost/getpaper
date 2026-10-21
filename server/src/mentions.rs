@@ -108,7 +108,7 @@ async fn notify_user(st: &AppState, actor: &User, doc: &DocRow, user_id: Uuid, g
     let Some(user) = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1").bind(user_id).fetch_optional(&st.db).await? else {
         return Ok(());
     };
-    let role: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2")
+    let role: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2 AND suspended_at IS NULL")
         .bind(user_id)
         .bind(doc.team_id)
         .fetch_optional(&st.db)

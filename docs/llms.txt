@@ -13,7 +13,8 @@ Facts, as documented in the repository:
 - Migration: Confluence XML or HTML space exports (page tree, dates with XML, attachments, common macros; not authors, comments, version history, labels or permissions); Wiki.js 2 exports and storage files (page tree, dates, drafts, assets, links and callouts; not users, comments, history or tags); Markdown exports from Outline, Notion, Obsidian, GitBook and BookStack; GetPaper backups between installations.
 - MCP: Streamable HTTP endpoint at `/mcp`, authenticated with personal API keys that are read-only or read/write, limited to chosen workspaces or collections, with optional expiry, and never exceed the creator's permissions. Content read by an assistant is processed by that assistant and its model.
 - Activity and audit log: workspace admins see members' activity, changes to documents (from the revision history) and an audit log of sign-ins, invites, roles, access, documents, public links, API keys, imports, exports and settings, with IP address and CSV export; superadmins see the sign-ins and settings of the installation. Kept 90 days by default (configurable, 0 = off); views per person are off by default. Not available through API keys.
-- Differences from Outline: no real-time co-editing (conflicts detected on save), comments refer to the whole document, Microsoft Entra ID is the only SSO provider.
+- Collaboration: comments on a passage of the text (also by readers), following documents and collections with notifications and emails, sharing a single document with people or groups, embeds of YouTube, Vimeo, Loom, Figma, Google Docs, Miro, Spotify and CodePen, previews of links (external ones only if a superadmin enables them); workspace admins suspend members, superadmins suspend accounts.
+- Differences from Outline: no real-time co-editing (conflicts detected on save), Microsoft Entra ID is the only SSO provider.
 
 ## Website
 

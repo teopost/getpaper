@@ -27,8 +27,8 @@ pub struct TeamSummary {
 pub async fn my_teams(db: &PgPool, user_id: Uuid) -> ApiResult<Vec<TeamSummary>> {
     Ok(sqlx::query_as(
         "SELECT t.id, t.name, t.color, t.avatar_url, m.role, \
-         (SELECT count(*) FROM team_memberships m2 WHERE m2.team_id = t.id) AS member_count \
-         FROM team_memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $1 ORDER BY t.created_at",
+         (SELECT count(*) FROM team_memberships m2 WHERE m2.team_id = t.id AND m2.suspended_at IS NULL) AS member_count \
+         FROM team_memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $1 AND m.suspended_at IS NULL ORDER BY t.created_at",
     )
     .bind(user_id)
     .fetch_all(db)
@@ -142,7 +142,7 @@ pub struct IdReq {
 }
 
 pub async fn switch(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
-    let m: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2")
+    let m: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2 AND suspended_at IS NULL")
         .bind(auth.user.id)
         .bind(b.id)
         .fetch_optional(&st.db)
@@ -256,7 +256,7 @@ pub struct DeleteReq {
 }
 
 pub async fn delete(State(st): State<AppState>, auth: Auth, Json(b): Json<DeleteReq>) -> ApiResult<Json<Value>> {
-    let role: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2")
+    let role: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2 AND suspended_at IS NULL")
         .bind(auth.user.id)
         .bind(b.id)
         .fetch_optional(&st.db)

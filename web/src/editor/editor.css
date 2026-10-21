@@ -731,3 +731,53 @@
 .ProseMirror .mention.ProseMirror-selectednode {
   outline: 2px solid var(--accent);
 }
+
+/* passages that comments are about */
+.comment-anchor {
+  background: rgba(250, 200, 40, 0.22);
+  border-bottom: 2px solid rgba(220, 160, 0, 0.55);
+  cursor: pointer;
+}
+.comment-anchor.active {
+  background: rgba(250, 200, 40, 0.45);
+  border-bottom-color: rgb(220, 160, 0);
+}
+
+/* embedded YouTube, Figma, Google Docs… */
+.embed {
+  margin: 12px 0;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--divider);
+  overflow: hidden;
+  background: var(--bg-secondary, var(--bg));
+}
+.embed.selected {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.embed-frame {
+  width: 100%;
+  max-width: 100%;
+}
+.embed-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.embed-missing {
+  padding: 16px;
+}
+.embed-caption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--divider);
+}
+.embed-caption a,
+.embed-caption .link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+

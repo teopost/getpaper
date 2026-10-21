@@ -4,6 +4,7 @@ pub mod attachments;
 pub mod backup_restore;
 pub mod client_log;
 pub mod collections;
+pub mod document_shares;
 pub mod comments;
 pub mod documents;
 pub mod export;
@@ -21,7 +22,9 @@ pub mod session;
 pub mod sso;
 pub mod shares;
 pub mod stars;
+pub mod subscriptions;
 pub mod teams;
+pub mod unfurl;
 pub mod users;
 
 use axum::{
@@ -93,6 +96,10 @@ pub fn router() -> Router<AppState> {
         .route("/users.update", post(users::update))
         .route("/users.updateRole", post(users::update_role))
         .route("/users.remove", post(users::remove))
+        .route("/users.suspend", post(users::suspend))
+        .route("/users.activate", post(users::activate))
+        .route("/users.suspendAccount", post(users::suspend_account))
+        .route("/users.activateAccount", post(users::activate_account))
         .route("/users.changePassword", post(users::change_password))
         // invites
         .route("/invites.create", post(invites::create))
@@ -149,6 +156,18 @@ pub fn router() -> Router<AppState> {
         // revisions
         .route("/revisions.list", post(revisions::list))
         .route("/revisions.info", post(revisions::info))
+        // sharing a document with people and groups
+        .route("/documents.memberships", post(document_shares::memberships))
+        .route("/documents.addUser", post(document_shares::add_user))
+        .route("/documents.removeUser", post(document_shares::remove_user))
+        .route("/documents.addGroup", post(document_shares::add_group))
+        .route("/documents.removeGroup", post(document_shares::remove_group))
+        .route("/documents.sharedWithMe", post(document_shares::shared_with_me))
+        // following documents and collections
+        .route("/subscriptions.info", post(subscriptions::info))
+        .route("/subscriptions.create", post(subscriptions::create))
+        .route("/subscriptions.delete", post(subscriptions::delete))
+        .route("/urls.unfurl", post(unfurl::unfurl))
         // stars
         .route("/stars.list", post(stars::list))
         .route("/stars.create", post(stars::create))

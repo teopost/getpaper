@@ -55,12 +55,16 @@ import {
   X,
   Users,
   TextCursorInput,
+  MessageSquarePlus,
+  Clapperboard,
 } from 'lucide-react';
 import { api, uploadFile } from '../api';
 import { t, getLanguage } from '../i18n';
 import { Avatar } from '../components/ui';
 import { CollectionIcon, DocIcon } from '../components/icons';
-import { Mention, Notice, TemplatePlaceholder, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable } from './extensions';
+import { Mention, Notice, TemplatePlaceholder, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable, CommentAnchors, anchorFor, Embed } from './extensions';
+import { embedFor } from './embeds';
+import LinkPreview from './LinkPreview';
 import CodeBlockView from './CodeBlockView';
 
 const lowlight = createLowlight(common);
@@ -145,6 +149,18 @@ function slashItems(documentId) {
     { section: t('Blocks'), title: t('Code block'), titleEn: 'Code block', keywords: 'pre snippet', icon: <Braces size={16} />, shortcut: '```', command: run((c) => c.toggleCodeBlock().run()) },
     { section: t('Blocks'), title: t('Mermaid diagram'), titleEn: 'Mermaid diagram', keywords: 'diagram chart graph flowchart sequence gantt mermaidjs', icon: <Workflow size={16} />, command: run((c) => c.setCodeBlock({ language: 'mermaid' }).run()) },
     { section: t('Blocks'), title: t('Table of contents'), titleEn: 'Table of contents', keywords: 'toc index outline headings', icon: <ListTree size={16} />, command: run((c) => c.insertToc().run()) },
+    {
+      section: t('Blocks'),
+      title: t('Embed'), titleEn: 'Embed',
+      keywords: 'youtube vimeo loom figma google docs sheets slides drive miro spotify codepen video iframe',
+      icon: <Clapperboard size={16} />,
+      command: ({ editor, range }) => {
+        editor.chain().focus().deleteRange(range).run();
+        const url = window.prompt(t('Link to embed (YouTube, Vimeo, Loom, Figma, Google Docs, Miro, Spotify, CodePen)'));
+        if (!url) return;
+        if (!editor.chain().focus().insertEmbed(url.trim()).run()) window.alert(t('This link can’t be embedded: it stays a link.'));
+      },
+    },
     { section: t('Blocks'), title: t('Divider'), titleEn: 'Divider', keywords: 'hr horizontal rule line', icon: <Minus size={16} />, shortcut: '---', command: run((c) => c.setHorizontalRule().run()) },
     {
       section: t('Blocks'),
@@ -246,7 +262,41 @@ async function mentionItems(query) {
   ];
 }
 
-function FormattingMenu({ editor, template }) {
+/** Calls onComment with the anchor of the selected text */
+function commentOnSelection(editor, onComment) {
+  const { from, to } = editor.state.selection;
+  const anchor = anchorFor(editor.state.doc, from, to);
+  if (anchor) onComment(anchor);
+}
+
+/** Read-only documents: a "Comment" button on the selected text */
+function CommentMenu({ editor, onComment }) {
+  return (
+    <BubbleMenu
+      editor={editor}
+      pluginKey="commentMenu"
+      tippyOptions={{ duration: 100 }}
+      shouldShow={({ state }) => {
+        const { from, to, empty } = state.selection;
+        return !empty && state.doc.textBetween(from, to, ' ').trim().length > 0;
+      }}
+    >
+      <div className="formatting-menu">
+        <button
+          className="fmt-btn text"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            commentOnSelection(editor, onComment);
+          }}
+        >
+          <MessageSquarePlus size={16} /> {t('Comment')}
+        </button>
+      </div>
+    </BubbleMenu>
+  );
+}
+
+function FormattingMenu({ editor, template, onComment }) {
   const [linkMode, setLinkMode] = useState(false);
   const [href, setHref] = useState('');
   const inputRef = useRef(null);
@@ -380,6 +430,14 @@ function FormattingMenu({ editor, template }) {
             >
               <Link2 size={16} />
             </B>
+            {onComment && (
+              <>
+                <span className="fmt-sep" />
+                <B title={t('Comment')} onClick={() => commentOnSelection(editor, onComment)}>
+                  <MessageSquarePlus size={16} />
+                </B>
+              </>
+            )}
           </>
         )}
       </div>
@@ -436,12 +494,14 @@ export default function Editor({
   template = false,
   autoFocus,
   onReady,
+  onComment,
   className = '',
 }) {
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
   const editorRef = useRef(null);
+  const containerRef = useRef(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -465,6 +525,8 @@ export default function Editor({
       CodeBlock.configure({ lowlight }),
       Notice,
       Toc,
+      Embed,
+      CommentAnchors,
       TemplatePlaceholder.configure({ template }),
       Mention.configure({ navigate: (path) => navigateRef.current(path) }),
       createSlashCommand(() => slashItems(documentId)),
@@ -495,6 +557,14 @@ export default function Editor({
         attributes: { class: 'ProseMirror-doc', spellcheck: 'true' },
         handlePaste: (view, event) => {
           const files = Array.from(event.clipboardData?.files || []);
+          // a link to YouTube, Figma… pasted in an empty paragraph is embedded, as in Outline
+          const pasted = event.clipboardData?.getData('text/plain')?.trim();
+          const { $from, empty } = view.state.selection;
+          if (!files.length && pasted && !/\s/.test(pasted) && embedFor(pasted) && empty && $from.parent.type.name === 'paragraph' && !$from.parent.content.size) {
+            event.preventDefault();
+            editorRef.current?.chain().focus().insertEmbed(pasted).run();
+            return true;
+          }
           if (!files.length || !editorRef.current?.isEditable) return false;
           event.preventDefault();
           insertFiles(editorRef.current, files, documentId);
@@ -539,8 +609,10 @@ export default function Editor({
   }, [editor, editable]);
 
   return (
-    <div className={`editor ${editable ? 'is-editable' : 'is-readonly'} ${className}`}>
-      {editor && editable && <FormattingMenu editor={editor} template={template} />}
+    <div ref={containerRef} className={`editor ${editable ? 'is-editable' : 'is-readonly'} ${className}`}>
+      <LinkPreview containerRef={containerRef} />
+      {editor && editable && <FormattingMenu editor={editor} template={template} onComment={onComment} />}
+      {editor && !editable && onComment && <CommentMenu editor={editor} onComment={onComment} />}
       {editor && editable && <TableMenu editor={editor} />}
       <EditorContent editor={editor} />
     </div>

@@ -79,6 +79,10 @@ pub async fn login(State(st): State<AppState>, meta: ClientMeta, Json(b): Json<L
             ))
         }
     };
+    if user.suspended_at.is_some() {
+        audit::insert(&st, &meta, None, Actor::user(&user), "auth.signin_failed", None, json!({ "method": "password", "reason": "account suspended" })).await;
+        return Err(ApiError::forbidden("This account is suspended. Ask an administrator to reactivate it."));
+    }
     let token = create_session(&st.db, user.id, None).await?;
     audit::insert(&st, &meta, None, Actor::user(&user), "auth.signin", None, json!({ "method": "password" })).await;
     Ok(with_cookie(

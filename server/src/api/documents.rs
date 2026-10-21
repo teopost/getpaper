@@ -25,10 +25,11 @@ use crate::{
 /// A key limited to some collections doesn't see collection-less documents.
 fn access_sql(auth: &Auth, many_teams: bool) -> String {
     let team = if many_teams { "d.team_id = ANY($2)" } else { "d.team_id = $2" };
+    // documents shared with the user count too, except for keys limited to some collections
     let own = if auth.key.as_ref().is_some_and(|k| k.collections.is_some()) {
         ""
     } else {
-        " OR (d.collection_id IS NULL AND d.created_by = $1)"
+        " OR (d.collection_id IS NULL AND d.created_by = $1) OR (d.published_at IS NOT NULL AND document_grant(d.id, $1) IS NOT NULL)"
     };
     format!("{team} AND d.deleted_at IS NULL AND (d.collection_id = ANY($3){own}) AND (d.published_at IS NOT NULL OR d.created_by = $1)")
 }
@@ -217,6 +218,9 @@ struct CollectionLink {
 pub struct InfoReq {
     id: Option<String>,
     share_id: Option<String>,
+    /// a link preview: not counted as a view
+    #[serde(default)]
+    preview: bool,
 }
 
 async fn doc_path(db: &PgPool, id: Uuid) -> ApiResult<Vec<DocLink>> {
@@ -307,14 +311,16 @@ pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<
     let auth = auth.ok_or_else(ApiError::unauthorized)?;
     let id = b.id.ok_or_else(|| ApiError::bad_request("id is required"))?;
     let (d, a) = load_doc(&st.db, &auth, &id, Access::Read).await?;
-    sqlx::query(
-        "INSERT INTO views (user_id, document_id, count, last_viewed_at) VALUES ($1, $2, 1, now()) \
-         ON CONFLICT (user_id, document_id) DO UPDATE SET count = views.count + 1, last_viewed_at = now()",
-    )
-    .bind(auth.user.id)
-    .bind(d.id)
-    .execute(&st.db)
-    .await?;
+    if !b.preview {
+        sqlx::query(
+            "INSERT INTO views (user_id, document_id, count, last_viewed_at) VALUES ($1, $2, 1, now()) \
+             ON CONFLICT (user_id, document_id) DO UPDATE SET count = views.count + 1, last_viewed_at = now()",
+        )
+        .bind(auth.user.id)
+        .bind(d.id)
+        .execute(&st.db)
+        .await?;
+    }
     let path = doc_path(&st.db, d.id).await?;
     let children = doc_children(&st.db, d.id).await?;
     let collection = collection_link(&st.db, d.collection_id).await?;
@@ -333,7 +339,9 @@ pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<
 // create / update
 // ---------------------------------------------------------------------------
 
-async fn save_revision(db: &PgPool, d: &DocRow, user_id: Uuid) -> ApiResult<()> {
+/// Saves the current text in the history; true when a new revision was created (a new editing
+/// session) rather than the last one of the same person updated.
+async fn save_revision(db: &PgPool, d: &DocRow, user_id: Uuid) -> ApiResult<bool> {
     let last: Option<(Uuid, Uuid, DateTime<Utc>)> = sqlx::query_as(
         "SELECT id, user_id, created_at FROM revisions WHERE document_id = $1 ORDER BY created_at DESC LIMIT 1",
     )
@@ -349,7 +357,7 @@ async fn save_revision(db: &PgPool, d: &DocRow, user_id: Uuid) -> ApiResult<()> 
                 .bind(&d.emoji)
                 .execute(db)
                 .await?;
-            return Ok(());
+            return Ok(false);
         }
     }
     sqlx::query("INSERT INTO revisions (id, document_id, user_id, title, text, emoji) VALUES ($1, $2, $3, $4, $5, $6)")
@@ -361,7 +369,7 @@ async fn save_revision(db: &PgPool, d: &DocRow, user_id: Uuid) -> ApiResult<()> 
         .bind(&d.emoji)
         .execute(db)
         .await?;
-    Ok(())
+    Ok(true)
 }
 
 const MONTHS_IT: [&str; 12] = [
@@ -496,6 +504,10 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
     )
     .await?;
     crate::mentions::notify(&st, &auth.user, &d, None);
+    if d.published_at.is_some() {
+        crate::subscriptions::follow_automatically(&st, auth.user.id, &d).await;
+        crate::subscriptions::notify(&st, &auth.user, &d, crate::subscriptions::Event::Published);
+    }
     // drafts are private: only what is published is recorded
     if d.published_at.is_some() {
         let data = json!({ "new": true, "template": d.template, "collection": Target::collection_name(&st.db, d.collection_id).await });
@@ -566,8 +578,17 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     .await?;
     let nd = find_doc(&st.db, auth.user.id, &d.id.to_string()).await?;
     let changed = nd.title != d.title || nd.text != d.text || nd.emoji != d.emoji;
+    let mut new_session = false;
     if nd.published_at.is_some() && (changed || publishing) {
-        save_revision(&st.db, &nd, auth.user.id).await?;
+        new_session = save_revision(&st.db, &nd, auth.user.id).await?;
+    }
+    if nd.published_at.is_some() && (changed || publishing) {
+        crate::subscriptions::follow_automatically(&st, auth.user.id, &nd).await;
+    }
+    if publishing {
+        crate::subscriptions::notify(&st, &auth.user, &nd, crate::subscriptions::Event::Published);
+    } else if new_session {
+        crate::subscriptions::notify(&st, &auth.user, &nd, crate::subscriptions::Event::Updated);
     }
     if publishing {
         let data = json!({ "new": false, "template": nd.template, "collection": Target::collection_name(&st.db, nd.collection_id).await });
@@ -766,7 +787,9 @@ pub async fn restore(State(st): State<AppState>, auth: Auth, Json(b): Json<Resto
             .execute(&st.db)
             .await?;
         let nd = find_doc(&st.db, auth.user.id, &d.id.to_string()).await?;
-        save_revision(&st.db, &nd, auth.user.id).await?;
+        if save_revision(&st.db, &nd, auth.user.id).await? {
+            crate::subscriptions::notify(&st, &auth.user, &nd, crate::subscriptions::Event::Updated);
+        }
         if nd.published_at.is_some() {
             audit::record(&st, &auth, "documents.restore", Target::document(nd.id, &nd.title), json!({ "from": "revision" })).await;
         }

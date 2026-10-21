@@ -97,7 +97,7 @@ impl Auth {
                 return Err(ApiError::forbidden("This API key can't be used in that workspace"));
             }
         }
-        let role: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2")
+        let role: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2 AND suspended_at IS NULL")
             .bind(self.user.id)
             .bind(team)
             .fetch_optional(db)
@@ -172,13 +172,13 @@ impl FromRequestParts<AppState> for Auth {
             .await?;
             let (kid, u, default_team, access, all_workspaces, restricted) = row.ok_or_else(ApiError::unauthorized)?;
             let mut teams: Vec<Uuid> = if all_workspaces {
-                sqlx::query_as::<_, (Uuid,)>("SELECT team_id FROM team_memberships WHERE user_id = $1 ORDER BY created_at")
+                sqlx::query_as::<_, (Uuid,)>("SELECT team_id FROM team_memberships WHERE user_id = $1 AND suspended_at IS NULL ORDER BY created_at")
                     .bind(u)
                     .fetch_all(db)
                     .await?
             } else {
                 sqlx::query_as::<_, (Uuid,)>(
-                    "SELECT k.team_id FROM api_key_workspaces k JOIN team_memberships m ON m.team_id = k.team_id AND m.user_id = $2 \
+                    "SELECT k.team_id FROM api_key_workspaces k JOIN team_memberships m ON m.team_id = k.team_id AND m.user_id = $2 AND m.suspended_at IS NULL \
                      WHERE k.api_key_id = $1",
                 )
                 .bind(kid)
@@ -234,10 +234,13 @@ impl FromRequestParts<AppState> for Auth {
             .fetch_optional(db)
             .await?
             .ok_or_else(ApiError::unauthorized)?;
+        if user.suspended_at.is_some() {
+            return Err(ApiError::unauthorized());
+        }
 
         let mut membership: Option<(Uuid, String)> = None;
         if let Some(t) = preferred_team {
-            membership = sqlx::query_as("SELECT team_id, role FROM team_memberships WHERE user_id = $1 AND team_id = $2")
+            membership = sqlx::query_as("SELECT team_id, role FROM team_memberships WHERE user_id = $1 AND team_id = $2 AND suspended_at IS NULL")
                 .bind(user_id)
                 .bind(t)
                 .fetch_optional(db)
@@ -248,7 +251,7 @@ impl FromRequestParts<AppState> for Auth {
         }
         if membership.is_none() && is_session {
             membership = sqlx::query_as(
-                "SELECT team_id, role FROM team_memberships WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1",
+                "SELECT team_id, role FROM team_memberships WHERE user_id = $1 AND suspended_at IS NULL ORDER BY created_at ASC LIMIT 1",
             )
             .bind(user_id)
             .fetch_optional(db)

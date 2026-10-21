@@ -353,6 +353,10 @@ pub async fn callback(State(st): State<AppState>, meta: ClientMeta, headers: Hea
             return login_error(&e.message);
         }
     };
+    if user.suspended_at.is_some() {
+        failed("account suspended".into()).await;
+        return login_error("This account is suspended. Ask an administrator to reactivate it.");
+    }
     let team = match join_workspaces(&st, &meta, &user, invite).await {
         Ok(t) => t,
         Err(e) => return login_error(&e.message),

@@ -57,6 +57,9 @@ pub struct InstanceSettings {
     /// Settings → Activity also shows how many documents each person viewed
     #[serde(default)]
     pub activity_show_views: bool,
+    /// previews of external links: the server fetches the linked pages
+    #[serde(default)]
+    pub link_previews: bool,
 }
 
 fn audit_days() -> u32 {
@@ -143,6 +146,7 @@ impl InstanceSettings {
             "allowBackupExport": self.allow_backup_export,
             "allowMarkdownExport": self.allow_markdown_export,
             "allowPublicSharing": self.allow_public_sharing,
+            "linkPreviews": self.link_previews,
             "productName": self.product_name,
             "headerColor": self.header_color,
             "accentColor": self.accent_color,

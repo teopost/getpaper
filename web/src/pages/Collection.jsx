@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Download, MoreHorizontal, Pencil, Plus, Star, Trash2, Upload, Search as SearchIcon, Lock } from 'lucide-react';
+import { Bell, BellOff, Download, MoreHorizontal, Pencil, Plus, Star, Trash2, Upload, Search as SearchIcon, Lock } from 'lucide-react';
 import { api, collectionUrl, docUrl, downloadText, slugify, upload } from '../api';
 import { useApp } from '../store';
 import Scene from '../components/Scene';
@@ -23,6 +23,8 @@ export default function CollectionPage() {
   const [docs, setDocs] = useState(null);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // following the collection: notified of documents published in it
+  const [subscribed, setSubscribed] = useState(null);
   const descTimer = useRef(null);
 
   const load = () =>
@@ -37,6 +39,13 @@ export default function CollectionPage() {
     setCollection(null);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    setSubscribed(null);
+    api('subscriptions.info', { collectionId: id })
+      .then((r) => setSubscribed(r.subscribed))
+      .catch(() => setSubscribed(null));
   }, [id]);
 
   // keep in sync with edits made via the sidebar
@@ -149,6 +158,20 @@ export default function CollectionPage() {
               </IconButton>
             }
             items={[
+              subscribed !== null && {
+                label: subscribed ? t('Unfollow') : t('Follow'),
+                icon: subscribed ? <BellOff size={16} /> : <Bell size={16} />,
+                onClick: async () => {
+                  try {
+                    const r = await api(subscribed ? 'subscriptions.delete' : 'subscriptions.create', { collectionId: collection.id });
+                    setSubscribed(r.subscribed);
+                    toast(r.subscribed ? t('You will be notified of new documents in this collection') : t('You no longer follow this collection'));
+                  } catch (e) {
+                    toast(e.message, 'error');
+                  }
+                },
+              },
+              subscribed !== null && { separator: true },
               canWrite && { label: t('New document'), icon: <Plus size={16} />, onClick: () => createDoc({ collectionId: collection.id }) },
               canWrite && { label: t('Import…'), icon: <Upload size={16} />, onClick: importFile },
               canWrite && { label: t('Edit…'), icon: <Pencil size={16} />, onClick: () => setEditing(true) },

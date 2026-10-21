@@ -3,9 +3,12 @@ import { Fragment } from '@tiptap/pm/model';
 import { ReactNodeViewRenderer, ReactRenderer } from '@tiptap/react';
 import Suggestion from '@tiptap/suggestion';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import container from 'markdown-it-container';
 import CommandList from './CommandList';
 import TocView from './TocView';
+import EmbedView from './EmbedView';
+import { embedFor } from './embeds';
 
 export const NOTICE_STYLES = ['info', 'warning', 'tip', 'success'];
 
@@ -600,3 +603,227 @@ export function createMentionSuggestion(getItems) {
     },
   });
 }
+
+// ---------------------------------------------------------------------------
+// comments on a passage of the text
+// ---------------------------------------------------------------------------
+
+/**
+ * The text of the document as one string, with the document position of every character (-1 for
+ * the spaces put between blocks). Anchors of comments are searched in this text.
+ */
+export function flatText(doc) {
+  let text = '';
+  const pos = [];
+  doc.descendants((node, p) => {
+    if (node.isText) {
+      for (let i = 0; i < node.text.length; i++) pos.push(p + i);
+      text += node.text;
+    } else if ((node.isBlock || node.isLeaf) && text && !text.endsWith(' ')) {
+      text += ' ';
+      pos.push(-1);
+    }
+    return true;
+  });
+  return { text, pos };
+}
+
+const ANCHOR_CONTEXT = 40;
+
+/** The anchor of a comment on the selection from..to: its text with some context around it */
+export function anchorFor(doc, from, to) {
+  const { text, pos } = flatText(doc);
+  let a = pos.findIndex((p) => p >= from);
+  let b = pos.length;
+  for (let i = pos.length - 1; i >= 0; i--) {
+    if (pos[i] !== -1 && pos[i] < to) {
+      b = i + 1;
+      break;
+    }
+  }
+  if (a === -1 || b <= a) return null;
+  const quoted = text.slice(a, b).trim();
+  if (!quoted) return null;
+  a = text.indexOf(quoted, a);
+  return { text: quoted, prefix: text.slice(Math.max(0, a - ANCHOR_CONTEXT), a), suffix: text.slice(a + quoted.length, a + quoted.length + ANCHOR_CONTEXT) };
+}
+
+const commonEnd = (a, b) => {
+  let n = 0;
+  while (n < a.length && n < b.length && a[a.length - 1 - n] === b[b.length - 1 - n]) n++;
+  return n;
+};
+const commonStart = (a, b) => {
+  let n = 0;
+  while (n < a.length && n < b.length && a[n] === b[n]) n++;
+  return n;
+};
+
+/** Where the anchor is now: the occurrence of its text whose context matches best, or null */
+export function locateAnchor(flat, anchor) {
+  const { text, pos } = flat;
+  if (!anchor?.text) return null;
+  let best = -1;
+  let bestScore = -1;
+  for (let i = text.indexOf(anchor.text); i !== -1; i = text.indexOf(anchor.text, i + 1)) {
+    const score =
+      commonEnd(text.slice(Math.max(0, i - ANCHOR_CONTEXT), i), anchor.prefix || '') +
+      commonStart(text.slice(i + anchor.text.length, i + anchor.text.length + ANCHOR_CONTEXT), anchor.suffix || '');
+    if (score > bestScore) {
+      best = i;
+      bestScore = score;
+    }
+  }
+  if (best === -1) return null;
+  let first = best;
+  while (first < best + anchor.text.length && pos[first] === -1) first++;
+  let last = best + anchor.text.length - 1;
+  while (last > first && pos[last] === -1) last--;
+  if (pos[first] === -1) return null;
+  return { from: pos[first], to: pos[last] + 1 };
+}
+
+export const commentAnchorsKey = new PluginKey('commentAnchors');
+
+/**
+ * Highlights the passages that comments are about. The anchors are set with
+ * editor.commands.setCommentAnchors([{ id, text, prefix, suffix }], activeId); clicking a highlight
+ * calls editor.storage.commentAnchors.onClick(id).
+ */
+export const CommentAnchors = Extension.create({
+  name: 'commentAnchors',
+
+  addStorage() {
+    return { anchors: [], active: null, onClick: null };
+  },
+
+  addCommands() {
+    return {
+      setCommentAnchors:
+        (anchors, active = null) =>
+        ({ tr, dispatch }) => {
+          this.storage.anchors = anchors || [];
+          this.storage.active = active;
+          if (dispatch) tr.setMeta(commentAnchorsKey, true).setMeta('addToHistory', false);
+          return true;
+        },
+    };
+  },
+
+  addProseMirrorPlugins() {
+    const storage = this.storage;
+    const build = (doc) => {
+      if (!storage.anchors.length) return DecorationSet.empty;
+      const flat = flatText(doc);
+      const decorations = [];
+      for (const a of storage.anchors) {
+        const range = locateAnchor(flat, a);
+        if (!range) continue;
+        const cls = `comment-anchor${a.id === storage.active ? ' active' : ''}`;
+        decorations.push(Decoration.inline(range.from, range.to, { class: cls, 'data-comment-id': a.id }));
+      }
+      return DecorationSet.create(doc, decorations);
+    };
+    return [
+      new Plugin({
+        key: commentAnchorsKey,
+        state: {
+          init: (_, state) => build(state.doc),
+          apply: (tr, old, _, state) => (tr.getMeta(commentAnchorsKey) ? build(state.doc) : tr.docChanged ? build(state.doc) : old),
+        },
+        props: {
+          decorations(state) {
+            return this.getState(state);
+          },
+          handleDOMEvents: {
+            click: (view, event) => {
+              const el = event.target.closest?.('[data-comment-id]');
+              if (el && storage.onClick) storage.onClick(el.getAttribute('data-comment-id'));
+              return false;
+            },
+          },
+        },
+      }),
+    ];
+  },
+});
+
+// ---------------------------------------------------------------------------
+// embeds
+// ---------------------------------------------------------------------------
+
+/**
+ * YouTube, Figma, Google Docs… shown in the document (see embeds.js). Stored in markdown as a
+ * link whose text is its address, alone in a paragraph, as in Outline: other tools show a link.
+ */
+export const Embed = Node.create({
+  name: 'embed',
+  group: 'block',
+  atom: true,
+  draggable: true,
+
+  addAttributes() {
+    return {
+      url: {
+        default: '',
+        parseHTML: (el) => el.getAttribute('data-url') || '',
+        renderHTML: (attrs) => ({ 'data-url': attrs.url }),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="embed"]' }];
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes({ 'data-type': 'embed' }, HTMLAttributes)];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(EmbedView);
+  },
+
+  addCommands() {
+    return {
+      insertEmbed:
+        (url) =>
+        ({ commands }) =>
+          embedFor(url) ? commands.insertContent({ type: this.name, attrs: { url } }) : false,
+    };
+  },
+
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state, node) {
+          const url = node.attrs.url.replace(/[()\s]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
+          state.write(`[${url}](${url})`);
+          state.closeBlock(node);
+        },
+        parse: {
+          setup(md) {
+            // a paragraph with only [url](url) of an embeddable service; bare and auto links stay links
+            md.core.ruler.after('inline', 'embed', (state) => {
+              const tokens = state.tokens;
+              for (let i = 0; i + 2 < tokens.length; i++) {
+                if (tokens[i].type !== 'paragraph_open' || tokens[i + 1].type !== 'inline' || tokens[i + 2].type !== 'paragraph_close') continue;
+                const ch = (tokens[i + 1].children || []).filter((c) => !(c.type === 'text' && !c.content.trim()));
+                if (ch.length !== 3 || ch[0].type !== 'link_open' || ch[1].type !== 'text' || ch[2].type !== 'link_close') continue;
+                if (ch[0].markup === 'linkify' || ch[0].markup === 'autolink') continue;
+                const href = ch[0].attrGet('href');
+                if (!href || ch[1].content !== href || !embedFor(href)) continue;
+                const token = new state.Token('embed', 'div', 0);
+                token.meta = { url: href };
+                token.block = true;
+                tokens.splice(i, 3, token);
+              }
+            });
+            md.renderer.rules.embed = (tokens, idx) => `<div data-type="embed" data-url="${escapeHtml(tokens[idx].meta.url)}"></div>\n`;
+          },
+        },
+      },
+    };
+  },
+});
+

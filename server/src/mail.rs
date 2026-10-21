@@ -395,3 +395,87 @@ pub fn mention(m: &MentionMail) -> Mail {
     });
     Mail { sender: m.product.to_string(), subject, text, html }
 }
+
+pub struct DocumentEventMail<'a> {
+    /// language of the recipient
+    pub lang: &'a str,
+    pub product: &'a str,
+    /// who made the change or shared the document
+    pub actor: &'a str,
+    pub document: &'a str,
+    pub team: &'a str,
+    /// updated, published or shared
+    pub event: &'a str,
+    /// link to the document
+    pub link: &'a str,
+    pub base_url: &'a str,
+    pub brand_color: &'a str,
+}
+
+/// A followed document changed, a document was published in a followed collection, or a document
+/// was shared with the recipient.
+pub fn document_event(m: &DocumentEventMail) -> Mail {
+    let it = m.lang == "it";
+    let doc = if m.document.trim().is_empty() { if it { "Senza titolo" } else { "Untitled" } } else { m.document };
+    let (subject, title, intro) = match (it, m.event) {
+        (true, "shared") => (
+            format!("{} ha condiviso \"{}\" con te", m.actor, doc),
+            format!("{} ha condiviso un documento con te", m.actor),
+            format!("<strong>{}</strong> ha condiviso con te il documento <strong>{}</strong> del workspace {}.", esc(m.actor), esc(doc), esc(m.team)),
+        ),
+        (true, "published") => (
+            format!("Nuovo documento: \"{}\"", doc),
+            format!("{} ha pubblicato un documento", m.actor),
+            format!("<strong>{}</strong> ha pubblicato <strong>{}</strong> in una collezione che segui nel workspace {}.", esc(m.actor), esc(doc), esc(m.team)),
+        ),
+        (true, _) => (
+            format!("\"{}\" è stato aggiornato", doc),
+            format!("{} ha aggiornato un documento che segui", m.actor),
+            format!("<strong>{}</strong> ha modificato il documento <strong>{}</strong> del workspace {}.", esc(m.actor), esc(doc), esc(m.team)),
+        ),
+        (false, "shared") => (
+            format!("{} shared \"{}\" with you", m.actor, doc),
+            format!("{} shared a document with you", m.actor),
+            format!("<strong>{}</strong> shared the document <strong>{}</strong> of the {} workspace with you.", esc(m.actor), esc(doc), esc(m.team)),
+        ),
+        (false, "published") => (
+            format!("New document: \"{}\"", doc),
+            format!("{} published a document", m.actor),
+            format!("<strong>{}</strong> published <strong>{}</strong> in a collection you follow in the {} workspace.", esc(m.actor), esc(doc), esc(m.team)),
+        ),
+        (false, _) => (
+            format!("\"{}\" was updated", doc),
+            format!("{} updated a document you follow", m.actor),
+            format!("<strong>{}</strong> changed the document <strong>{}</strong> of the {} workspace.", esc(m.actor), esc(doc), esc(m.team)),
+        ),
+    };
+    let (button, fallback, footer) = if it {
+        (
+            "Apri il documento",
+            "Se il pulsante non funziona, copia questo indirizzo nel browser:",
+            "Puoi smettere di seguire il documento dal suo menu, o disattivare queste email nelle preferenze del tuo profilo.<br>Hai ricevuto questa email perché hai un account su",
+        )
+    } else {
+        (
+            "Open the document",
+            "If the button doesn't work, paste this address in your browser:",
+            "You can unfollow the document from its menu, or turn these emails off in your profile preferences.<br>You received this email because you have an account on",
+        )
+    };
+    let paragraphs = [intro];
+    let (text, html) = layout(&Layout {
+        lang: m.lang,
+        product: m.product,
+        brand_color: m.brand_color,
+        base_url: m.base_url,
+        subject: &subject,
+        title: &title,
+        paragraphs: &paragraphs,
+        button,
+        link: m.link,
+        fallback,
+        footer,
+    });
+    Mail { sender: m.product.to_string(), subject, text, html }
+}
+

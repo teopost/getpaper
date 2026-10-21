@@ -108,9 +108,16 @@ export default function Notifications() {
                 <Avatar name={n.actorName || '?'} color={n.actorColor} size={28} />
                 <span className="notification-body">
                   <span className="notification-text">
-                    {n.groupName
-                      ? t('{name} mentioned {group} in', { name: n.actorName || t('Someone'), group: `@${n.groupName}` })
-                      : t('{name} mentioned you in', { name: n.actorName || t('Someone') })}{' '}
+                    {
+                      {
+                        document_updated: t('{name} updated', { name: n.actorName || t('Someone') }),
+                        document_published: t('{name} published', { name: n.actorName || t('Someone') }),
+                        document_shared: t('{name} shared with you', { name: n.actorName || t('Someone') }),
+                      }[n.event] ||
+                        (n.groupName
+                          ? t('{name} mentioned {group} in', { name: n.actorName || t('Someone'), group: `@${n.groupName}` })
+                          : t('{name} mentioned you in', { name: n.actorName || t('Someone') }))
+                    }{' '}
                     <strong>
                       {n.documentEmoji ? `${n.documentEmoji} ` : ''}
                       {n.documentTitle || t('Untitled')}

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Archive,
+  Bell,
+  BellOff,
   ChevronRight,
   Copy,
   CornerDownRight,
@@ -38,6 +40,8 @@ import {
 } from '../api';
 import { useApp } from '../store';
 import Editor from '../editor/Editor';
+import DocumentAccess from '../components/DocumentAccess';
+import { flatText, locateAnchor } from '../editor/extensions';
 import Scene from '../components/Scene';
 import { CollectionIcon, DocIcon } from '../components/icons';
 import { Avatar, Button, ConfirmModal, Field, IconButton, Menu, Modal, Popover, Spinner, Switch } from '../components/ui';
@@ -83,6 +87,12 @@ function SharePanel({ doc, onChange }) {
   };
   return (
     <div className="share-panel">
+      {doc.publishedAt && (
+        <>
+          <DocumentAccess doc={doc} />
+          <div className="share-divider" />
+        </>
+      )}
       {instance.allowPublicSharing === false ? (
         <div className="muted small">{t('Public links have been disabled by the administrator.')}</div>
       ) : (
@@ -306,7 +316,7 @@ function HistoryPanel({ doc, onSelect, selectedId, onClose }) {
 // Comments panel
 // ---------------------------------------------------------------------------
 
-function CommentItem({ c, replies, onReply, reload, canResolve }) {
+function CommentItem({ c, replies, onReply, reload, canResolve, active, located, onJump, threadRef }) {
   const { user, isAdmin } = useApp();
   const toast = useToast();
   const act = async (method) => {
@@ -318,7 +328,17 @@ function CommentItem({ c, replies, onReply, reload, canResolve }) {
     }
   };
   return (
-    <div className={`comment-thread ${c.resolvedAt ? 'resolved' : ''}`}>
+    <div ref={threadRef} className={`comment-thread ${c.resolvedAt ? 'resolved' : ''} ${active ? 'active' : ''}`}>
+      {c.anchorText && (
+        <button
+          type="button"
+          className={`comment-quote ${located ? '' : 'detached'}`}
+          onClick={located ? onJump : undefined}
+          title={located ? t('Show in the document') : t('This text is no longer in the document')}
+        >
+          {c.anchorText}
+        </button>
+      )}
       {[c, ...replies].map((x, i) => (
         <div key={x.id} className={`comment ${i > 0 ? 'reply' : ''}`}>
           <Avatar name={x.createdByName} color={x.createdByColor} size={24} />
@@ -362,24 +382,44 @@ function CommentItem({ c, replies, onReply, reload, canResolve }) {
   );
 }
 
-function CommentsPanel({ doc, canResolve, onClose }) {
-  const [comments, setComments] = useState(null);
+/** Comments of the document; `comments` and `load` come from the page, which also highlights their passages */
+function CommentsPanel({ doc, comments, load, canResolve, onClose, editor, active, setActive, draftAnchor, clearDraft }) {
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState(null);
   const [showResolved, setShowResolved] = useState(false);
   const toast = useToast();
   const inputRef = useRef(null);
-  const load = useCallback(() => api('comments.list', { documentId: doc.id }).then(setComments), [doc.id]);
+  const threads = useRef({});
   useEffect(() => {
-    load();
-  }, [load]);
+    if (draftAnchor) {
+      setReplyTo(null);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [draftAnchor]);
+  useEffect(() => {
+    if (active) threads.current[active]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [active, comments]);
+  // which passages are still in the document
+  const flat = editor ? flatText(editor.state.doc) : null;
+  const locate = (c) => (flat && c.anchorText ? locateAnchor(flat, { text: c.anchorText, prefix: c.anchorPrefix, suffix: c.anchorSuffix }) : null);
+  const jump = (c) => {
+    const range = locate(c);
+    if (!range || !editor) return;
+    setActive(c.id);
+    editor.commands.setTextSelection(range);
+    const { node } = editor.view.domAtPos(range.from);
+    (node.nodeType === 1 ? node : node.parentElement)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
   const post = async () => {
     if (!text.trim()) return;
     try {
-      await api('comments.create', { documentId: doc.id, text, parentCommentId: replyTo?.id });
+      const anchor = !replyTo && draftAnchor ? draftAnchor : undefined;
+      const c = await api('comments.create', { documentId: doc.id, text, parentCommentId: replyTo?.id, anchor });
       setText('');
       setReplyTo(null);
-      load();
+      clearDraft();
+      await load();
+      setActive(replyTo?.id || c.id);
     } catch (e) {
       toast(e.message, 'error');
     }
@@ -408,6 +448,10 @@ function CommentsPanel({ doc, canResolve, onClose }) {
             }}
             reload={load}
             canResolve={canResolve}
+            active={active === c.id}
+            located={!!locate(c)}
+            onJump={() => jump(c)}
+            threadRef={(el) => (threads.current[c.id] = el)}
           />
         ))}
         {resolvedCount > 0 && (
@@ -417,6 +461,14 @@ function CommentsPanel({ doc, canResolve, onClose }) {
         )}
       </div>
       <div className="side-panel-footer">
+        {draftAnchor && !replyTo && (
+          <div className="comment-draft-quote">
+            <span className="comment-quote">{draftAnchor.text}</span>
+            <button className="link-btn small" onClick={clearDraft}>
+              {t('cancel')}
+            </button>
+          </div>
+        )}
         {replyTo && (
           <div className="replying muted small">
             {t('Replying to {name}', { name: replyTo.createdByName })}{' '}
@@ -478,6 +530,13 @@ export default function DocumentPage() {
   const [saveState, setSaveState] = useState('saved');
   const [conflict, setConflict] = useState(null);
   const [panel, setPanel] = useState(null);
+  // comments, loaded with the document: their passages are highlighted in the text
+  const [comments, setComments] = useState(null);
+  const [activeComment, setActiveComment] = useState(null);
+  const [draftAnchor, setDraftAnchor] = useState(null);
+  const [editorInstance, setEditorInstance] = useState(null);
+  // following the document: notified when it changes
+  const [subscribed, setSubscribed] = useState(null);
   const [revision, setRevision] = useState(null);
   const [editorKey, setEditorKey] = useState(0);
   const [moving, setMoving] = useState(false);
@@ -490,6 +549,38 @@ export default function DocumentPage() {
   const baseUpdatedAt = useRef(null);
   const docIdRef = useRef(null);
   const editorRef = useRef(null);
+  const commentsDocId = data?.document?.id;
+  const followable = !!data?.document?.publishedAt && !data?.document?.template && !data?.document?.deletedAt;
+  useEffect(() => {
+    setSubscribed(null);
+    if (!commentsDocId || !followable) return;
+    api('subscriptions.info', { documentId: commentsDocId })
+      .then((r) => setSubscribed(r.subscribed))
+      .catch(() => setSubscribed(null));
+  }, [commentsDocId, followable, data?.document?.updatedAt]);
+  const loadComments = useCallback(async () => {
+    if (!commentsDocId) return;
+    setComments(await api('comments.list', { documentId: commentsDocId }));
+  }, [commentsDocId]);
+  useEffect(() => {
+    setComments(null);
+    setActiveComment(null);
+    setDraftAnchor(null);
+    loadComments().catch(() => setComments([]));
+  }, [loadComments]);
+  useEffect(() => {
+    if (!editorInstance || editorInstance.isDestroyed) return;
+    const anchors = (comments || [])
+      .filter((c) => !c.parentCommentId && !c.resolvedAt && c.anchorText)
+      .map((c) => ({ id: c.id, text: c.anchorText, prefix: c.anchorPrefix, suffix: c.anchorSuffix }));
+    if (draftAnchor) anchors.push({ id: 'draft', ...draftAnchor });
+    editorInstance.storage.commentAnchors.onClick = (id) => {
+      if (id === 'draft') return;
+      setActiveComment(id);
+      setPanel('comments');
+    };
+    editorInstance.commands.setCommentAnchors(anchors, draftAnchor ? 'draft' : activeComment);
+  }, [editorInstance, comments, activeComment, draftAnchor]);
   const titleRef = useRef(null);
   const dataRef = useRef(null);
   dataRef.current = data;
@@ -709,6 +800,16 @@ export default function DocumentPage() {
   };
 
   const menuItems = [
+    subscribed !== null && {
+      label: subscribed ? t('Unfollow') : t('Follow'),
+      icon: subscribed ? <BellOff size={16} /> : <Bell size={16} />,
+      onClick: () =>
+        runAction(async () => {
+          const r = await api(subscribed ? 'subscriptions.delete' : 'subscriptions.create', { documentId: doc.id });
+          setSubscribed(r.subscribed);
+        }, subscribed ? t('You no longer follow this document') : t('You will be notified when this document changes')),
+    },
+    subscribed !== null && { separator: true },
     canWrite && !isDraft && !doc.template && !doc.deletedAt && {
       label: t('New nested document'),
       icon: <Plus size={16} />,
@@ -904,7 +1005,7 @@ export default function DocumentPage() {
               )
             )}
             {!doc.template && !doc.deletedAt && (
-              <Popover trigger={<Button variant="secondary">{t('Share')}</Button>} width={380}>
+              <Popover trigger={<Button variant="secondary">{t('Share')}</Button>} width={420}>
                 <SharePanel doc={doc} onChange={onShareChange} />
               </Popover>
             )}
@@ -1123,7 +1224,19 @@ export default function DocumentPage() {
               editable={editable}
               template={doc.template}
               documentId={doc.id}
-              onReady={(ed) => (editorRef.current = ed)}
+              onReady={(ed) => {
+                editorRef.current = ed;
+                setEditorInstance(ed);
+              }}
+              onComment={
+                doc.template || doc.deletedAt
+                  ? undefined
+                  : (anchor) => {
+                      setDraftAnchor(anchor);
+                      setActiveComment(null);
+                      setPanel('comments');
+                    }
+              }
               onChange={(md) => queueSave({ text: md })}
             />
           )}
@@ -1148,7 +1261,24 @@ export default function DocumentPage() {
       {panel === 'history' && (
         <HistoryPanel doc={doc} selectedId={revision?.id} onSelect={selectRevision} onClose={() => { setPanel(null); setRevision(null); }} />
       )}
-      {panel === 'comments' && <CommentsPanel doc={doc} canResolve={canWrite} onClose={() => setPanel(null)} />}
+      {panel === 'comments' && (
+        <CommentsPanel
+          doc={doc}
+          comments={comments}
+          load={loadComments}
+          canResolve={canWrite}
+          editor={editorInstance}
+          active={activeComment}
+          setActive={setActiveComment}
+          draftAnchor={draftAnchor}
+          clearDraft={() => setDraftAnchor(null)}
+          onClose={() => {
+            setPanel(null);
+            setDraftAnchor(null);
+            setActiveComment(null);
+          }}
+        />
+      )}
 
       {presenting && (
         <PresentationMode title={title} emoji={doc.emoji} content={presenting} onClose={() => setPresenting(null)} />

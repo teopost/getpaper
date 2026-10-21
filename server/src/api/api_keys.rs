@@ -98,7 +98,7 @@ pub struct CollectionsReq {
 
 async fn my_workspaces(st: &AppState, auth: &Auth) -> ApiResult<Vec<(Uuid, String, String)>> {
     Ok(sqlx::query_as(
-        "SELECT t.id, t.name, m.role FROM team_memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $1 ORDER BY t.name",
+        "SELECT t.id, t.name, m.role FROM team_memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $1 AND m.suspended_at IS NULL ORDER BY t.name",
     )
     .bind(auth.user.id)
     .fetch_all(&st.db)

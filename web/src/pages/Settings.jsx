@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { Copy, Plus, Trash2, UserPlus, Check, Download, Mail, Send, ImageUp, X } from 'lucide-react';
+import { Copy, Plus, Trash2, UserPlus, Check, Download, Mail, Send, ImageUp, X, MoreHorizontal } from 'lucide-react';
 import { api, collectionUrl, copyToClipboard, docUrl, formatDate, downloadFile, timeAgo, upload, uploadFile } from '../api';
 import { useApp } from '../store';
 import Scene from '../components/Scene';
-import { Avatar, Button, ConfirmModal, Empty, Field, Modal, Spinner, Switch, TeamAvatar } from '../components/ui';
+import { Avatar, Button, ConfirmModal, Empty, Field, Menu, Modal, Spinner, Switch, TeamAvatar } from '../components/ui';
 import { useToast } from '../components/Toast';
 import { COLORS } from '../components/icons';
 import InviteModal from '../components/InviteModal';
@@ -97,6 +97,15 @@ function Preferences() {
             <div className="field-hint">{t('Mentions always appear in the notifications in the sidebar.')}</div>
           </div>
           <Switch checked={user.emailOnMention} onChange={(v) => save('emailOnMention', v)} />
+        </div>
+        <div className="field row space-between">
+          <div>
+            <div className="field-label">{t('Email me about documents I follow')}</div>
+            <div className="field-hint">
+              {t('When a followed document changes, a document is published in a followed collection or someone shares a document with you. You follow the documents you publish or edit.')}
+            </div>
+          </div>
+          <Switch checked={user.emailOnSubscription} onChange={(v) => save('emailOnSubscription', v)} />
         </div>
       </div>
     </>
@@ -386,7 +395,7 @@ function Workspace() {
 const ROLE_LABEL = { admin: 'Admin', member: 'Editor', viewer: 'Viewer' };
 
 function Members() {
-  const { user, isAdmin, canWrite, auth } = useApp();
+  const { user, isAdmin, isSuperadmin, canWrite, auth } = useApp();
   const toast = useToast();
   const [members, setMembers] = useState(null);
   const [invites, setInvites] = useState([]);
@@ -422,6 +431,27 @@ function Members() {
   const [query, setQuery] = useState('');
   const [inviting, setInviting] = useState(false);
   const [removing, setRemoving] = useState(null);
+  const [suspending, setSuspending] = useState(null);
+
+  // suspending asks first, reactivating doesn't
+  const suspend = (method, m) => (method.startsWith('users.suspend') ? setSuspending({ method, m }) : runSuspend(method, m));
+  const runSuspend = async (method, m) => {
+    setSuspending(null);
+    try {
+      await api(method, { id: m.id });
+      toast(
+        {
+          'users.suspend': t('{name} is suspended in this workspace', { name: m.name }),
+          'users.activate': t('{name} is active again', { name: m.name }),
+          'users.suspendAccount': t('The account of {name} is suspended', { name: m.name }),
+          'users.activateAccount': t('The account of {name} is active again', { name: m.name }),
+        }[method]
+      );
+      load();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  };
 
   const load = () => {
     api('users.list', { query })
@@ -477,6 +507,17 @@ function Members() {
                         {t('Superadmin')}
                       </span>
                     )}
+                    {m.accountSuspendedAt ? (
+                      <span className="badge badge-danger" title={t('Suspended by a superadmin {time}', { time: timeAgo(m.accountSuspendedAt) })}>
+                        {t('Account suspended')}
+                      </span>
+                    ) : (
+                      m.suspendedAt && (
+                        <span className="badge badge-danger" title={t('Suspended {time}', { time: timeAgo(m.suspendedAt) })}>
+                          {t('Suspended')}
+                        </span>
+                      )
+                    )}
                   </span>
                 </td>
                 <td className="muted">{m.email}</td>
@@ -504,11 +545,36 @@ function Members() {
                   )}
                 </td>
                 <td className="right">
-                  {(isAdmin || m.id === user.id) && (
-                    <Button variant="secondary" small onClick={() => setRemoving(m)}>
-                      {m.id === user.id ? t('Leave') : t('Remove')}
-                    </Button>
-                  )}
+                  <span className="row gap-sm justify-end">
+                    {(isAdmin || m.id === user.id) && (
+                      <Button variant="secondary" small onClick={() => setRemoving(m)}>
+                        {m.id === user.id ? t('Leave') : t('Remove')}
+                      </Button>
+                    )}
+                    {m.id !== user.id && (isAdmin || isSuperadmin) && (
+                      <Menu
+                        align="right"
+                        width={260}
+                        trigger={
+                          <button className="icon-btn" title={t('More')}>
+                            <MoreHorizontal size={16} />
+                          </button>
+                        }
+                        items={[
+                          isAdmin && {
+                            label: m.suspendedAt ? t('Reactivate in this workspace') : t('Suspend in this workspace'),
+                            onClick: () => suspend(m.suspendedAt ? 'users.activate' : 'users.suspend', m),
+                          },
+                          isSuperadmin &&
+                            !m.isSuperadmin && {
+                              label: m.accountSuspendedAt ? t('Reactivate the account') : t('Suspend the account everywhere'),
+                              danger: !m.accountSuspendedAt,
+                              onClick: () => suspend(m.accountSuspendedAt ? 'users.activateAccount' : 'users.suspendAccount', m),
+                            },
+                        ]}
+                      />
+                    )}
+                  </span>
                 </td>
               </tr>
             ))}
@@ -587,6 +653,20 @@ function Members() {
           })}
           onConfirm={sendAll}
           onClose={() => setConfirmSendAll(false)}
+        />
+      )}
+      {suspending && (
+        <ConfirmModal
+          title={suspending.method === 'users.suspend' ? t('Suspend member') : t('Suspend account')}
+          danger
+          confirmLabel={t('Suspend')}
+          message={
+            suspending.method === 'users.suspend'
+              ? t('{name} won’t be able to open this workspace until it is reactivated. Role, groups, permissions and documents are kept.', { name: suspending.m.name })
+              : t('{name} won’t be able to sign in to any workspace and their API keys stop working, until a superadmin reactivates the account. Nothing is deleted.', { name: suspending.m.name })
+          }
+          onClose={() => setSuspending(null)}
+          onConfirm={() => runSuspend(suspending.method, suspending.m)}
         />
       )}
       {removing && (
@@ -1566,6 +1646,12 @@ function GeneralSettings() {
           hint={t('Documents can be published to the internet. When disabled, existing links stop working until it is enabled again.')}
           checked={s.allowPublicSharing}
           onChange={(v) => update({ allowPublicSharing: v })}
+        />
+        <ToggleSetting
+          label={t('Previews of external links')}
+          hint={t('Resting the pointer on a link to another site shows its title and description. The server fetches the linked page (public addresses only), so the site sees a request from this installation. Previews of documents of the workspace are always shown.')}
+          checked={s.linkPreviews}
+          onChange={(v) => update({ linkPreviews: v })}
         />
       </div>
 

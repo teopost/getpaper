@@ -27,7 +27,8 @@ export default function PeopleSearch({ exclude = [], onAdd, autoFocus }) {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const candidates = (results || []).filter((u) => !exclude.includes(u.id));
+  // suspended people can't be given access to anything
+  const candidates = (results || []).filter((u) => !exclude.includes(u.id) && !u.suspendedAt && !u.accountSuspendedAt);
   const shown = candidates.slice(0, SHOWN);
 
   const add = async (u) => {

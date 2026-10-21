@@ -10,6 +10,21 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ### Added
 
+- **Suspending members and accounts**: workspace admins suspend a member (no access to the workspace until
+  reactivated; role, groups, permissions and documents are kept), superadmins suspend an account in the whole
+  installation (no sign-in, sessions closed, API keys stop working). Suspended people can't be given access.
+- **Sharing a document with people or groups**, as in Outline: Share → People with access, "can edit" or "view
+  only", inherited by nested documents; shared documents appear in a new "Shared with me" section of the sidebar,
+  in search and in the API.
+- **Following documents and collections**: notifications (and emails, with a new profile preference) when a
+  followed document has a new editing session, a document is published in a followed collection or a document is
+  shared with you; publishing or editing a document follows it; repeated updates refresh one unread notification.
+- **Comments on a passage of the text**, also by readers: the passage is highlighted, the thread shows the quote
+  and clicking it goes to the text; the Markdown of the document is not changed.
+- **Embeds** of YouTube, Vimeo, Loom, Figma, Google Docs, Sheets, Slides, Forms and Drive, Miro, Spotify and
+  CodePen (pasting the link on an empty line or /Embed), stored as a link; **link previews** for documents of the
+  workspace and, if a superadmin enables them, for external sites (fetched by the server, public addresses only).
+
 - **Activity and audit log**. Workspace admins have Settings → Activity: people (last activity, sign-ins, documents
   published and edited, optionally documents viewed), changes to documents from the revision history, and an audit
   log of sign-ins and failed sign-ins, invites, roles, groups, collection access, documents published, moved,

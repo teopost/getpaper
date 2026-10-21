@@ -27,10 +27,15 @@ struct CommentRow {
     created_by: Uuid,
     created_by_name: String,
     created_by_color: String,
+    /// the commented passage, on the first comment of a thread
+    anchor_text: Option<String>,
+    anchor_prefix: Option<String>,
+    anchor_suffix: Option<String>,
 }
 
 const COMMENT_SELECT: &str = "SELECT c.id, c.document_id, c.parent_comment_id, c.text, c.created_at, c.updated_at, \
-    c.resolved_at, c.created_by, u.name AS created_by_name, u.color AS created_by_color \
+    c.resolved_at, c.created_by, u.name AS created_by_name, u.color AS created_by_color, \
+    c.anchor_text, c.anchor_prefix, c.anchor_suffix \
     FROM comments c JOIN users u ON u.id = c.created_by";
 
 #[derive(Deserialize)]
@@ -54,20 +59,50 @@ pub struct CreateReq {
     document_id: String,
     text: String,
     parent_comment_id: Option<Uuid>,
+    /// the passage of the text the comment is about (first comment of a thread only)
+    anchor: Option<Anchor>,
+}
+
+#[derive(Deserialize)]
+pub struct Anchor {
+    text: String,
+    #[serde(default)]
+    prefix: String,
+    #[serde(default)]
+    suffix: String,
+}
+
+/// at most `n` characters, for the stored anchor
+fn clip(s: &str, n: usize, from_end: bool) -> String {
+    let chars: Vec<char> = s.chars().collect();
+    if chars.len() <= n {
+        s.to_string()
+    } else if from_end {
+        chars[chars.len() - n..].iter().collect()
+    } else {
+        chars[..n].iter().collect()
+    }
 }
 
 pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<CreateReq>) -> ApiResult<Json<Value>> {
     let (d, _) = load_doc(&st.db, &auth, &b.document_id, Access::Read).await?;
     let text = non_empty(&b.text, "Comment")?;
+    let anchor = b.anchor.filter(|a| b.parent_comment_id.is_none() && !a.text.trim().is_empty());
     let id = Uuid::new_v4();
-    sqlx::query("INSERT INTO comments (id, document_id, parent_comment_id, created_by, text) VALUES ($1, $2, $3, $4, $5)")
-        .bind(id)
-        .bind(d.id)
-        .bind(b.parent_comment_id)
-        .bind(auth.user.id)
-        .bind(text)
-        .execute(&st.db)
-        .await?;
+    sqlx::query(
+        "INSERT INTO comments (id, document_id, parent_comment_id, created_by, text, anchor_text, anchor_prefix, anchor_suffix) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    )
+    .bind(id)
+    .bind(d.id)
+    .bind(b.parent_comment_id)
+    .bind(auth.user.id)
+    .bind(text)
+    .bind(anchor.as_ref().map(|a| clip(&a.text, 1000, false)))
+    .bind(anchor.as_ref().map(|a| clip(&a.prefix, 40, true)))
+    .bind(anchor.as_ref().map(|a| clip(&a.suffix, 40, false)))
+    .execute(&st.db)
+    .await?;
     let c: CommentRow = sqlx::query_as(&format!("{COMMENT_SELECT} WHERE c.id = $1"))
         .bind(id)
         .fetch_one(&st.db)

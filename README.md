@@ -148,7 +148,22 @@ Most common commands (`make` with no arguments shows the list):
 - **Full-text search** in PostgreSQL with highlighted results, a collection filter and search across all your
   workspaces.
 - **Public sharing** of documents by link (`/s/...`).
-- **Members and roles** (admin, editor, viewer), invites by link or email, personal API keys.
+- **Members and roles** (admin, editor, viewer), invites by link or email, personal API keys. Workspace admins can
+  **suspend** a member (they can't open the workspace until reactivated; role, groups and permissions are kept);
+  superadmins can suspend an account everywhere (no sign-in, sessions closed, API keys stop working).
+- **Sharing a document** with people or groups beyond its collection (*Share → People with access*, "can edit" or
+  "view only"), also for its nested documents, as in Outline; shared documents appear in **Shared with me**.
+- **Following** documents and collections (*Follow* in their menu): a notification, and an email if wanted, when a
+  followed document gets a new editing session, a document is published in a followed collection or a document is
+  shared with you. People who publish or edit a document follow it automatically.
+- **Comments on a passage**: select text and choose *Comment*, also with read-only access; the passage is
+  highlighted and the thread shows the quote. The document's Markdown is not changed: when the passage is deleted
+  the comment stays, with the quote crossed out.
+- **Embeds**: a link to YouTube, Vimeo, Loom, Figma, Google Docs/Sheets/Slides/Forms/Drive, Miro, Spotify or
+  CodePen pasted on an empty line (or */Embed*) is shown in the document; in Markdown it stays a link
+  (`[url](url)` on its own line). **Link previews**: resting the pointer on a link to a document shows its title and
+  first lines; previews of external sites are off by default (*General settings → Data protection*), because the
+  server then fetches the linked page (public addresses only, 5 seconds, 512 KB).
 - **Activity and audit log**: workspace admins see who is active, who changed which document, sign-ins and the
   changes to members, access and settings; superadmins see the sign-ins and settings of the installation
   ([details](#activity-and-audit-log)).
@@ -430,7 +445,6 @@ Frontend development with hot reload: start the stack, then `cd web && npm insta
   a conflict notice appears with a button to reload.
 - Sign-in with email and password or Microsoft Entra ID. No other SSO providers (Google, Slack, generic OIDC)
   or integrations.
-- Comments refer to the whole document, they are not anchored to a text selection.
 
 ## Contributing
 

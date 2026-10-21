@@ -426,7 +426,7 @@ fn summary(st: &AppState, verb: &str, d: &Value) -> String {
 /// Workspaces usable by this request: the key's, or every membership for a browser session.
 async fn usable_workspaces(st: &AppState, auth: &Auth) -> Result<Vec<(Uuid, String, String)>, String> {
     let rows: Vec<(Uuid, String, String)> = sqlx::query_as(
-        "SELECT t.id, t.name, m.role FROM team_memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $1 ORDER BY t.name",
+        "SELECT t.id, t.name, m.role FROM team_memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = $1 AND m.suspended_at IS NULL ORDER BY t.name",
     )
     .bind(auth.user.id)
     .fetch_all(&st.db)

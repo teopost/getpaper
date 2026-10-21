@@ -18,7 +18,7 @@ pub async fn team_role(db: &PgPool, auth: &Auth, team_id: Uuid) -> ApiResult<Opt
             return Ok(None);
         }
     }
-    let r: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2")
+    let r: Option<(String,)> = sqlx::query_as("SELECT role FROM team_memberships WHERE user_id = $1 AND team_id = $2 AND suspended_at IS NULL")
         .bind(auth.user.id)
         .bind(team_id)
         .fetch_optional(db)
@@ -75,6 +75,16 @@ pub async fn membership(db: &PgPool, collection_id: Uuid, user_id: Uuid) -> ApiR
     Ok(m)
 }
 
+/// Access given by sharing the document (or a parent) with the user or one of their groups.
+pub async fn document_grant(db: &PgPool, doc: Uuid, user: Uuid) -> ApiResult<Access> {
+    let (g,): (Option<String>,) = sqlx::query_as("SELECT document_grant($1, $2)").bind(doc).bind(user).fetch_one(db).await?;
+    Ok(match g.as_deref() {
+        Some("read_write") => Access::Write,
+        Some(_) => Access::Read,
+        None => Access::None,
+    })
+}
+
 pub async fn find_collection(db: &PgPool, id: &str) -> ApiResult<Collection> {
     let c: Option<Collection> = match parse_id(id) {
         IdRef::Uuid(u) => sqlx::query_as("SELECT * FROM collections WHERE id = $1").bind(u).fetch_optional(db).await?,
@@ -99,12 +109,12 @@ pub async fn load_collection(db: &PgPool, auth: &Auth, id: &str, need: Access) -
 /// (same rules as `readable_collection_ids`, applied with the user's role in every workspace).
 pub async fn readable_collection_ids_all_teams(db: &PgPool, auth: &Auth) -> ApiResult<(Vec<Uuid>, Vec<Uuid>)> {
     let user_id = auth.user.id;
-    let teams: Vec<(Uuid,)> = sqlx::query_as("SELECT team_id FROM team_memberships WHERE user_id = $1")
+    let teams: Vec<(Uuid,)> = sqlx::query_as("SELECT team_id FROM team_memberships WHERE user_id = $1 AND suspended_at IS NULL")
         .bind(user_id)
         .fetch_all(db)
         .await?;
     let cols: Vec<(Uuid,)> = sqlx::query_as(
-        "SELECT c.id FROM collections c JOIN team_memberships m ON m.team_id = c.team_id AND m.user_id = $1 \
+        "SELECT c.id FROM collections c JOIN team_memberships m ON m.team_id = c.team_id AND m.user_id = $1 AND m.suspended_at IS NULL \
          WHERE c.deleted_at IS NULL AND (m.role = 'admin' OR c.permission IS NOT NULL OR EXISTS \
          (SELECT 1 FROM collection_grants cm WHERE cm.collection_id = c.id AND cm.user_id = $1))",
     )
@@ -206,6 +216,9 @@ pub async fn doc_access(db: &PgPool, auth: &Auth, d: &DocRow) -> ApiResult<Acces
             // drafts owned by the user remain editable by them
             if a == Access::None && is_owner && d.published_at.is_none() {
                 Access::Write
+            } else if a < Access::Write && d.published_at.is_some() && c.deleted_at.is_none() {
+                // shared with the user (or a group of theirs) on this document or a parent
+                a.max(document_grant(db, d.id, auth.user.id).await?)
             } else {
                 a
             }

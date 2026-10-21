@@ -127,7 +127,24 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
   di formattazione di un modello) sono evidenziati nel nuovo documento e si sostituiscono con un clic e scrivendo.
 - **Ricerca full-text** in PostgreSQL con evidenziazione dei risultati e filtro per collezione.
 - **Condivisione pubblica** dei documenti tramite link (`/s/...`).
-- **Membri e ruoli** (admin, editor, viewer), inviti tramite link, chiavi API personali.
+- **Membri e ruoli** (admin, editor, viewer), inviti tramite link, chiavi API personali. Gli amministratori del
+  workspace possono **sospendere** un membro (non apre il workspace finché non viene riattivato; ruolo, gruppi e
+  permessi restano); i superadmin possono sospendere un account ovunque (niente accesso, sessioni chiuse, chiavi API
+  disattivate).
+- **Condivisione di un documento** con persone o gruppi oltre la sua collezione (*Condividi → Persone con accesso*,
+  "può modificare" o "sola lettura"), anche per i documenti annidati, come in Outline; i documenti condivisi
+  compaiono in **Condivisi con me**.
+- **Seguire** documenti e collezioni (*Segui* nel loro menu): una notifica, e un'email se la si vuole, quando un
+  documento seguito ha una nuova sessione di modifica, viene pubblicato un documento in una collezione seguita o
+  qualcuno condivide un documento con te. Chi pubblica o modifica un documento lo segue automaticamente.
+- **Commenti su un passaggio**: si seleziona il testo e si sceglie *Commenta*, anche con accesso in sola lettura; il
+  passaggio viene evidenziato e la discussione mostra la citazione. Il Markdown del documento non cambia: se il
+  passaggio viene cancellato il commento resta, con la citazione barrata.
+- **Contenuti incorporati**: un link a YouTube, Vimeo, Loom, Figma, Google Docs/Sheets/Slides/Forms/Drive, Miro,
+  Spotify o CodePen incollato su una riga vuota (o */Incorpora*) viene mostrato nel documento; nel Markdown resta un
+  link (`[url](url)` su una riga a sé). **Anteprime dei link**: fermando il puntatore su un link a un documento se ne
+  vedono titolo e prime righe; le anteprime dei siti esterni sono spente di default (*Impostazioni generali →
+  Protezione dei dati*), perché il server scarica la pagina collegata (solo indirizzi pubblici, 5 secondi, 512 KB).
 - **Attività e registro di audit**: gli amministratori di un workspace vedono chi è attivo, chi ha modificato quale
   documento, gli accessi e le modifiche a membri, permessi e impostazioni; i superadmin vedono accessi e impostazioni
   dell'installazione ([dettagli](#attività-e-registro-di-audit)).
@@ -414,7 +431,6 @@ Sviluppo frontend con hot reload: avvia lo stack, poi `cd web && npm install && 
   il documento nel frattempo, compare un avviso di conflitto con il pulsante per ricaricare.
 - Accesso con email e password oppure Microsoft Entra ID. Non ci sono altri SSO (Google, Slack, OIDC generico)
   né integrazioni.
-- I commenti riguardano l'intero documento, non sono ancorati a una selezione di testo.
 
 ## Contribuire
 
