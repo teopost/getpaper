@@ -46,9 +46,21 @@ export const EMBEDS = [
   },
   {
     name: 'Google Docs',
-    match: /^https:\/\/docs\.google\.com\/(document|spreadsheets|presentation)\/d\/([\w-]+)/,
+    match: /^https:\/\/docs\.google\.com\/(document)\/d\/([\w-]+)/,
     src: (m) => `https://docs.google.com/${m[1]}/d/${m[2]}/preview`,
     height: 520,
+  },
+  {
+    name: 'Google Sheets',
+    match: /^https:\/\/docs\.google\.com\/(spreadsheets)\/d\/([\w-]+)/,
+    src: (m) => `https://docs.google.com/${m[1]}/d/${m[2]}/preview`,
+    height: 520,
+  },
+  {
+    name: 'Google Slides',
+    match: /^https:\/\/docs\.google\.com\/(presentation)\/d\/([\w-]+)/,
+    src: (m) => `https://docs.google.com/${m[1]}/d/${m[2]}/preview`,
+    ratio: 16 / 9,
   },
   {
     name: 'Google Forms',
@@ -82,10 +94,11 @@ export const EMBEDS = [
   },
 ];
 
-/** How to show `url` inside a document, or null when it is not an embeddable link */
-export function embedFor(url) {
+/** How to show `url` inside a document, or null when it is not an embeddable link; `only`: name of one service */
+export function embedFor(url, only) {
   if (typeof url !== 'string') return null;
   for (const e of EMBEDS) {
+    if (only && e.name !== only) continue;
     const m = e.match.exec(url.trim());
     if (m) {
       return {

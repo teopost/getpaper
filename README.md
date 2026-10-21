@@ -160,7 +160,8 @@ Most common commands (`make` with no arguments shows the list):
   highlighted and the thread shows the quote. The document's Markdown is not changed: when the passage is deleted
   the comment stays, with the quote crossed out.
 - **Embeds**: a link to YouTube, Vimeo, Loom, Figma, Google Docs/Sheets/Slides/Forms/Drive, Miro, Spotify or
-  CodePen pasted on an empty line (or */Embed*) is shown in the document; in Markdown it stays a link
+  CodePen pasted on an empty line is shown in the document; in the `/` menu each service (*YouTube*, *Figma*,
+  *Google Sheets*…) or *Embed* asks for the link right in the menu, as in Outline; in Markdown it stays a link
   (`[url](url)` on its own line). **Link previews**: resting the pointer on a link to a document shows its title and
   first lines; previews of external sites are off by default (*General settings → Data protection*), because the
   server then fetches the linked page (public addresses only, 5 seconds, 512 KB).

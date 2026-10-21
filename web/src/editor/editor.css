@@ -781,3 +781,33 @@
   gap: 4px;
 }
 
+/* "/" menu asking for the link of a service to embed */
+.embed-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.embed-link-input {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  outline: none;
+}
+.embed-link-input:focus {
+  border-color: var(--accent);
+}
+.embed-link-hint,
+.embed-link-error {
+  font-size: 12px;
+  padding: 0 2px 2px;
+  color: var(--text-tertiary);
+}
+.embed-link-error {
+  color: var(--danger);
+}
+

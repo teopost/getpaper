@@ -57,6 +57,17 @@ import {
   TextCursorInput,
   MessageSquarePlus,
   Clapperboard,
+  Youtube,
+  Video,
+  PenTool,
+  FileText,
+  Sheet,
+  Presentation,
+  ClipboardList,
+  HardDrive,
+  LayoutDashboard,
+  Music,
+  Code2,
 } from 'lucide-react';
 import { api, uploadFile } from '../api';
 import { t, getLanguage } from '../i18n';
@@ -135,6 +146,35 @@ async function insertFiles(editor, files, documentId, pos) {
   }
 }
 
+/** "/" items of the services that can be embedded: the menu then asks for the link, as in Outline */
+function embedItems() {
+  const embed = ({ editor, range, url }) => editor.chain().focus().deleteRange(range).insertEmbed(url).run();
+  const service = (name, keywords, icon) => ({
+    section: t('Embeds'),
+    title: name,
+    titleEn: name,
+    keywords: `${keywords} embed`,
+    icon,
+    embed: { service: name },
+    command: embed,
+  });
+  return [
+    { section: t('Embeds'), title: t('Embed'), titleEn: 'Embed', keywords: 'iframe link video', icon: <Clapperboard size={16} />, embed: { service: null }, command: embed },
+    service('YouTube', 'video youtu.be', <Youtube size={16} />),
+    service('Vimeo', 'video', <Video size={16} />),
+    service('Loom', 'video screen recording', <Video size={16} />),
+    service('Figma', 'design prototype', <PenTool size={16} />),
+    service('Google Docs', 'document gdoc', <FileText size={16} />),
+    service('Google Sheets', 'spreadsheet gsheet excel', <Sheet size={16} />),
+    service('Google Slides', 'presentation slides gslides', <Presentation size={16} />),
+    service('Google Forms', 'form survey', <ClipboardList size={16} />),
+    service('Google Drive', 'file pdf', <HardDrive size={16} />),
+    service('Miro', 'whiteboard board', <LayoutDashboard size={16} />),
+    service('Spotify', 'music podcast audio', <Music size={16} />),
+    service('CodePen', 'code html css javascript', <Code2 size={16} />),
+  ];
+}
+
 function slashItems(documentId) {
   const run = (fn) => ({ editor, range }) => fn(editor.chain().focus().deleteRange(range), editor);
   return [
@@ -149,18 +189,6 @@ function slashItems(documentId) {
     { section: t('Blocks'), title: t('Code block'), titleEn: 'Code block', keywords: 'pre snippet', icon: <Braces size={16} />, shortcut: '```', command: run((c) => c.toggleCodeBlock().run()) },
     { section: t('Blocks'), title: t('Mermaid diagram'), titleEn: 'Mermaid diagram', keywords: 'diagram chart graph flowchart sequence gantt mermaidjs', icon: <Workflow size={16} />, command: run((c) => c.setCodeBlock({ language: 'mermaid' }).run()) },
     { section: t('Blocks'), title: t('Table of contents'), titleEn: 'Table of contents', keywords: 'toc index outline headings', icon: <ListTree size={16} />, command: run((c) => c.insertToc().run()) },
-    {
-      section: t('Blocks'),
-      title: t('Embed'), titleEn: 'Embed',
-      keywords: 'youtube vimeo loom figma google docs sheets slides drive miro spotify codepen video iframe',
-      icon: <Clapperboard size={16} />,
-      command: ({ editor, range }) => {
-        editor.chain().focus().deleteRange(range).run();
-        const url = window.prompt(t('Link to embed (YouTube, Vimeo, Loom, Figma, Google Docs, Miro, Spotify, CodePen)'));
-        if (!url) return;
-        if (!editor.chain().focus().insertEmbed(url.trim()).run()) window.alert(t('This link can’t be embedded: it stays a link.'));
-      },
-    },
     { section: t('Blocks'), title: t('Divider'), titleEn: 'Divider', keywords: 'hr horizontal rule line', icon: <Minus size={16} />, shortcut: '---', command: run((c) => c.setHorizontalRule().run()) },
     {
       section: t('Blocks'),
@@ -182,6 +210,7 @@ function slashItems(documentId) {
         pickFile().then((f) => f && insertFiles(editor, [f], documentId));
       },
     },
+    ...embedItems(),
     { section: t('Notices'), title: t('Info notice'), titleEn: 'Info notice', keywords: 'callout', icon: <Info size={16} />, shortcut: ':::', command: run((c) => c.setNotice('info').run()) },
     { section: t('Notices'), title: t('Warning notice'), titleEn: 'Warning notice', keywords: 'callout alert', icon: <AlertTriangle size={16} />, command: run((c) => c.setNotice('warning').run()) },
     { section: t('Notices'), title: t('Tip notice'), titleEn: 'Tip notice', keywords: 'callout hint', icon: <Lightbulb size={16} />, command: run((c) => c.setNotice('tip').run()) },

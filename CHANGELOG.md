@@ -22,7 +22,8 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 - **Comments on a passage of the text**, also by readers: the passage is highlighted, the thread shows the quote
   and clicking it goes to the text; the Markdown of the document is not changed.
 - **Embeds** of YouTube, Vimeo, Loom, Figma, Google Docs, Sheets, Slides, Forms and Drive, Miro, Spotify and
-  CodePen (pasting the link on an empty line or /Embed), stored as a link; **link previews** for documents of the
+  CodePen (pasting the link on an empty line, or choosing the service in the / menu, which then asks for its link
+  as in Outline), stored as a link; **link previews** for documents of the
   workspace and, if a superadmin enables them, for external sites (fetched by the server, public addresses only).
 
 - **Activity and audit log**. Workspace admins have Settings → Activity: people (last activity, sign-ins, documents

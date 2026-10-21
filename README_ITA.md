@@ -141,7 +141,8 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
   passaggio viene evidenziato e la discussione mostra la citazione. Il Markdown del documento non cambia: se il
   passaggio viene cancellato il commento resta, con la citazione barrata.
 - **Contenuti incorporati**: un link a YouTube, Vimeo, Loom, Figma, Google Docs/Sheets/Slides/Forms/Drive, Miro,
-  Spotify o CodePen incollato su una riga vuota (o */Incorpora*) viene mostrato nel documento; nel Markdown resta un
+  Spotify o CodePen incollato su una riga vuota viene mostrato nel documento; nel menu `/` ogni servizio
+  (*YouTube*, *Figma*, *Google Sheets*…) o *Incorpora* chiede il link direttamente nel menu, come in Outline; nel Markdown resta un
   link (`[url](url)` su una riga a sé). **Anteprime dei link**: fermando il puntatore su un link a un documento se ne
   vedono titolo e prime righe; le anteprime dei siti esterni sono spente di default (*Impostazioni generali →
   Protezione dei dati*), perché il server scarica la pagina collegata (solo indirizzi pubblici, 5 secondi, 512 KB).

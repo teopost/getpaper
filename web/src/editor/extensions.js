@@ -414,7 +414,8 @@ export function createSlashCommand(getItems) {
             return $from.parent.type.name !== 'codeBlock';
           },
           command: ({ editor, range, props }) => {
-            props.command({ editor, range });
+            // url: the link typed in the menu for an embed
+            props.command({ editor, range, url: props.url });
           },
           items: ({ query }) => {
             const q = query.toLowerCase();
