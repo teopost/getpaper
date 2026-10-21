@@ -673,6 +673,21 @@ body.resizing-sidebar {
   font-size: 12px;
   opacity: 0.6;
 }
+.menu-search {
+  font-size: 14px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+}
+/* a long part of a menu (the workspace list) scrolls on its own, the rest of the menu stays in view */
+.menu-scroll {
+  max-height: min(296px, 40vh);
+  overflow-y: auto;
+}
+.menu-empty {
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
 .menu-separator {
   height: 1px;
   background: var(--divider);

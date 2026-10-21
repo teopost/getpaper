@@ -14,6 +14,8 @@ export default {
   // Sidebar
   Workspaces: 'Workspace',
   'New workspace…': 'Nuovo workspace…',
+  'Find a workspace…': 'Cerca un workspace…',
+  'No workspaces found': 'Nessun workspace trovato',
   Settings: 'Impostazioni',
   'Invite people…': 'Invita persone…',
   Profile: 'Profilo',

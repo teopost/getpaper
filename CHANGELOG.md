@@ -17,6 +17,8 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ### Changed
 
+- The workspace menu stays short with many workspaces: the list scrolls on its own and, from 8 workspaces, a search
+  field filters it by name (Enter opens the first match).
 - The "Workspaces" link at the bottom of the sidebar is removed: the workspace settings are in the menu that opens
   from the workspace name.
 

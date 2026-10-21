@@ -114,12 +114,18 @@ function TeamSwitcher() {
 
   const items = [
     { heading: t('Workspaces') },
-    ...teams.map((tm) => ({
-      label: tm.name,
-      icon: <TeamAvatar team={tm} size={20} />,
-      checked: tm.id === team.id,
-      onClick: () => tm.id !== team.id && switchTeam(tm.id),
-    })),
+    {
+      render: (close) => (
+        <WorkspaceList
+          teams={teams}
+          current={team.id}
+          onPick={(tm) => {
+            close();
+            if (tm.id !== team.id) switchTeam(tm.id);
+          }}
+        />
+      ),
+    },
     { label: t('New workspace…'), icon: <Plus size={16} />, onClick: () => setShowNew(true) },
     { separator: true },
     { label: t('Settings'), icon: <Settings size={16} />, onClick: () => navigate('/settings/workspace') },
@@ -156,6 +162,52 @@ function TeamSwitcher() {
       />
       {showNew && <NewWorkspaceModal onClose={() => setShowNew(false)} />}
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
+    </>
+  );
+}
+
+// from this many workspaces the menu shows a search field above the list
+const WORKSPACE_SEARCH_FROM = 8;
+
+const fold = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/** Workspaces in the workspace menu: a list that scrolls on its own, with a search field when there are many */
+function WorkspaceList({ teams, current, onPick }) {
+  const [query, setQuery] = useState('');
+  const q = fold(query.trim());
+  const shown = q ? teams.filter((tm) => fold(tm.name).includes(q)) : teams;
+  return (
+    <>
+      {teams.length >= WORKSPACE_SEARCH_FROM && (
+        <input
+          className="menu-search"
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && shown[0]) {
+              e.preventDefault();
+              onPick(shown[0]);
+            }
+          }}
+          placeholder={t('Find a workspace…')}
+          aria-label={t('Find a workspace…')}
+        />
+      )}
+      <div className="menu-scroll">
+        {shown.map((tm) => (
+          <button key={tm.id} className="menu-item" onClick={() => onPick(tm)}>
+            <span className="menu-icon">
+              <TeamAvatar team={tm} size={20} />
+            </span>
+            <span className="menu-label" title={tm.name}>
+              {tm.name}
+            </span>
+            {tm.id === current && <span className="menu-check">✓</span>}
+          </button>
+        ))}
+        {!shown.length && <div className="menu-empty">{t('No workspaces found')}</div>}
+      </div>
     </>
   );
 }
