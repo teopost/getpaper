@@ -8,6 +8,8 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-21
+
 ### Added
 
 - **Template variables and placeholders**, as in Outline: `{date}`, `{time}`, `{datetime}` and `{author}` in the title
@@ -101,5 +103,6 @@ First public release.
 - Docker image for amd64 and arm64 on GitHub Container Registry and a Compose file for the published image.
 - Makefile with the common tasks for installations from source.
 
-[Unreleased]: https://github.com/teopost/getpaper/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/teopost/getpaper/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/teopost/getpaper/releases/tag/v0.2.0
 [0.1.0]: https://github.com/teopost/getpaper/releases/tag/v0.1.0

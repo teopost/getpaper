@@ -25,7 +25,7 @@ Facts, as documented in the repository:
 - [README (Italiano)](https://github.com/teopost/getpaper/blob/main/README_ITA.md)
 - [Docker Compose file](https://raw.githubusercontent.com/teopost/getpaper/main/deploy/docker-compose.yml)
 - [Environment variables example](https://raw.githubusercontent.com/teopost/getpaper/main/.env.example)
-- [Changelog](https://github.com/teopost/getpaper/blob/main/CHANGELOG.md): release notes; current release 0.1.0, Docker tag ghcr.io/teopost/getpaper:0.1.0
+- [Changelog](https://github.com/teopost/getpaper/blob/main/CHANGELOG.md): release notes; current release 0.2.0, Docker tag ghcr.io/teopost/getpaper:0.2.0
 - [Contributing](https://github.com/teopost/getpaper/blob/main/CONTRIBUTING.md)
 - [License](https://github.com/teopost/getpaper/blob/main/LICENSE)
 

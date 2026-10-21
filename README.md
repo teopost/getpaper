@@ -54,7 +54,7 @@ docker compose pull && docker compose up -d
 ```
 
 Database migrations run automatically when the application starts. For controlled updates, pin a release in `.env`
-instead of `latest`, for example `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:0.1.0`, and read the
+instead of `latest`, for example `GETPAPER_IMAGE=ghcr.io/teopost/getpaper:0.2.0`, and read the
 [changelog](CHANGELOG.md) before moving to a newer one. Take a backup first.
 
 Image tags: `latest` (every change on `main`), `X.Y.Z` and `X.Y` (releases), `sha-<commit>` (every build).
