@@ -1,5 +1,5 @@
 //! Microsoft Entra ID (Azure AD) single sign-on with OpenID Connect
-//! (authorization code flow + PKCE).
+//! (authorization code flow + PKCE). The other providers are in oidc.rs and share the helpers here.
 
 use axum::{
     extract::{Query, State},
@@ -24,7 +24,7 @@ use crate::{
 
 const STATE_COOKIE: &str = "ms_oidc";
 
-fn redirect(location: &str, cookies: Vec<String>) -> Response {
+pub(crate) fn redirect(location: &str, cookies: Vec<String>) -> Response {
     let mut res = (StatusCode::FOUND, [(header::LOCATION, location.to_string())]).into_response();
     for c in cookies {
         res.headers_mut().append(header::SET_COOKIE, c.parse().unwrap());
@@ -33,14 +33,23 @@ fn redirect(location: &str, cookies: Vec<String>) -> Response {
 }
 
 fn clear_state_cookie() -> String {
-    format!("{STATE_COOKIE}=; Path=/auth; HttpOnly; SameSite=Lax; Max-Age=0")
+    clear_cookie(STATE_COOKIE)
 }
 
-fn login_error(message: &str) -> Response {
+pub(crate) fn clear_cookie(name: &str) -> String {
+    format!("{name}=; Path=/auth; HttpOnly; SameSite=Lax; Max-Age=0")
+}
+
+pub(crate) fn login_error(message: &str) -> Response {
+    login_error_clearing(message, STATE_COOKIE)
+}
+
+/// Back to the sign-in page with an error, dropping the state cookie `cookie`
+pub(crate) fn login_error_clearing(message: &str, cookie: &str) -> Response {
     let mut url = reqwest::Url::parse("http://x/login").unwrap();
     url.query_pairs_mut().append_pair("error", message);
     let location = format!("/login?{}", url.query().unwrap_or(""));
-    redirect(&location, vec![clear_state_cookie()])
+    redirect(&location, vec![clear_cookie(cookie)])
 }
 
 fn redirect_uri(st: &AppState) -> String {
@@ -105,7 +114,7 @@ pub struct CallbackQuery {
     error_description: Option<String>,
 }
 
-fn read_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
+pub(crate) fn read_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
     headers.get_all(header::COOKIE).iter().find_map(|v| {
         v.to_str().ok()?.split(';').find_map(|p| {
             let p = p.trim();
@@ -185,7 +194,7 @@ async fn exchange(st: &AppState, ms: &MicrosoftConfig, code: &str, verifier: &st
     Ok(Identity { microsoft_id: format!("{tid}:{oid}"), email, name })
 }
 
-fn email_domain(email: &str) -> String {
+pub(crate) fn email_domain(email: &str) -> String {
     email.rsplit('@').next().unwrap_or("").to_lowercase()
 }
 
@@ -257,13 +266,13 @@ impl User {
 
 /// Join workspaces: explicit invite, pending invites for the email, and workspaces whose
 /// allowed domains include the email domain. Returns the workspace to open.
-async fn join_workspaces(st: &AppState, meta: &ClientMeta, user: &User, invite: &str) -> ApiResult<Option<Uuid>> {
+pub(crate) async fn join_workspaces(st: &AppState, meta: &ClientMeta, user: &User, invite: &str) -> ApiResult<Option<Uuid>> {
     let mut preferred = None;
     let joined = |team: Uuid, how: &'static str| {
         audit::insert(st, meta, Some(team), Actor::user(user), "users.join", Target::user(user), serde_json::json!({ "via": how }))
     };
     if !invite.is_empty() {
-        if let Ok(t) = crate::api::invites::accept_invite_internal(&st.db, user, invite).await {
+        if let Ok(t) = crate::api::invites::accept_invite_internal(st, user, invite).await {
             joined(t, "invite").await;
             preferred = Some(t);
         }
@@ -273,7 +282,7 @@ async fn join_workspaces(st: &AppState, meta: &ClientMeta, user: &User, invite: 
         .fetch_all(&st.db)
         .await?;
     for (token,) in pending {
-        let t = crate::api::invites::accept_invite_internal(&st.db, user, &token).await.ok();
+        let t = crate::api::invites::accept_invite_internal(st, user, &token).await.ok();
         if let Some(t) = t {
             joined(t, "invite").await;
         }
@@ -368,21 +377,4 @@ pub async fn callback(State(st): State<AppState>, meta: ClientMeta, headers: Hea
     tracing::info!(user = %user.email, "signed in with Microsoft");
     audit::insert(&st, &meta, None, Actor::user(&user), "auth.signin", None, serde_json::json!({ "method": "microsoft" })).await;
     redirect(&target, vec![session_cookie(&token, st.cfg.secure_cookies), clear_state_cookie()])
-}
-
-/// GET /s/:share - the SPA, with headers that keep public pages out of search engines.
-pub async fn shared_page(State(st): State<AppState>) -> Response {
-    match tokio::fs::read(st.cfg.static_dir.join("index.html")).await {
-        Ok(html) => (
-            [
-                (header::CONTENT_TYPE, "text/html; charset=utf-8"),
-                (header::HeaderName::from_static("x-robots-tag"), "noindex, nofollow"),
-                (header::REFERRER_POLICY, "no-referrer"),
-                (header::CACHE_CONTROL, "no-cache"),
-            ],
-            html,
-        )
-            .into_response(),
-        Err(_) => StatusCode::NOT_FOUND.into_response(),
-    }
 }

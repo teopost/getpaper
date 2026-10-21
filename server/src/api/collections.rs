@@ -375,6 +375,7 @@ pub async fn add_user(State(st): State<AppState>, auth: Auth, Json(b): Json<AddU
     .await?;
     let user = Target::user_id(&st.db, b.user_id).await.map(|t| t.name);
     audit::record(&st, &auth, "collections.add_user", Target::collection(c.id, &c.name), json!({ "user": user, "permission": perm })).await;
+    crate::notify::collection_added(&st, &auth.user, c.team_id, c.id, b.user_id);
     ok(json!({ "success": true }))
 }
 

@@ -5,6 +5,7 @@ import { api, collectionUrl, docUrl, downloadText, slugify, upload } from '../ap
 import { useApp } from '../store';
 import Scene from '../components/Scene';
 import DocumentList from '../components/DocumentList';
+import PinnedDocs from '../components/PinnedDocs';
 import { CollectionIcon } from '../components/icons';
 import { Button, IconButton, Menu, Spinner, Tabs, Empty, ConfirmModal } from '../components/ui';
 import CollectionModal from '../components/CollectionModal';
@@ -197,6 +198,7 @@ export default function CollectionPage() {
           placeholder={canWrite ? t('Add a description…') : ''}
         />
       </div>
+      <PinnedDocs key={collection.id} collectionId={collection.id} />
       <Tabs
         value={tab}
         onChange={setTab}

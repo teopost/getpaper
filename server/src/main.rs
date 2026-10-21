@@ -7,9 +7,11 @@ mod instance;
 mod mail;
 mod mentions;
 mod models;
+mod notify;
 mod perm;
 mod subscriptions;
 mod util;
+mod webhooks;
 
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
@@ -43,6 +45,64 @@ pub struct MicrosoftConfig {
     pub callback_path: String,
 }
 
+/// An OpenID Connect provider other than Microsoft: Google, Slack or any provider (OIDC_*)
+pub struct OidcProvider {
+    /// google, slack or oidc: the sign-in starts at /auth/<id>, returns to /auth/<id>/callback
+    pub id: &'static str,
+    /// on the sign-in button
+    pub name: String,
+    /// issuer URL: the configuration is read from <issuer>/.well-known/openid-configuration
+    pub issuer: String,
+    pub client_id: String,
+    pub client_secret: String,
+    pub scopes: String,
+    /// If not empty, only these email domains may sign in
+    pub allowed_domains: Vec<String>,
+    /// Create accounts for unknown users on first sign-in
+    pub auto_provision: bool,
+    /// Accept email addresses the provider doesn't mark as verified (OIDC_TRUST_EMAIL)
+    pub trust_email: bool,
+}
+
+impl OidcProvider {
+    /// The providers configured in the environment; accounts are created automatically like with
+    /// password sign-up (ALLOW_SIGNUP) unless <PROVIDER>_AUTO_PROVISION says otherwise.
+    fn from_env(allow_signup: bool) -> Vec<OidcProvider> {
+        let var = |k: &str| std::env::var(k).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
+        let fixed = [("google", "GOOGLE", "Google", "https://accounts.google.com"), ("slack", "SLACK", "Slack", "https://slack.com")];
+        let mut out = Vec::new();
+        for (id, prefix, name, issuer) in fixed {
+            if let (Some(client_id), Some(client_secret)) = (var(&format!("{prefix}_CLIENT_ID")), var(&format!("{prefix}_CLIENT_SECRET"))) {
+                out.push(OidcProvider {
+                    id,
+                    name: name.into(),
+                    issuer: issuer.into(),
+                    client_id,
+                    client_secret,
+                    scopes: "openid profile email".into(),
+                    allowed_domains: env_list(&format!("{prefix}_ALLOWED_DOMAINS")),
+                    auto_provision: env_bool(&format!("{prefix}_AUTO_PROVISION"), allow_signup),
+                    trust_email: false,
+                });
+            }
+        }
+        if let (Some(issuer), Some(client_id), Some(client_secret)) = (var("OIDC_ISSUER"), var("OIDC_CLIENT_ID"), var("OIDC_CLIENT_SECRET")) {
+            out.push(OidcProvider {
+                id: "oidc",
+                name: var("OIDC_DISPLAY_NAME").unwrap_or_else(|| "OpenID Connect".into()),
+                issuer: issuer.trim_end_matches('/').to_string(),
+                client_id,
+                client_secret,
+                scopes: var("OIDC_SCOPES").unwrap_or_else(|| "openid profile email".into()),
+                allowed_domains: env_list("OIDC_ALLOWED_DOMAINS"),
+                auto_provision: env_bool("OIDC_AUTO_PROVISION", allow_signup),
+                trust_email: env_bool("OIDC_TRUST_EMAIL", false),
+            });
+        }
+        out
+    }
+}
+
 /// Paths the Microsoft sign-in can return to
 pub const MICROSOFT_CALLBACK_PATHS: &[&str] = &["/auth/microsoft/callback", "/auth/azure.callback"];
 
@@ -54,6 +114,12 @@ pub struct Config {
     pub secure_cookies: bool,
     pub max_upload_mb: usize,
     pub microsoft: Option<MicrosoftConfig>,
+    /// Google, Slack and any OpenID Connect provider
+    pub oidc: Vec<OidcProvider>,
+    /// Sign-in with a link sent by email (EMAIL_LOGIN, needs SMTP)
+    pub email_login: bool,
+    /// Sign-in with passkeys (PASSKEYS)
+    pub passkeys: Option<webauthn_rs::Webauthn>,
     /// Email/password authentication enabled
     pub password_login: bool,
     /// Preferences used when a user hasn't chosen their own (overridable in the general settings)
@@ -114,10 +180,12 @@ impl AppState {
     }
 }
 
+/// A yes/no variable; unset or empty (as docker compose passes `${VAR:-}`) means `default`
 fn env_bool(k: &str, default: bool) -> bool {
-    std::env::var(k)
-        .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
-        .unwrap_or(default)
+    match std::env::var(k).map(|v| v.trim().to_lowercase()) {
+        Ok(v) if !v.is_empty() => matches!(v.as_str(), "1" | "true" | "yes" | "on"),
+        _ => default,
+    }
 }
 
 #[tokio::main]
@@ -155,16 +223,44 @@ async fn main() -> anyhow::Result<()> {
     if microsoft.is_some() {
         tracing::info!("Microsoft sign-in enabled");
     }
+    let allow_signup = env_bool("ALLOW_SIGNUP", true);
+    let oidc = OidcProvider::from_env(allow_signup);
+    for p in &oidc {
+        tracing::info!(issuer = %p.issuer, "{} sign-in enabled", p.name);
+    }
+    let smtp = mail::SmtpConfig::from_env();
+    let email_login = env_bool("EMAIL_LOGIN", false);
+    if email_login && smtp.is_none() {
+        tracing::warn!("EMAIL_LOGIN needs SMTP_HOST and SMTP_FROM_EMAIL: sign-in by email stays off");
+    }
+    let email_login = email_login && smtp.is_some();
+    let passkeys = if env_bool("PASSKEYS", false) {
+        match api::passkeys::webauthn(&url) {
+            Ok(w) => {
+                tracing::info!("passkeys enabled");
+                Some(w)
+            }
+            Err(e) => {
+                tracing::warn!("passkeys stay off: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
     // without another way to sign in, password login can't be disabled
-    let password_login = env_bool("PASSWORD_LOGIN", true) || microsoft.is_none();
+    let password_login = env_bool("PASSWORD_LOGIN", true) || (microsoft.is_none() && oidc.is_empty() && !email_login);
     let cfg = Config {
         secure_cookies: url.starts_with("https://"),
         url,
         upload_dir: std::env::var("UPLOAD_DIR").unwrap_or_else(|_| "/data/uploads".into()).into(),
         static_dir: std::env::var("STATIC_DIR").unwrap_or_else(|_| "./public".into()).into(),
-        allow_signup: env_bool("ALLOW_SIGNUP", true),
+        allow_signup,
         max_upload_mb: std::env::var("MAX_UPLOAD_MB").ok().and_then(|v| v.parse().ok()).unwrap_or(25),
         microsoft,
+        oidc,
+        email_login,
+        passkeys,
         password_login,
         defaults: Defaults {
             language: env_choice("DEFAULT_LANGUAGE", LANGUAGES, "en"),
@@ -172,7 +268,7 @@ async fn main() -> anyhow::Result<()> {
             content_width: env_choice("DEFAULT_CONTENT_WIDTH", CONTENT_WIDTHS, "normal"),
         },
         superadmin_emails: env_list("SUPERADMIN_EMAILS"),
-        smtp: mail::SmtpConfig::from_env(),
+        smtp,
     };
     if let Some(s) = &cfg.smtp {
         tracing::info!(host = %s.host, port = s.port, secure = %s.secure, "email enabled");
@@ -207,6 +303,8 @@ async fn main() -> anyhow::Result<()> {
             loop {
                 let retention = instance.read().map(|s| s.audit_retention_days).unwrap_or(0);
                 audit::cleanup(&db, retention).await;
+                let _ = sqlx::query("DELETE FROM webhook_deliveries WHERE created_at < now() - interval '7 days'").execute(&db).await;
+                let _ = sqlx::query("DELETE FROM login_tokens WHERE expires_at < now() - interval '1 day'").execute(&db).await;
                 let _ = sqlx::query("DELETE FROM link_previews WHERE fetched_at < now() - interval '7 days'").execute(&db).await;
                 let _ = sqlx::query("DELETE FROM sessions WHERE expires_at < now()").execute(&db).await;
                 let _ = sqlx::query(
@@ -231,7 +329,12 @@ async fn main() -> anyhow::Result<()> {
         .route("/auth/microsoft/callback", get(api::sso::callback))
         // same redirect URI as Outline (see MICROSOFT_CALLBACK_PATH)
         .route("/auth/azure.callback", get(api::sso::callback))
-        .route("/s/:share", get(api::sso::shared_page))
+        // Google, Slack and any OpenID Connect provider
+        .route("/auth/:provider", get(api::oidc::start))
+        .route("/auth/:provider/callback", get(api::oidc::callback))
+        .route("/s/:share", get(api::shares::shared_page))
+        .route("/s/:share/doc/:doc", get(api::shares::shared_page))
+        .route("/s/:share/sitemap.xml", get(api::shares::sitemap))
         .route("/mcp", post(api::mcp::handle).get(api::mcp::get_not_allowed).delete(api::mcp::get_not_allowed))
         // Only static files are compressed. API answers go out whole with a Content-Length: behind
         // Microsoft Entra application proxy, compressed chunked API responses reached browsers truncated.

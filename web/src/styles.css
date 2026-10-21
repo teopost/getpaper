@@ -1367,6 +1367,106 @@ body.resizing-sidebar {
 .nested-card:hover {
   background: var(--hover);
 }
+.backlinks h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.backlink-list {
+  display: flex;
+  flex-direction: column;
+}
+.backlink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  color: var(--text);
+}
+.backlink:hover {
+  background: var(--hover);
+}
+.backlink-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* pinned documents (home and collections) */
+
+.pinned {
+  margin-bottom: 28px;
+}
+.pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.pinned-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 110px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px var(--divider);
+  color: var(--text);
+  background: var(--bg);
+}
+.pinned-card:hover {
+  background: var(--hover);
+}
+.pinned-card.dragging {
+  opacity: 0.4;
+}
+.pinned-card.drop-target {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.pinned-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  padding-right: 22px;
+}
+.pinned-card-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pinned-card-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+.pinned-card-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.pinned-unpin {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+}
+.pinned-card:hover .pinned-unpin,
+.pinned-unpin:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .pinned-unpin {
+    opacity: 1;
+  }
+}
 
 /* side panels (comments / history) */
 
@@ -1523,6 +1623,27 @@ body.resizing-sidebar {
   height: 1px;
   background: var(--divider);
 }
+.share-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 32px;
+}
+.share-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+.share-option .grow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.share-option-label {
+  font-size: 13px;
+  font-weight: 500;
+}
 
 .move-list {
   max-height: 50vh;
@@ -1678,6 +1799,11 @@ body.resizing-sidebar {
 .link-button:hover {
   color: var(--accent);
 }
+.auth-link-button {
+  align-self: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
 .nowrap {
   white-space: nowrap;
 }
@@ -1807,6 +1933,70 @@ body.resizing-sidebar {
 }
 .shared-page .document {
   padding: 48px 24px 80px;
+}
+.shared-body {
+  flex: 1;
+}
+.shared-body.with-tree {
+  display: flex;
+  align-items: flex-start;
+}
+.shared-body.with-tree .document {
+  flex: 1;
+  min-width: 0;
+}
+.shared-tree {
+  position: sticky;
+  top: 0;
+  width: 260px;
+  flex-shrink: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 24px 8px 24px 16px;
+  border-right: 1px solid var(--divider);
+}
+.shared-tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shared-tree-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+}
+.shared-tree-link:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.shared-tree-link.active {
+  background: var(--hover);
+  color: var(--text);
+  font-weight: 500;
+}
+.shared-tree-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .shared-body.with-tree {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .shared-tree {
+    position: static;
+    width: auto;
+    max-height: 40vh;
+    border-right: 0;
+    border-bottom: 1px solid var(--divider);
+    padding: 12px 16px;
+  }
 }
 .shared-footer {
   text-align: center;
@@ -2438,3 +2628,68 @@ body.resizing-sidebar {
   color: var(--text-tertiary);
 }
 
+
+/* ---------- passkeys and webhooks (settings) ---------- */
+
+.passkey-list,
+.webhook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+.passkey-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+}
+.passkey-name {
+  font-weight: 500;
+}
+.webhook-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--divider);
+  border-radius: 8px;
+}
+.webhook-card.disabled .webhook-title {
+  opacity: 0.6;
+}
+.webhook-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.webhook-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.webhook-url,
+.webhook-secret code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.webhook-secret {
+  align-items: center;
+  min-width: 0;
+}
+.webhook-secret code {
+  min-width: 0;
+  font-size: 12px;
+}
+.webhook-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px 16px;
+  margin-top: 8px;
+}
+.webhook-groups .checkbox-row code {
+  margin-left: auto;
+}

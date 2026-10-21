@@ -27,6 +27,9 @@ import {
   FileType,
   Printer,
   Presentation,
+  Pin,
+  PinOff,
+  Link2,
 } from 'lucide-react';
 import {
   api,
@@ -123,6 +126,7 @@ function SharePanel({ doc, onChange }) {
           </Button>
         </div>
       )}
+      {share && <ShareOptions share={share} onChange={setShare} />}
       </>
       )}
       <div className="share-divider" />
@@ -137,6 +141,36 @@ function SharePanel({ doc, onChange }) {
       >
         {t('Copy internal link')}
       </Button>
+    </div>
+  );
+}
+
+/** Options of a public link, as in Outline */
+function ShareOptions({ share, onChange }) {
+  const toast = useToast();
+  const set = async (field, value) => {
+    try {
+      onChange(await api('shares.update', { id: share.id, [field]: value }));
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const options = [
+    ['includeChildDocuments', t('Include nested documents'), t('The documents inside this one can be read through the link too.')],
+    ['allowIndexing', t('Search engine indexing'), t('Search engines may list the pages of the link.')],
+    ['showLastUpdated', t('Show last modified'), t('Show when the document was last changed.')],
+  ];
+  return (
+    <div className="share-options">
+      {options.map(([field, label, hint]) => (
+        <label key={field} className="share-option">
+          <span className="grow">
+            <span className="share-option-label">{label}</span>
+            <span className="muted small">{hint}</span>
+          </span>
+          <Switch checked={!!share[field]} onChange={(v) => set(field, v)} />
+        </label>
+      ))}
     </div>
   );
 }
@@ -502,6 +536,37 @@ function CommentsPanel({ doc, comments, load, canResolve, onClose, editor, activ
 // Document page
 // ---------------------------------------------------------------------------
 
+/** The documents that link to this one or mention it, as in Outline */
+function Backlinks({ documentId, updatedAt }) {
+  const [docs, setDocs] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    api('documents.backlinks', { id: documentId })
+      .then((d) => !cancelled && setDocs(d))
+      .catch(() => !cancelled && setDocs([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [documentId, updatedAt]);
+  if (!docs.length) return null;
+  return (
+    <div className="nested-docs backlinks">
+      <h3>
+        <Link2 size={15} /> {t('Referenced by')}
+      </h3>
+      <div className="backlink-list">
+        {docs.map((d) => (
+          <Link key={d.id} to={docUrl(d)} className="backlink">
+            <DocIcon doc={d} size={16} />
+            <span className="backlink-title">{d.title || t('Untitled')}</span>
+            <span className="muted small nowrap">{timeAgo(d.updatedAt)}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentPage() {
   const { id } = useParams();
   const [params, setParams] = useSearchParams();
@@ -537,6 +602,8 @@ export default function DocumentPage() {
   const [editorInstance, setEditorInstance] = useState(null);
   // following the document: notified when it changes
   const [subscribed, setSubscribed] = useState(null);
+  // where the document is pinned, and where it can be
+  const [pins, setPins] = useState(null);
   const [revision, setRevision] = useState(null);
   const [editorKey, setEditorKey] = useState(0);
   const [moving, setMoving] = useState(false);
@@ -558,6 +625,26 @@ export default function DocumentPage() {
       .then((r) => setSubscribed(r.subscribed))
       .catch(() => setSubscribed(null));
   }, [commentsDocId, followable, data?.document?.updatedAt]);
+  const pinnable = followable && !data?.document?.archivedAt;
+  const loadPins = useCallback(() => {
+    if (!commentsDocId || !pinnable) return setPins(null);
+    api('pins.info', { documentId: commentsDocId }).then(setPins, () => setPins(null));
+  }, [commentsDocId, pinnable]);
+  useEffect(loadPins, [loadPins]);
+  // ?comment=<id> (link of a notification): open that thread
+  const commentParam = params.get('comment');
+  useEffect(() => {
+    if (!commentParam || !comments) return;
+    const c = comments.find((x) => x.id === commentParam);
+    if (c) {
+      setActiveComment(c.parentCommentId || c.id);
+      setPanel('comments');
+    }
+    const next = new URLSearchParams(params);
+    next.delete('comment');
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commentParam, comments]);
   const loadComments = useCallback(async () => {
     if (!commentsDocId) return;
     setComments(await api('comments.list', { documentId: commentsDocId }));
@@ -809,7 +896,28 @@ export default function DocumentPage() {
           setSubscribed(r.subscribed);
         }, subscribed ? t('You no longer follow this document') : t('You will be notified when this document changes')),
     },
-    subscribed !== null && { separator: true },
+    pins?.canPinHome && {
+      label: pins.home ? t('Unpin from home') : t('Pin to home'),
+      icon: pins.home ? <PinOff size={16} /> : <Pin size={16} />,
+      onClick: () =>
+        runAction(async () => {
+          await api(pins.home ? 'pins.delete' : 'pins.create', pins.home ? { id: pins.home } : { documentId: doc.id });
+          loadPins();
+        }, pins.home ? t('Unpinned from home') : t('Pinned to home')),
+    },
+    pins?.canPinCollection && {
+      label: pins.collection ? t('Unpin from collection') : t('Pin to collection'),
+      icon: pins.collection ? <PinOff size={16} /> : <Pin size={16} />,
+      onClick: () =>
+        runAction(async () => {
+          await api(
+            pins.collection ? 'pins.delete' : 'pins.create',
+            pins.collection ? { id: pins.collection } : { documentId: doc.id, collectionId: doc.collectionId }
+          );
+          loadPins();
+        }, pins.collection ? t('Unpinned from collection') : t('Pinned to collection')),
+    },
+    (subscribed !== null || pins?.canPinHome || pins?.canPinCollection) && { separator: true },
     canWrite && !isDraft && !doc.template && !doc.deletedAt && {
       label: t('New nested document'),
       icon: <Plus size={16} />,
@@ -1240,6 +1348,8 @@ export default function DocumentPage() {
               onChange={(md) => queueSave({ text: md })}
             />
           )}
+
+          {!revision && doc.publishedAt && !doc.template && <Backlinks documentId={doc.id} updatedAt={doc.updatedAt} />}
 
           {data.children.length > 0 && !revision && (
             <div className="nested-docs">

@@ -10,6 +10,7 @@ import { COLORS } from '../components/icons';
 import InviteModal from '../components/InviteModal';
 import Groups from './Groups';
 import Activity, { InstanceAudit } from './Activity';
+import { NotificationSettings, Passkeys, Webhooks } from './AccountSettings';
 import NewWorkspaceModal from '../components/NewWorkspaceModal';
 import { LANGUAGES, t } from '../i18n';
 import { DEFAULT_PRODUCT_NAME, getDefaults, getProductName } from '../prefs';
@@ -91,22 +92,6 @@ function Preferences() {
             onChange={(v) => save('contentWidth', v)}
           />
         </Field>
-        <div className="field row space-between">
-          <div>
-            <div className="field-label">{t('Email me when someone mentions me')}</div>
-            <div className="field-hint">{t('Mentions always appear in the notifications in the sidebar.')}</div>
-          </div>
-          <Switch checked={user.emailOnMention} onChange={(v) => save('emailOnMention', v)} />
-        </div>
-        <div className="field row space-between">
-          <div>
-            <div className="field-label">{t('Email me about documents I follow')}</div>
-            <div className="field-hint">
-              {t('When a followed document changes, a document is published in a followed collection or someone shares a document with you. You follow the documents you publish or edit.')}
-            </div>
-          </div>
-          <Switch checked={user.emailOnSubscription} onChange={(v) => save('emailOnSubscription', v)} />
-        </div>
       </div>
     </>
   );
@@ -162,11 +147,13 @@ function Profile() {
 
       <Preferences />
 
+      {auth.passkeys && <Passkeys />}
+
       {auth.passwordLogin !== false && (
         <>
           <h2 className="section-title">{t('Password')}</h2>
           {!hasPassword && (
-            <p className="muted">{t('You sign in with Microsoft. You can optionally set a password as well.')}</p>
+            <p className="muted">{t('You sign in without a password. You can optionally set one as well.')}</p>
           )}
           <form
             className="form settings-form"
@@ -1792,6 +1779,8 @@ function McpSection() {
 // Titles are kept in English here and translated with t() at render time.
 const SECTIONS = {
   profile: { title: 'Profile', component: Profile },
+  notifications: { title: 'Notifications', component: NotificationSettings },
+  webhooks: { title: 'Webhooks', component: Webhooks },
   workspace: { title: 'Details', component: Workspace },
   members: { title: 'Members', component: Members },
   groups: { title: 'Groups', component: Groups },

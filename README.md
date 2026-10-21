@@ -15,16 +15,17 @@ cloud or a cloud account you manage), so the documentation stays in your own Pos
 ![A runbook in GetPaper with a checklist, a code block and a table](docs/assets/document.webp)
 
 - **Open source**: MIT license, no account, licence key or telemetry. The server only connects to the services you
-  configure (Microsoft Entra ID for sign-in, your SMTP server for emails).
+  configure (Microsoft Entra ID, Google, Slack or any OpenID Connect provider for sign-in, your SMTP server for emails).
 - **Self-hosted**: one Docker Compose file with PostgreSQL, images for amd64 and arm64.
-- **Built for teams**: multiple isolated workspaces, groups and roles, Microsoft Entra ID single sign-on.
+- **Built for teams**: multiple isolated workspaces, groups and roles, single sign-on with Microsoft Entra ID,
+  Google, Slack or any OpenID Connect provider, sign-in links by email and passkeys, webhooks.
 - **Migration**: imports Confluence space exports (XML or HTML), Wiki.js 2 exports and Markdown exports from Outline,
   Notion, Obsidian, GitBook and BookStack.
 - **AI ready**: a built-in [MCP](https://modelcontextprotocol.io) server with scoped, expiring API keys.
 
 **Contents:** [Quick start](#quick-start-docker-image) · [Updating](#updating) ·
 [Backup and restore](#backup-and-restore) · [Running from source](#running-from-source) · [Features](#features) ·
-[Microsoft sign-in](#microsoft-sign-in-sso) · [Import](#import) · [Export](#export) ·
+[Microsoft sign-in](#microsoft-sign-in-sso) · [Other sign-in methods](#other-sign-in-methods) · [Webhooks](#webhooks) · [Import](#import) · [Export](#export) ·
 [MCP server](#mcp-server-for-llms) · [API](#api) · [Differences from Outline](#differences-from-outline) ·
 [Contributing](#contributing)
 
@@ -139,7 +140,7 @@ Most common commands (`make` with no arguments shows the list):
 - **Mentions** with `@`, as in Outline: people, groups, documents and collections (saved as
   `@[Name](mention://<id>/<user|document|collection>/<id>)`); documents and collections are chips that open with a
   click, also while editing. Whoever is mentioned in a published document gets a notification in the sidebar and an email
-  (can be turned off in the profile preferences), if they can read the document.
+  (can be turned off in Settings → Notifications), if they can read the document.
 - Autosave, drafts, publishing, revision history with restore, stars on documents and collections (in the order
   you choose), archive, trash kept for 30 days, templates, comments with replies and resolution.
 - **Templates** with variables and placeholders, as in Outline: `{date}`, `{time}`, `{datetime}` and `{author}` are
@@ -147,7 +148,13 @@ Most common commands (`make` with no arguments shows the list):
   formatting menu of a template) are highlighted in the new document and replaced by clicking and typing.
 - **Full-text search** in PostgreSQL with highlighted results, a collection filter and search across all your
   workspaces.
-- **Public sharing** of documents by link (`/s/...`).
+- **Public sharing** of documents by link (`/s/...`), optionally with the nested documents, search engine indexing
+  and the date of the last change ([details](#public-links)).
+- **Pinned documents**, as in Outline: admins pin documents at the top of the home page, who can edit a collection
+  pins them at the top of the collection (*Pin to home*, *Pin to collection* in the document menu); cards are
+  reordered by dragging.
+- **Backlinks**: under a document, *Referenced by* lists the documents that link to it or mention it, among those
+  the reader can open.
 - **Members and roles** (admin, editor, viewer), invites by link or email, personal API keys. Workspace admins can
   **suspend** a member (they can't open the workspace until reactivated; role, groups and permissions are kept);
   superadmins can suspend an account everywhere (no sign-in, sessions closed, API keys stop working).
@@ -156,6 +163,10 @@ Most common commands (`make` with no arguments shows the list):
 - **Following** documents and collections (*Follow* in their menu): a notification, and an email if wanted, when a
   followed document gets a new editing session, a document is published in a followed collection or a document is
   shared with you. People who publish or edit a document follow it automatically.
+- **Notifications** also for comments on followed documents and replies in your threads, resolved threads, access
+  to a collection and accepted invitations. In **Settings → Notifications** everyone chooses, kind by kind, which
+  ones also arrive by email.
+- **Webhooks**: workspace admins send the events of the workspace to other systems ([details](#webhooks)).
 - **Comments on a passage**: select text and choose *Comment*, also with read-only access; the passage is
   highlighted and the thread shows the quote. The document's Markdown is not changed: when the passage is deleted
   the comment stays, with the quote crossed out.
@@ -204,6 +215,60 @@ Behaviour:
 - It also works from the invite page ("Join with Microsoft") and takes the user back to the page they asked for
   before signing in.
 
+## Other sign-in methods
+
+All optional and off unless configured; Microsoft sign-in and passwords keep working as before.
+
+**Google, Slack and any OpenID Connect provider** (Keycloak, Okta, Authentik, …), with the authorization code flow
+(and PKCE when the provider supports it). Register a web application at the provider with redirect URI
+`<URL>/auth/google/callback`, `<URL>/auth/slack/callback` or `<URL>/auth/oidc/callback`:
+
+| Variable | Description |
+| --- | --- |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth client of Google Cloud (type *Web application*) |
+| `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` | Slack app with *Sign in with Slack* (OpenID Connect) |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Any provider: the endpoints are read from `<issuer>/.well-known/openid-configuration` |
+| `OIDC_DISPLAY_NAME` | Name on the button (default `OpenID Connect`) |
+| `OIDC_SCOPES` | Default `openid profile email` |
+| `<PROVIDER>_ALLOWED_DOMAINS` | Optional: only these email domains can sign in (`GOOGLE_`, `SLACK_`, `OIDC_`) |
+| `<PROVIDER>_AUTO_PROVISION` | Create the account at the first sign-in. Default: the value of `ALLOW_SIGNUP` |
+| `OIDC_TRUST_EMAIL` | `true` to accept addresses the provider doesn't mark as verified (`email_verified`) |
+
+Accounts are linked to the identity at the provider. An existing account with the same email is linked only when
+the provider says the address is verified; without a verified address the sign-in is refused. Pending invites and
+allowed domains of the workspaces work as with Microsoft.
+
+**Link by email** (`EMAIL_LOGIN=true`, needs SMTP): on the sign-in page people with an account ask for a link,
+which works once, for 15 minutes; one email per minute at most. The page doesn't tell whether an account exists.
+The link opens a page with a *Sign in* button, so mail scanners that open links don't use it up.
+
+**Passkeys** (`PASSKEYS=true`): everyone adds passkeys in **Settings → Profile** (fingerprint, face, device PIN or
+a security key) and signs in with *Sign in with a passkey* without typing the email. They work only on the address
+in `URL`, which must be `https` (or `http://localhost`).
+
+With at least one of these methods, `PASSWORD_LOGIN=false` turns off passwords as with Microsoft.
+
+## Webhooks
+
+In **Settings → Webhooks** workspace admins add URLs that receive the events of the workspace: all of them or
+some groups (`documents`, `collections`, `comments`, `shares`, `users`, `groups`, `invites`, `api_keys`, `teams`,
+`data`). The events are those of the audit log, plus `documents.update` (a new editing session of a published
+document), `comments.create` and `comments.resolve`; webhooks also work with the audit log turned off.
+
+Each event is a `POST` with a JSON body (`id`, `event`, `createdAt`, `workspace`, `actor`, `target`, `data`) and
+the headers `X-GetPaper-Event`, `X-GetPaper-Delivery` and `X-GetPaper-Signature: t=<unix time>,s=<signature>`,
+where the signature is the hex HMAC-SHA256 of `<unix time>.<body>` with the secret of the webhook:
+
+```python
+import hmac, hashlib
+t, s = (p.split("=", 1)[1] for p in header.split(","))
+valid = hmac.compare_digest(s, hmac.new(secret.encode(), f"{t}.{body}".encode(), hashlib.sha256).hexdigest())
+```
+
+- Up to 3 attempts (after 10 and 60 seconds), 10 second timeout, redirects not followed. After 25 failed
+  deliveries in a row the webhook is turned off; *Deliveries* shows the last week.
+- Only public addresses are called, unless `WEBHOOKS_ALLOW_PRIVATE=true` (for receivers on the local network).
+
 ## Public links
 
 A published document can be made visible without authentication from **Share → Publish to internet**. The link
@@ -211,6 +276,10 @@ looks like `<URL>/s/<token>`, with a random 24-character token (about 143 bits),
 
 - The page is read only, needs no sign-in and also works with `PASSWORD_LOGIN=false`.
 - The page is marked `noindex` and `no-referrer`, so it doesn't end up in search engines or leak through outgoing links.
+- Options in the same panel, as in Outline: **Include nested documents** (the published documents inside it can be
+  read through the link, with a tree on the side; links between them stay inside the link), **Search engine
+  indexing** (no `noindex`, and a sitemap at `<URL>/s/<token>/sitemap.xml`) and **Show last modified** (on by
+  default).
 - The link is revoked from the same panel or from **Settings → Shared Links**.
 - Sharing can be disabled for the whole workspace or for a single collection.
 
@@ -444,8 +513,8 @@ Frontend development with hot reload: start the stack, then `cd web && npm insta
 
 - No real-time collaboration (Y.js). Saving is automatic; if another user changed the document in the meantime,
   a conflict notice appears with a button to reload.
-- Sign-in with email and password or Microsoft Entra ID. No other SSO providers (Google, Slack, generic OIDC)
-  or integrations.
+- Sign-in with email and password, Microsoft Entra ID, Google, Slack, a generic OpenID Connect provider, a link by
+  email or passkeys. No other integrations besides webhooks.
 
 ## Contributing
 

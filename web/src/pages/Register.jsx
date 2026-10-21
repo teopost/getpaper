@@ -4,7 +4,7 @@ import { api } from '../api';
 import { Button, Field } from '../components/ui';
 import { t } from '../i18n';
 import { getProductName } from '../prefs';
-import { AuthShell, MicrosoftButton, OrDivider } from './Login';
+import { AuthShell, OrDivider, SsoButtons, hasSso } from './Login';
 
 export function RegisterForm({ inviteToken, defaultEmail = '', teamName }) {
   const [name, setName] = useState('');
@@ -71,10 +71,17 @@ export default function Register() {
     api('auth.config').then(setConfig).catch(() => setConfig({ allowSignup: false }));
   }, []);
   if (!config) return null;
-  if (!config.passwordLogin && config.microsoft) {
+  if (!config.passwordLogin && hasSso(config)) {
     return (
-      <AuthShell title={t('Create an account')} subtitle={t('Accounts are created automatically the first time you sign in with Microsoft.')}>
-        <MicrosoftButton />
+      <AuthShell
+        title={t('Create an account')}
+        subtitle={
+          config.microsoft && !config.providers?.length
+            ? t('Accounts are created automatically the first time you sign in with Microsoft.')
+            : t('Accounts are created the first time you sign in with single sign-on.')
+        }
+      >
+        <SsoButtons config={config} />
       </AuthShell>
     );
   }
@@ -92,9 +99,9 @@ export default function Register() {
       title={config.isFirstUser ? t('Create the first account') : t('Create an account')}
       subtitle={t('A new workspace will be created for you.')}
     >
-      {config.microsoft && (
+      {hasSso(config) && (
         <>
-          <MicrosoftButton label={t('Sign up with Microsoft')} />
+          <SsoButtons config={config} verb="signup" />
           <OrDivider />
         </>
       )}

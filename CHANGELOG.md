@@ -10,6 +10,23 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ### Added
 
+- **More ways to sign in**, all off until configured: Google, Slack and any OpenID Connect provider (`GOOGLE_*`,
+  `SLACK_*`, `OIDC_*`; accounts linked by verified email), a sign-in link by email (`EMAIL_LOGIN=true`, needs
+  SMTP) and passkeys (`PASSKEYS=true`, added in the profile). Microsoft sign-in and its configuration are unchanged.
+- **Webhooks** (Settings → Webhooks, admins): the events of the workspace, all or by group, as signed HTTP POST
+  requests (`X-GetPaper-Signature`, HMAC-SHA256), with retries, a delivery log and a test button; only public
+  addresses unless `WEBHOOKS_ALLOW_PRIVATE=true`.
+- **Notification settings** (Settings → Notifications): an email preference for each kind of notification, which
+  replaces the two switches of the profile (their values are kept). New notifications: comments on followed
+  documents and replies in your threads, resolved threads, access to a collection, accepted invitations.
+- **Pinned documents** at the top of the home page (admins) and of a collection (who can edit it), reordered by
+  dragging.
+- **Backlinks**: *Referenced by* under a document lists the documents that link to it or mention it.
+- **Public link options**: include the nested documents (with a tree on the public page), allow search engine
+  indexing (with a sitemap), show or hide the date of the last change. Existing links keep working as before.
+- Database migrations 0017-0022: share options, notification settings, pins, document links (computed for the
+  existing documents), webhooks, sign-in identities, sign-in links and passkeys.
+
 - **Suspending members and accounts**: workspace admins suspend a member (no access to the workspace until
   reactivated; role, groups, permissions and documents are kept), superadmins suspend an account in the whole
   installation (no sign-in, sessions closed, API keys stop working). Suspended people can't be given access.

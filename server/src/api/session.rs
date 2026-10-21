@@ -32,7 +32,7 @@ pub async fn create_session(db: &PgPool, user_id: Uuid, team_id: Option<Uuid>) -
     Ok(token)
 }
 
-fn with_cookie(cookie: String, body: Value) -> Response {
+pub(crate) fn with_cookie(cookie: String, body: Value) -> Response {
     ([(SET_COOKIE, cookie)], Json(body)).into_response()
 }
 
@@ -43,6 +43,10 @@ pub async fn config(State(st): State<AppState>) -> ApiResult<Json<Value>> {
         "isFirstUser": count == 0,
         "passwordLogin": st.cfg.password_login,
         "microsoft": st.cfg.microsoft.is_some(),
+        // the other single sign-on providers, as { id, name }: the button goes to /auth/<id>
+        "providers": st.cfg.oidc.iter().map(|p| json!({ "id": p.id, "name": p.name })).collect::<Vec<_>>(),
+        "emailLogin": st.cfg.email_login,
+        "passkeys": st.cfg.passkeys.is_some(),
         "email": st.cfg.smtp.is_some(),
         "defaults": st.defaults(),
         "instance": st.settings().public(),
@@ -148,7 +152,7 @@ pub async fn register(State(st): State<AppState>, meta: ClientMeta, Json(b): Jso
 
     let team_id = if invite_valid {
         let token = b.invite_token.clone().unwrap();
-        accept_invite_internal(&st.db, &user, &token).await?
+        accept_invite_internal(&st, &user, &token).await?
     } else {
         let tn = b
             .team_name
@@ -193,6 +197,7 @@ pub async fn info(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Valu
         "role": auth.role,
         "teams": teams,
         "passwordLogin": st.cfg.password_login,
+        "passkeys": st.cfg.passkeys.is_some(),
         "email": st.cfg.smtp.is_some(),
         "defaults": st.defaults(),
         "instance": st.settings().public(),

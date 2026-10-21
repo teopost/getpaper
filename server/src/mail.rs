@@ -1,6 +1,6 @@
 //! Outgoing email over SMTP (SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL,
-//! SMTP_FROM_NAME, SMTP_SECURE) and the messages the application sends: workspace invitations and
-//! mentions in documents.
+//! SMTP_FROM_NAME, SMTP_SECURE) and the messages the application sends: workspace invitations,
+//! notifications and sign-in links.
 
 use std::time::Duration;
 
@@ -97,7 +97,7 @@ pub struct Mail {
     pub html: String,
 }
 
-fn esc(s: &str) -> String {
+pub(crate) fn esc(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
@@ -351,7 +351,7 @@ pub fn mention(m: &MentionMail) -> Mail {
             ),
             "Apri il documento",
             "Se il pulsante non funziona, copia questo indirizzo nel browser:",
-            "Puoi disattivare queste email nelle preferenze del tuo profilo.<br>Hai ricevuto questa email perché hai un account su",
+            "Puoi disattivare queste email nelle impostazioni delle notifiche.<br>Hai ricevuto questa email perché hai un account su",
         )
     } else {
         let whom = match m.group {
@@ -376,7 +376,7 @@ pub fn mention(m: &MentionMail) -> Mail {
             ),
             "Open the document",
             "If the button doesn't work, paste this address in your browser:",
-            "You can turn these emails off in your profile preferences.<br>You received this email because you have an account on",
+            "You can turn these emails off in your notification settings.<br>You received this email because you have an account on",
         )
     };
     let paragraphs = [intro];
@@ -453,13 +453,13 @@ pub fn document_event(m: &DocumentEventMail) -> Mail {
         (
             "Apri il documento",
             "Se il pulsante non funziona, copia questo indirizzo nel browser:",
-            "Puoi smettere di seguire il documento dal suo menu, o disattivare queste email nelle preferenze del tuo profilo.<br>Hai ricevuto questa email perché hai un account su",
+            "Puoi smettere di seguire il documento dal suo menu, o disattivare queste email nelle impostazioni delle notifiche.<br>Hai ricevuto questa email perché hai un account su",
         )
     } else {
         (
             "Open the document",
             "If the button doesn't work, paste this address in your browser:",
-            "You can unfollow the document from its menu, or turn these emails off in your profile preferences.<br>You received this email because you have an account on",
+            "You can unfollow the document from its menu, or turn these emails off in your notification settings.<br>You received this email because you have an account on",
         )
     };
     let paragraphs = [intro];
@@ -479,3 +479,83 @@ pub fn document_event(m: &DocumentEventMail) -> Mail {
     Mail { sender: m.product.to_string(), subject, text, html }
 }
 
+
+/// A notification in the common layout (comments, access to a collection, accepted invitations)
+pub struct NoticeMail<'a> {
+    pub lang: &'a str,
+    pub product: &'a str,
+    pub subject: String,
+    pub title: String,
+    /// HTML paragraphs, already escaped
+    pub paragraphs: Vec<String>,
+    pub button: &'a str,
+    pub link: &'a str,
+    pub base_url: &'a str,
+    pub brand_color: &'a str,
+}
+
+pub fn notice(m: &NoticeMail) -> Mail {
+    let (fallback, footer) = if m.lang == "it" {
+        (
+            "Se il pulsante non funziona, copia questo indirizzo nel browser:",
+            "Puoi disattivare queste email nelle impostazioni delle notifiche.<br>Hai ricevuto questa email perché hai un account su",
+        )
+    } else {
+        (
+            "If the button doesn't work, paste this address in your browser:",
+            "You can turn these emails off in your notification settings.<br>You received this email because you have an account on",
+        )
+    };
+    let (text, html) = layout(&Layout {
+        lang: m.lang,
+        product: m.product,
+        brand_color: m.brand_color,
+        base_url: m.base_url,
+        subject: &m.subject,
+        title: &m.title,
+        paragraphs: &m.paragraphs,
+        button: m.button,
+        link: m.link,
+        fallback,
+        footer,
+    });
+    Mail { sender: m.product.to_string(), subject: m.subject.clone(), text, html }
+}
+
+/// The link that signs the recipient in (sign-in by email)
+pub fn sign_in_link(lang: &str, product: &str, link: &str, base_url: &str, brand_color: &str) -> Mail {
+    let it = lang == "it";
+    let subject = if it { format!("Accedi a {product}") } else { format!("Sign in to {product}") };
+    let paragraphs = [if it {
+        "Usa il pulsante qui sotto per accedere. Il link vale 15 minuti e si può usare una volta sola.".to_string()
+    } else {
+        "Use the button below to sign in. The link works for 15 minutes and only once.".to_string()
+    }];
+    let (button, fallback, footer) = if it {
+        (
+            "Accedi",
+            "Se il pulsante non funziona, copia questo indirizzo nel browser:",
+            "Se non hai chiesto tu di accedere, ignora questa email: nessuno può entrare senza questo link.<br>Email inviata da",
+        )
+    } else {
+        (
+            "Sign in",
+            "If the button doesn't work, paste this address in your browser:",
+            "If you didn't ask to sign in, ignore this email: nobody can get in without this link.<br>Sent by",
+        )
+    };
+    let (text, html) = layout(&Layout {
+        lang,
+        product,
+        brand_color,
+        base_url,
+        subject: &subject,
+        title: &subject,
+        paragraphs: &paragraphs,
+        button,
+        link,
+        fallback,
+        footer,
+    });
+    Mail { sender: product.to_string(), subject, text, html }
+}

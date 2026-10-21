@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GetPaper - open-source, self-hosted wiki for teams</title>
-<meta name="description" content="GetPaper is an open-source (MIT) wiki and knowledge base you install on your own infrastructure. Multiple workspaces, Microsoft Entra ID SSO, Confluence and Outline import, built-in MCP server.">
+<meta name="description" content="GetPaper is an open-source (MIT) wiki and knowledge base you install on your own infrastructure. Multiple workspaces, single sign-on with Microsoft Entra ID, Google, Slack or any OIDC provider, Confluence and Outline import, built-in MCP server.">
 <link rel="canonical" href="https://getpaper.it/">
 <link rel="alternate" hreflang="en" href="https://getpaper.it/">
 <link rel="alternate" hreflang="it" href="https://getpaper.it/it/">
@@ -16,7 +16,7 @@
 <meta property="og:locale:alternate" content="it_IT">
 <meta property="og:url" content="https://getpaper.it/">
 <meta property="og:title" content="GetPaper - the open-source wiki for your team, on your infrastructure">
-<meta property="og:description" content="Self-hosted team wiki under the MIT license: multiple workspaces, Microsoft Entra ID sign-in, Confluence and Outline import, and an MCP server for AI assistants.">
+<meta property="og:description" content="Self-hosted team wiki under the MIT license: multiple workspaces, single sign-on with Microsoft Entra ID, Google, Slack or OpenID Connect, Confluence and Outline import, and an MCP server for AI assistants.">
 <meta property="og:image" content="https://getpaper.it/assets/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -44,7 +44,7 @@
       "@id": "https://getpaper.it/#software",
       "name": "GetPaper",
       "url": "https://getpaper.it/",
-      "description": "Open-source, self-hosted wiki and knowledge base for teams, with multiple workspaces, Microsoft Entra ID single sign-on, import from Confluence, Outline, Notion and Obsidian, and a built-in Model Context Protocol (MCP) server for AI assistants.",
+      "description": "Open-source, self-hosted wiki and knowledge base for teams, with multiple workspaces, single sign-on (Microsoft Entra ID, Google, Slack, OpenID Connect), import from Confluence, Outline, Notion and Obsidian, and a built-in Model Context Protocol (MCP) server for AI assistants.",
       "applicationCategory": "BusinessApplication",
       "applicationSubCategory": "Wiki, knowledge base",
       "operatingSystem": "Linux (Docker image for amd64 and arm64)",
@@ -59,7 +59,9 @@
       "featureList": [
         "Self-hosted with Docker Compose and PostgreSQL",
         "Multiple isolated workspaces",
-        "Microsoft Entra ID single sign-on (OpenID Connect with PKCE)",
+        "Single sign-on with Microsoft Entra ID, Google, Slack or any OpenID Connect provider",
+        "Sign-in links by email and passkeys",
+        "Webhooks signed with HMAC-SHA256",
         "Import from Confluence (XML and HTML space exports), Wiki.js 2 exports and Outline, Notion, Obsidian, GitBook and BookStack Markdown exports",
         "Built-in MCP server with scoped, expiring API keys",
         "Full-text search across workspaces",
@@ -83,11 +85,11 @@
       "mainEntity": [
         { "@type": "Question", "name": "Is GetPaper free and open source?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The source code is on GitHub under the MIT license, and the Docker image is published on GitHub Container Registry. You can use, study, modify and redistribute it under the terms of the license." } },
         { "@type": "Question", "name": "Where are my documents stored?", "acceptedAnswer": { "@type": "Answer", "text": "In the PostgreSQL database and the attachments volume of your own installation. Wherever you run GetPaper - your own server, a virtual machine or a cloud account you manage - that is where the documentation lives." } },
-        { "@type": "Question", "name": "Do I need an account or a licence key from the GetPaper project?", "acceptedAnswer": { "@type": "Answer", "text": "No. You install the software yourself. The server only connects to the external services you configure: Microsoft Entra ID for sign-in and your SMTP server for emails. It contains no telemetry and no licence check." } },
-        { "@type": "Question", "name": "Which single sign-on providers are supported?", "acceptedAnswer": { "@type": "Answer", "text": "Microsoft Entra ID (formerly Azure AD) through OpenID Connect. Email and password sign-in is also available and can be turned off. Google, Slack and generic OIDC providers are not supported." } },
+        { "@type": "Question", "name": "Do I need an account or a licence key from the GetPaper project?", "acceptedAnswer": { "@type": "Answer", "text": "No. You install the software yourself. The server only connects to the external services you configure: your identity provider for sign-in, your SMTP server for emails and the webhooks you add. It contains no telemetry and no licence check." } },
+        { "@type": "Question", "name": "Which single sign-on providers are supported?", "acceptedAnswer": { "@type": "Answer", "text": "Microsoft Entra ID (formerly Azure AD), Google, Slack and any OpenID Connect provider (Keycloak, Okta, Authentik…). Email and password sign-in can be turned off; sign-in links by email and passkeys can be turned on." } },
         { "@type": "Question", "name": "Can I migrate from Confluence or Outline?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. GetPaper imports Confluence space exports in XML or HTML format, with page tree, dates, attachments and the most common macros, and Outline Markdown exports with collections, nested documents and attachments. Authors, comments, version history, labels and permissions are not imported." } },
         { "@type": "Question", "name": "Does the MCP server send my documents to an AI provider?", "acceptedAnswer": { "@type": "Answer", "text": "GetPaper does not send anything to AI providers. The MCP server answers the AI assistants you connect with an API key, within the permissions of that key. What the assistant then does with the content depends on the assistant and the model you use." } },
-        { "@type": "Question", "name": "How is GetPaper different from Outline?", "acceptedAnswer": { "@type": "Answer", "text": "GetPaper is inspired by Outline and has a Rust backend. Multiple workspaces, Confluence import and an MCP server are included. It has no real-time co-editing (conflicts are detected on save) and the only SSO provider is Microsoft Entra ID." } }
+        { "@type": "Question", "name": "How is GetPaper different from Outline?", "acceptedAnswer": { "@type": "Answer", "text": "GetPaper is inspired by Outline and has a Rust backend. Multiple workspaces, Confluence import and an MCP server are included. It has no real-time co-editing (conflicts are detected on save)." } }
       ]
     }
   ]
@@ -162,7 +164,7 @@
       <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-code"/></svg></span>Open source</h3><p>The full source code is public under the MIT license: you can read how it works, verify it and adapt it.</p></div>
       <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-server"/></svg></span>Self-hosted</h3><p>Runs from a Docker Compose file on a server, a virtual machine or a cloud account you manage.</p></div>
       <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-shield"/></svg></span>Your data, your control</h3><p>Documents and attachments stay in your database and storage. You decide on access, backups and updates.</p></div>
-      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-team"/></svg></span>Built for teams</h3><p>Multiple workspaces, groups and roles, Microsoft Entra ID sign-in, migration tools and an MCP server.</p></div>
+      <div class="pillar reveal"><h3><span class="icon"><svg aria-hidden="true"><use href="#i-team"/></svg></span>Built for teams</h3><p>Multiple workspaces, groups and roles, single sign-on, migration tools and an MCP server.</p></div>
     </div>
   </div>
 </section>
@@ -199,8 +201,9 @@
         <div class="arch-col optional">
           <h3>Optional, if you configure them</h3>
           <ul>
-            <li class="node"><strong>Microsoft Entra ID</strong>single sign-on</li>
+            <li class="node"><strong>Entra ID, Google, Slack, OIDC</strong>single sign-on</li>
             <li class="node"><strong>Your SMTP server</strong>invitations and notifications</li>
+            <li class="node"><strong>Your webhooks</strong>events of a workspace</li>
           </ul>
         </div>
       </div>
@@ -211,7 +214,7 @@
       <div class="card reveal"><h3>Choose where it runs</h3><p>Any host that runs Docker containers (amd64 or arm64): on premises, in your data centre or with the cloud provider you already use. You can also build it from source.</p></div>
       <div class="card reveal"><h3>Know where the data is</h3><p>Everything lives in two places you control: the PostgreSQL database and the attachments volume. Nothing is kept anywhere else by the application.</p></div>
       <div class="card reveal"><h3>Back up on your terms</h3><p>Use your usual database and volume backup tools. Workspace admins can also export a complete GetPaper backup (ZIP) and restore it on another installation.</p></div>
-      <div class="card reveal"><h3>Decide who gets in</h3><p>Microsoft Entra ID or password sign-in, invite-only access, allowed email domains, private collections. Superadmins can switch off exports and public links for the whole installation.</p></div>
+      <div class="card reveal"><h3>Decide who gets in</h3><p>Single sign-on, password, email link or passkey sign-in, invite-only access, allowed email domains, private collections. Superadmins can switch off exports and public links for the whole installation.</p></div>
     </div>
     <p class="caveat reveal"><strong>A note on AI tools.</strong> Self-hosting controls where GetPaper stores your documentation. When you connect an AI assistant through MCP, the content it reads is processed by that assistant and the model it uses, under their own terms. Choose and configure those tools with the same care.</p>
   </div>
@@ -240,17 +243,18 @@
     <div class="row">
       <div class="text reveal">
         <p class="kicker">For IT administrators</p>
-        <h2 id="sso-title">Sign in with Microsoft Entra ID, on your rules.</h2>
-        <p>If your organisation uses Microsoft 365, people sign in with their work account. GetPaper uses Microsoft Entra ID (formerly Azure AD) through OpenID Connect, with the authorization code flow and PKCE.</p>
+        <h2 id="sso-title">Single sign-on, on your rules.</h2>
+        <p>People sign in with their work account: Microsoft Entra ID (formerly Azure AD), Google, Slack or any OpenID Connect provider, with the authorization code flow and PKCE. Sign-in links by email and passkeys are there if you turn them on.</p>
         <ul class="ticks">
           <li>Accept a single tenant or restrict sign-in to your email domains</li>
           <li>Create accounts at the first sign-in, or let in invited people only</li>
           <li>Turn off password sign-in for an SSO-only installation</li>
           <li>Superadmin switches for backups, Markdown export and public links</li>
+          <li>Signed webhooks to tell other systems what happens in a workspace</li>
           <li>Audit log of sign-ins and admin actions, and an Activity page for workspace admins</li>
           <li>Your product name and colours on every page and email</li>
         </ul>
-        <p class="more"><a href="https://github.com/teopost/getpaper#microsoft-sign-in-sso">Entra ID setup guide →</a></p>
+        <p class="more"><a href="https://github.com/teopost/getpaper#microsoft-sign-in-sso">Sign-in setup guide →</a></p>
       </div>
       <div class="frame reveal"><img src="/assets/settings.webp" width="2880" height="1800" loading="lazy" alt="GetPaper general settings for superadmins: product name and colours, data protection switches and defaults for new users"></div>
     </div>
@@ -401,7 +405,7 @@ docker compose up -d</pre>
       <div class="fact reveal"><h3>Requirements</h3><p>A host with Docker and Compose. PostgreSQL 16 is included in the Compose file.</p></div>
       <div class="fact reveal"><h3>Updates</h3><p><code>docker compose pull &amp;&amp; docker compose up -d</code>. Pin a release (e.g. <code>0.2.0</code>) in <code>.env</code> for controlled updates.</p></div>
       <div class="fact reveal"><h3>Where data lives</h3><p>Docker volumes <code>pgdata</code> (database) and <code>uploads</code> (attachments): include both in your backups.</p></div>
-      <div class="fact reveal"><h3>Configuration</h3><p>Sign-up policy, Entra ID, SMTP, defaults: all through environment variables.</p></div>
+      <div class="fact reveal"><h3>Configuration</h3><p>Sign-up policy, single sign-on, SMTP, defaults: all through environment variables.</p></div>
     </div>
     <p class="more"><a href="https://github.com/teopost/getpaper#quick-start-docker-image">Full installation and configuration guide →</a></p>
   </div>
@@ -434,11 +438,11 @@ docker compose up -d</pre>
     <div class="faq">
       <details><summary>Is GetPaper free and open source?</summary><p>Yes. The source code is on GitHub under the MIT license, and the Docker image is published on GitHub Container Registry. You can use, study, modify and redistribute it under the terms of the license.</p></details>
       <details><summary>Where are my documents stored?</summary><p>In the PostgreSQL database and the attachments volume of your own installation. Wherever you run GetPaper - your own server, a virtual machine or a cloud account you manage - that is where the documentation lives.</p></details>
-      <details><summary>Do I need an account or a licence key from the GetPaper project?</summary><p>No. You install the software yourself. The server only connects to the external services you configure: Microsoft Entra ID for sign-in and your SMTP server for emails. It contains no telemetry and no licence check.</p></details>
-      <details><summary>Which single sign-on providers are supported?</summary><p>Microsoft Entra ID (formerly Azure AD) through OpenID Connect. Email and password sign-in is also available and can be turned off. Google, Slack and generic OIDC providers are not supported.</p></details>
+      <details><summary>Do I need an account or a licence key from the GetPaper project?</summary><p>No. You install the software yourself. The server only connects to the external services you configure: your identity provider for sign-in, your SMTP server for emails and the webhooks you add. It contains no telemetry and no licence check.</p></details>
+      <details><summary>Which single sign-on providers are supported?</summary><p>Microsoft Entra ID (formerly Azure AD), Google, Slack and any OpenID Connect provider (Keycloak, Okta, Authentik…). Email and password sign-in can be turned off; sign-in links by email and passkeys can be turned on.</p></details>
       <details><summary>Can I migrate from Confluence or Outline?</summary><p>Yes. GetPaper imports Confluence space exports in XML or HTML format, with page tree, dates, attachments and the most common macros, and Outline Markdown exports with collections, nested documents and attachments. Authors, comments, version history, labels and permissions are not imported.</p></details>
       <details><summary>Does the MCP server send my documents to an AI provider?</summary><p>GetPaper does not send anything to AI providers. The MCP server answers the AI assistants you connect with an API key, within the permissions of that key. What the assistant then does with the content depends on the assistant and the model you use.</p></details>
-      <details><summary>How is GetPaper different from Outline?</summary><p>GetPaper is inspired by Outline and has a Rust backend. Multiple workspaces, Confluence import and an MCP server are included. It has no real-time co-editing (conflicts are detected on save) and the only SSO provider is Microsoft Entra ID.</p></details>
+      <details><summary>How is GetPaper different from Outline?</summary><p>GetPaper is inspired by Outline and has a Rust backend. Multiple workspaces, Confluence import and an MCP server are included. It has no real-time co-editing (conflicts are detected on save).</p></details>
     </div>
   </div>
 </section>

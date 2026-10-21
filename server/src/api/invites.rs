@@ -2,7 +2,7 @@ use axum::{extract::State, Json};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sqlx::{FromRow, PgPool};
+use sqlx::FromRow;
 use uuid::Uuid;
 
 use crate::{
@@ -213,29 +213,33 @@ pub async fn info(State(st): State<AppState>, Json(b): Json<TokenReq>) -> ApiRes
 }
 
 /// Accept an invite on behalf of `user`, returning the team id joined.
-pub async fn accept_invite_internal(db: &PgPool, user: &User, token: &str) -> ApiResult<Uuid> {
-    let mut tx = db.begin().await?;
-    let row: Option<(Uuid, Uuid, String)> = sqlx::query_as(
+/// Accepts an invitation for `user` and tells who sent it.
+pub async fn accept_invite_internal(st: &AppState, user: &User, token: &str) -> ApiResult<Uuid> {
+    let mut tx = st.db.begin().await?;
+    let row: Option<(Uuid, Uuid, String, Uuid)> = sqlx::query_as(
         "UPDATE invites SET accepted_at = now(), accepted_by = $2 WHERE token = $1 AND accepted_at IS NULL \
-         RETURNING id, team_id, role",
+         RETURNING id, team_id, role, created_by",
     )
     .bind(token)
     .bind(user.id)
     .fetch_optional(&mut *tx)
     .await?;
-    let (_, team_id, role) = row.ok_or_else(|| ApiError::not_found("This invite is invalid or was already used"))?;
-    sqlx::query("INSERT INTO team_memberships (team_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING")
+    let (_, team_id, role, inviter) = row.ok_or_else(|| ApiError::not_found("This invite is invalid or was already used"))?;
+    let joined = sqlx::query("INSERT INTO team_memberships (team_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING")
         .bind(team_id)
         .bind(user.id)
         .bind(role)
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
+    if joined.rows_affected() > 0 {
+        crate::notify::invite_accepted(st, user, team_id, inviter);
+    }
     Ok(team_id)
 }
 
 pub async fn accept(State(st): State<AppState>, auth: Auth, Json(b): Json<TokenReq>) -> ApiResult<Json<Value>> {
-    let team_id = accept_invite_internal(&st.db, &auth.user, &b.token).await?;
+    let team_id = accept_invite_internal(&st, &auth.user, &b.token).await?;
     audit::record_in(&st, &auth, Some(team_id), "users.join", Target::user(&auth.user), json!({ "via": "invite" })).await;
     if let Some(h) = &auth.session_hash {
         sqlx::query("UPDATE sessions SET team_id = $1 WHERE token_hash = $2")

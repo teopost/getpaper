@@ -132,7 +132,7 @@ async fn notify_user(st: &AppState, actor: &User, doc: &DocRow, user_id: Uuid, g
     .execute(&st.db)
     .await?;
 
-    let Some(smtp) = st.cfg.smtp.as_ref().filter(|_| user.email_on_mention) else { return Ok(()) };
+    let Some(smtp) = st.cfg.smtp.as_ref().filter(|_| crate::notify::wants_email(&user, "mentioned_in_document")) else { return Ok(()) };
     let (team,): (String,) = sqlx::query_as("SELECT name FROM teams WHERE id = $1").bind(doc.team_id).fetch_one(&st.db).await?;
     let lang = user.language.clone().unwrap_or_else(|| st.defaults().language);
     let settings = st.settings();

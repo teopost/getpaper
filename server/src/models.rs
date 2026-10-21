@@ -18,11 +18,9 @@ pub struct User {
     pub theme: Option<String>,
     /// manages the installation settings
     pub is_superadmin: bool,
-    /// also send an email when someone mentions the user
-    pub email_on_mention: bool,
-    /// also send an email for followed documents and documents shared with the user
+    /// emails turned off per kind of notification: { "<event>": false } (see notify.rs)
     #[sqlx(default)]
-    pub email_on_subscription: bool,
+    pub notification_settings: serde_json::Value,
     pub created_at: DateTime<Utc>,
     pub last_active_at: Option<DateTime<Utc>>,
     /// suspended by a superadmin: can't sign in anywhere

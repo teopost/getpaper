@@ -1,20 +1,22 @@
 # GetPaper
 
-> GetPaper is an open-source (MIT), self-hosted wiki and knowledge base for teams. Organisations install it on infrastructure they choose and manage (on-premises server, private cloud or a public cloud account), so documentation stays in their own PostgreSQL database and storage volume. It offers multiple workspaces, Microsoft Entra ID single sign-on, import from Confluence and Outline, and a built-in Model Context Protocol (MCP) server for AI assistants.
+> GetPaper is an open-source (MIT), self-hosted wiki and knowledge base for teams. Organisations install it on infrastructure they choose and manage (on-premises server, private cloud or a public cloud account), so documentation stays in their own PostgreSQL database and storage volume. It offers multiple workspaces, single sign-on (Microsoft Entra ID, Google, Slack, any OpenID Connect provider), import from Confluence and Outline, and a built-in Model Context Protocol (MCP) server for AI assistants.
 
 Facts, as documented in the repository:
 
 - License: MIT. Source code: https://github.com/teopost/getpaper. Docker image: ghcr.io/teopost/getpaper (amd64 and arm64).
 - Stack: Rust backend (axum, sqlx), PostgreSQL, React + TipTap frontend. Interface in English and Italian.
 - Deployment: one Docker Compose file that starts GetPaper and PostgreSQL 16. Data lives in the Docker volumes `pgdata` (database) and `uploads` (attachments). Updates with `docker compose pull && docker compose up -d`.
-- Outbound connections: only the optional services the administrator configures (Microsoft Entra ID for sign-in, an SMTP server for emails). No telemetry, no licence check, no hosted service required.
-- Sign-in: email and password (can be disabled) and Microsoft Entra ID via OpenID Connect with PKCE. No Google, Slack or generic OIDC providers.
+- Outbound connections: only the optional services the administrator configures (an identity provider for sign-in, an SMTP server for emails, webhooks added by workspace admins). No telemetry, no licence check, no hosted service required.
+- Sign-in: email and password (can be disabled); Microsoft Entra ID, Google, Slack and any OpenID Connect provider (authorization code flow, PKCE when supported); optional sign-in links by email and passkeys (WebAuthn). All extra methods are off until configured.
 - Workspaces: multiple isolated workspaces with their own members, roles (admin, editor, viewer), groups, collections and API keys; documents can be moved between workspaces; search across workspaces.
 - Migration: Confluence XML or HTML space exports (page tree, dates with XML, attachments, common macros; not authors, comments, version history, labels or permissions); Wiki.js 2 exports and storage files (page tree, dates, drafts, assets, links and callouts; not users, comments, history or tags); Markdown exports from Outline, Notion, Obsidian, GitBook and BookStack; GetPaper backups between installations.
 - MCP: Streamable HTTP endpoint at `/mcp`, authenticated with personal API keys that are read-only or read/write, limited to chosen workspaces or collections, with optional expiry, and never exceed the creator's permissions. Content read by an assistant is processed by that assistant and its model.
 - Activity and audit log: workspace admins see members' activity, changes to documents (from the revision history) and an audit log of sign-ins, invites, roles, access, documents, public links, API keys, imports, exports and settings, with IP address and CSV export; superadmins see the sign-ins and settings of the installation. Kept 90 days by default (configurable, 0 = off); views per person are off by default. Not available through API keys.
 - Collaboration: comments on a passage of the text (also by readers), following documents and collections with notifications and emails, sharing a single document with people or groups, embeds of YouTube, Vimeo, Loom, Figma, Google Docs, Miro, Spotify and CodePen, previews of links (external ones only if a superadmin enables them); workspace admins suspend members, superadmins suspend accounts.
-- Differences from Outline: no real-time co-editing (conflicts detected on save), Microsoft Entra ID is the only SSO provider.
+- Organisation: documents pinned on the home page and in collections, backlinks ("Referenced by"), email preferences per kind of notification (mentions, followed documents, comments, resolved threads, collection access, accepted invitations), public links that can include nested documents, allow search engine indexing (with a sitemap) and hide the last change date.
+- Webhooks: workspace admins send workspace events as HTTP POST requests signed with HMAC-SHA256 (X-GetPaper-Signature), with retries and a delivery log.
+- Differences from Outline: no real-time co-editing (conflicts detected on save), no integrations besides webhooks.
 
 ## Website
 

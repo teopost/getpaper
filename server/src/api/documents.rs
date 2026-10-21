@@ -15,7 +15,7 @@ use crate::{
     error::{ok, ApiError, ApiResult},
     models::{doc_select, Access, DocRow, DOC_COLUMNS, DOC_FROM},
     perm::{descendant_ids, find_doc, load_collection, load_doc, readable_collection_ids, readable_collection_ids_all_teams},
-    util::{new_url_id, parse_id, IdRef},
+    util::new_url_id,
     AppState,
 };
 
@@ -23,7 +23,7 @@ use crate::{
 /// Documents visible to the user: readable collections ($3, of workspace $2 or of the workspaces in
 /// $2 when `many_teams`), their own collection-less drafts, published ones or their own.
 /// A key limited to some collections doesn't see collection-less documents.
-fn access_sql(auth: &Auth, many_teams: bool) -> String {
+pub(crate) fn access_sql(auth: &Auth, many_teams: bool) -> String {
     let team = if many_teams { "d.team_id = ANY($2)" } else { "d.team_id = $2" };
     // documents shared with the user count too, except for keys limited to some collections
     let own = if auth.key.as_ref().is_some_and(|k| k.collections.is_some()) {
@@ -35,7 +35,7 @@ fn access_sql(auth: &Auth, many_teams: bool) -> String {
 }
 
 /// Drops documents outside the collections an API key is limited to.
-fn key_visible(auth: &Auth, docs: Vec<DocRow>) -> Vec<DocRow> {
+pub(crate) fn key_visible(auth: &Auth, docs: Vec<DocRow>) -> Vec<DocRow> {
     match auth.key.as_ref().filter(|k| k.collections.is_some()) {
         Some(k) => docs.into_iter().filter(|d| d.collection_id.is_some_and(|c| k.allows_collection(c))).collect(),
         None => docs,
@@ -115,6 +115,45 @@ pub async fn drafts(State(st): State<AppState>, auth: Auth, Json(b): Json<PageRe
         .fetch_all(&st.db)
         .await?;
     ok(key_visible(&auth, docs))
+}
+
+/// A document in a list, without its text
+pub(crate) fn summary(d: &DocRow) -> Value {
+    json!({
+        "id": d.id,
+        "urlId": d.url_id,
+        "title": d.title,
+        "emoji": d.emoji,
+        "collectionId": d.collection_id,
+        "updatedAt": d.updated_at,
+        "updatedByName": d.updated_by_name,
+    })
+}
+
+#[derive(Deserialize)]
+pub struct IdOnlyReq {
+    id: String,
+}
+
+/// The documents that link to or mention a document (backlinks), among those the user can read
+pub async fn backlinks(State(st): State<AppState>, auth: Auth, Json(b): Json<IdOnlyReq>) -> ApiResult<Json<Value>> {
+    let (d, _) = load_doc(&st.db, &auth, &b.id, Access::Read).await?;
+    let ids = readable_collection_ids(&st.db, &auth).await?;
+    let access = access_sql(&auth, false);
+    let sql = format!(
+        "SELECT {DOC_COLUMNS} {DOC_FROM} JOIN document_links l ON l.source_id = d.id AND l.target_id = $4 \
+         WHERE {access} AND d.archived_at IS NULL AND d.published_at IS NOT NULL AND d.template = false \
+         ORDER BY d.updated_at DESC LIMIT 100"
+    );
+    let docs: Vec<DocRow> = sqlx::query_as(&sql)
+        .bind(auth.user.id)
+        .bind(d.team_id)
+        .bind(&ids)
+        .bind(d.id)
+        .fetch_all(&st.db)
+        .await?;
+    let out: Vec<Value> = key_visible(&auth, docs).iter().map(summary).collect();
+    ok(out)
 }
 
 pub async fn viewed(State(st): State<AppState>, auth: Auth, Json(b): Json<PageReq>) -> ApiResult<Json<Value>> {
@@ -258,50 +297,43 @@ async fn collection_link(db: &PgPool, id: Option<Uuid>) -> ApiResult<Option<Coll
 
 pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<InfoReq>) -> ApiResult<Json<Value>> {
     if let Some(share_id) = &b.share_id {
-        if !st.settings().allow_public_sharing {
-            return Err(ApiError::not_found("This link is no longer valid"));
-        }
-        let share: Option<(Uuid, String, Uuid)> = match parse_id(share_id) {
-            IdRef::Uuid(u) => sqlx::query_as("SELECT id, url_id, document_id FROM shares WHERE id = $1 AND revoked_at IS NULL")
-                .bind(u)
-                .fetch_optional(&st.db)
-                .await?,
-            IdRef::UrlId(u) => {
-                sqlx::query_as("SELECT id, url_id, document_id FROM shares WHERE url_id = $1 AND revoked_at IS NULL")
-                    .bind(u)
-                    .fetch_optional(&st.db)
-                    .await?
+        let gone = || ApiError::not_found("This link is no longer valid");
+        let share = crate::api::shares::public_share(&st, share_id).await?.ok_or_else(gone)?;
+        let root = &share.document;
+        let tree = if share.include_children { crate::api::shares::shared_descendants(&st, root.id).await? } else { vec![] };
+        // a nested document, when the link includes them
+        let d = match b.id.as_deref().filter(|id| !id.is_empty()) {
+            None => root.clone(),
+            Some(id) => {
+                let node = tree.iter().find(|n| n.url_id == id || n.id.to_string() == id).ok_or_else(gone)?;
+                find_doc(&st.db, Uuid::nil(), &node.id.to_string()).await?
             }
         };
-        let (sid, surl, doc_id) = share.ok_or_else(|| ApiError::not_found("This link is no longer valid"))?;
-        let d = find_doc(&st.db, Uuid::nil(), &doc_id.to_string()).await?;
-        let (sharing, team_name): (bool, String) = sqlx::query_as("SELECT sharing, name FROM teams WHERE id = $1")
-            .bind(d.team_id)
-            .fetch_one(&st.db)
-            .await?;
-        let coll_sharing: Option<(bool,)> = match d.collection_id {
-            Some(c) => sqlx::query_as("SELECT sharing FROM collections WHERE id = $1 AND deleted_at IS NULL")
-                .bind(c)
-                .fetch_optional(&st.db)
-                .await?,
-            None => None,
-        };
-        if !sharing
-            || !coll_sharing.map(|c| c.0).unwrap_or(false)
-            || d.published_at.is_none()
-            || d.deleted_at.is_some()
-        {
-            return Err(ApiError::not_found("This link is no longer valid"));
-        }
         sqlx::query("UPDATE shares SET views = views + 1, last_accessed_at = now() WHERE id = $1")
-            .bind(sid)
+            .bind(share.id)
             .execute(&st.db)
             .await?;
+        let mut document = serde_json::to_value(&d).unwrap_or_default();
+        if !share.show_last_updated {
+            for k in ["updatedAt", "updatedBy", "updatedByName", "updatedByColor"] {
+                document.as_object_mut().map(|o| o.remove(k));
+            }
+        }
+        let mut nodes = vec![json!({ "id": root.id, "urlId": root.url_id, "parentDocumentId": null, "title": root.title, "emoji": root.emoji })];
+        nodes.extend(tree.iter().map(|n| json!({ "id": n.id, "urlId": n.url_id, "parentDocumentId": n.parent_document_id, "title": n.title, "emoji": n.emoji })));
         return ok(json!({
-            "document": d,
+            "document": document,
             "access": "read",
-            "share": { "id": sid, "urlId": surl },
-            "team": { "name": team_name },
+            "share": {
+                "id": share.id,
+                "urlId": share.url_id,
+                "includeChildDocuments": share.include_children,
+                "allowIndexing": share.allow_indexing,
+                "showLastUpdated": share.show_last_updated,
+                "rootId": root.id,
+            },
+            "team": { "name": share.team_name },
+            "tree": if share.include_children { json!(nodes) } else { json!([]) },
             "path": [],
             "children": [],
             "collection": null,
@@ -589,6 +621,9 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
         crate::subscriptions::notify(&st, &auth.user, &nd, crate::subscriptions::Event::Published);
     } else if new_session {
         crate::subscriptions::notify(&st, &auth.user, &nd, crate::subscriptions::Event::Updated);
+        // a new editing session, as for the notifications: not every save
+        let data = json!({ "collection": Target::collection_name(&st.db, nd.collection_id).await });
+        crate::webhooks::dispatch(&st, &auth, nd.team_id, "documents.update", Target::document(nd.id, &nd.title), data);
     }
     if publishing {
         let data = json!({ "new": false, "template": nd.template, "collection": Target::collection_name(&st.db, nd.collection_id).await });

@@ -4,7 +4,7 @@ import { api } from './api';
 import { AppProvider } from './store';
 import { ToastProvider } from './components/Toast';
 import Layout from './components/Layout';
-import Login from './pages/Login';
+import Login, { EmailSignIn } from './pages/Login';
 import Register from './pages/Register';
 import Invite from './pages/Invite';
 import SharedDoc from './pages/SharedDoc';
@@ -102,9 +102,11 @@ export default function App() {
     <ToastProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/login/email" element={<EmailSignIn />} />
         <Route path="/register" element={<Register />} />
         <Route path="/invite/:token" element={<Invite />} />
         <Route path="/s/:shareId" element={<SharedDoc />} />
+        <Route path="/s/:shareId/doc/:docId" element={<SharedDoc />} />
         <Route path="/*" element={<AuthenticatedApp />} />
       </Routes>
     </ToastProvider>

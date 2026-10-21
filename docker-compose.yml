@@ -59,6 +59,30 @@ services:
       MICROSOFT_AUTO_PROVISION: ${MICROSOFT_AUTO_PROVISION:-true}
       # Redirect URI path: /auth/microsoft/callback, or /auth/azure.callback to reuse an Outline app registration
       MICROSOFT_CALLBACK_PATH: ${MICROSOFT_CALLBACK_PATH:-/auth/microsoft/callback}
+      # Other single sign-on providers (optional): Google, Slack and any OpenID Connect provider.
+      # Redirect URI: ${URL}/auth/google/callback, /auth/slack/callback, /auth/oidc/callback.
+      # *_AUTO_PROVISION: create accounts at the first sign-in (empty: same as ALLOW_SIGNUP)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_ALLOWED_DOMAINS: ${GOOGLE_ALLOWED_DOMAINS:-}
+      GOOGLE_AUTO_PROVISION: ${GOOGLE_AUTO_PROVISION:-}
+      SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+      SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+      SLACK_ALLOWED_DOMAINS: ${SLACK_ALLOWED_DOMAINS:-}
+      SLACK_AUTO_PROVISION: ${SLACK_AUTO_PROVISION:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      OIDC_DISPLAY_NAME: ${OIDC_DISPLAY_NAME:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-}
+      OIDC_ALLOWED_DOMAINS: ${OIDC_ALLOWED_DOMAINS:-}
+      OIDC_AUTO_PROVISION: ${OIDC_AUTO_PROVISION:-}
+      OIDC_TRUST_EMAIL: ${OIDC_TRUST_EMAIL:-false}
+      # Sign-in with a link sent by email (needs SMTP) and with passkeys
+      EMAIL_LOGIN: ${EMAIL_LOGIN:-false}
+      PASSKEYS: ${PASSKEYS:-false}
+      # Webhooks may call addresses of the local network
+      WEBHOOKS_ALLOW_PRIVATE: ${WEBHOOKS_ALLOW_PRIVATE:-false}
       # Set to "false" to allow only Microsoft sign-in
       PASSWORD_LOGIN: ${PASSWORD_LOGIN:-true}
     ports:

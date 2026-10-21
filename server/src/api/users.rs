@@ -61,6 +61,9 @@ pub struct UpdateReq {
     content_width: Option<String>,
     language: Option<String>,
     theme: Option<String>,
+    /// emails per kind of notification: { "<event>": true | false }, merged with the current ones
+    notification_settings: Option<std::collections::HashMap<String, bool>>,
+    // older clients: the emails about mentions, and about followed and shared documents
     email_on_mention: Option<bool>,
     email_on_subscription: Option<bool>,
 }
@@ -81,12 +84,24 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     check_choice(&b.content_width, CONTENT_WIDTHS, "Content width")?;
     check_choice(&b.language, LANGUAGES, "Language")?;
     check_choice(&b.theme, THEMES, "Theme")?;
+    let mut settings = b.notification_settings.clone().unwrap_or_default();
+    if let Some(k) = settings.keys().find(|k| !crate::notify::EVENTS.contains(&k.as_str())) {
+        return Err(ApiError::bad_request(&format!("Unknown notification: {k}")));
+    }
+    if let Some(v) = b.email_on_mention {
+        settings.insert("mentioned_in_document".into(), v);
+    }
+    if let Some(v) = b.email_on_subscription {
+        for k in ["document_updated", "document_published", "document_shared"] {
+            settings.insert(k.into(), v);
+        }
+    }
     let u: User = sqlx::query_as(
         "UPDATE users SET name = COALESCE($2, name), color = COALESCE($3, color), \
          content_width = CASE WHEN $4::text IS NULL THEN content_width ELSE NULLIF($4, '') END, \
          language = CASE WHEN $5::text IS NULL THEN language ELSE NULLIF($5, '') END, \
          theme = CASE WHEN $6::text IS NULL THEN theme ELSE NULLIF($6, '') END, \
-         email_on_mention = COALESCE($7, email_on_mention), email_on_subscription = COALESCE($8, email_on_subscription), \
+         notification_settings = notification_settings || $7, \
          updated_at = now() WHERE id = $1 RETURNING *",
     )
     .bind(auth.user.id)
@@ -95,8 +110,7 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     .bind(&b.content_width)
     .bind(&b.language)
     .bind(&b.theme)
-    .bind(b.email_on_mention)
-    .bind(b.email_on_subscription)
+    .bind(serde_json::to_value(&settings).unwrap_or_default())
     .fetch_one(&st.db)
     .await?;
     ok(u)

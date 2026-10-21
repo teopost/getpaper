@@ -196,4 +196,11 @@ export default {
   'Add people': 'Aggiungi persone',
   'Public: anyone with the link can read it (since {date})': 'Pubblico: chiunque abbia il link può leggerlo (dal {date})',
   'Alt+click (Option on Mac) to expand or collapse all': 'Alt+clic (Option su Mac) per espandere o chiudere tutto',
+  // pinned documents and notifications
+  Pinned: 'Fissati',
+  Unpin: 'Togli',
+  '{name} commented on': '{name} ha commentato',
+  '{name} resolved a thread in': '{name} ha risolto una discussione in',
+  '{name} gave you access to': '{name} ti ha dato accesso a',
+  '{name} accepted your invitation and joined the workspace': '{name} ha accettato il tuo invito ed è entrato nel workspace',
 };

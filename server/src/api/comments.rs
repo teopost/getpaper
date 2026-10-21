@@ -97,7 +97,7 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
     .bind(d.id)
     .bind(b.parent_comment_id)
     .bind(auth.user.id)
-    .bind(text)
+    .bind(&text)
     .bind(anchor.as_ref().map(|a| clip(&a.text, 1000, false)))
     .bind(anchor.as_ref().map(|a| clip(&a.prefix, 40, true)))
     .bind(anchor.as_ref().map(|a| clip(&a.suffix, 40, false)))
@@ -107,17 +107,25 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
         .bind(id)
         .fetch_one(&st.db)
         .await?;
+    let thread = b.parent_comment_id.unwrap_or(id);
+    crate::notify::comment_created(&st, &auth.user, &d, id, thread, text.as_str());
+    crate::webhooks::dispatch(&st, &auth, d.team_id, "comments.create", crate::audit::Target::document(d.id, &d.title), json!({ "commentId": id, "parentCommentId": b.parent_comment_id, "text": text }));
     ok(c)
 }
 
 async fn load_comment(st: &AppState, auth: &Auth, id: Uuid) -> ApiResult<(Uuid, Access)> {
+    let (created_by, access, _) = load_comment_doc(st, auth, id).await?;
+    Ok((created_by, access))
+}
+
+async fn load_comment_doc(st: &AppState, auth: &Auth, id: Uuid) -> ApiResult<(Uuid, Access, crate::models::DocRow)> {
     let row: Option<(Uuid, Uuid)> = sqlx::query_as("SELECT document_id, created_by FROM comments WHERE id = $1")
         .bind(id)
         .fetch_optional(&st.db)
         .await?;
     let (doc_id, created_by) = row.ok_or_else(|| ApiError::not_found("Comment not found"))?;
-    let (_, access) = load_doc(&st.db, auth, &doc_id.to_string(), Access::Read).await?;
-    Ok((created_by, access))
+    let (d, access) = load_doc(&st.db, auth, &doc_id.to_string(), Access::Read).await?;
+    Ok((created_by, access, d))
 }
 
 #[derive(Deserialize)]
@@ -155,17 +163,21 @@ pub async fn delete(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
 }
 
 pub async fn resolve(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
-    let (created_by, access) = load_comment(&st, &auth, b.id).await?;
+    let (created_by, access, d) = load_comment_doc(&st, &auth, b.id).await?;
     if created_by != auth.user.id && access != Access::Write {
         return Err(ApiError::forbidden("You cannot resolve this comment"));
     }
-    sqlx::query(
+    let (resolved,): (bool,) = sqlx::query_as(
         "UPDATE comments SET resolved_at = CASE WHEN resolved_at IS NULL THEN now() ELSE NULL END, \
-         resolved_by = CASE WHEN resolved_at IS NULL THEN $2 ELSE NULL END WHERE id = $1",
+         resolved_by = CASE WHEN resolved_at IS NULL THEN $2 ELSE NULL END WHERE id = $1 RETURNING resolved_at IS NOT NULL",
     )
     .bind(b.id)
     .bind(auth.user.id)
-    .execute(&st.db)
+    .fetch_one(&st.db)
     .await?;
+    if resolved {
+        crate::notify::comment_resolved(&st, &auth.user, &d, b.id);
+        crate::webhooks::dispatch(&st, &auth, d.team_id, "comments.resolve", crate::audit::Target::document(d.id, &d.title), json!({ "commentId": b.id }));
+    }
     ok(json!({ "success": true }))
 }

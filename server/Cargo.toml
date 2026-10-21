@@ -15,6 +15,10 @@ chrono = { version = "0.4", features = ["serde"] }
 argon2 = "0.5"
 rand = "0.8"
 sha2 = "0.10"
+# passkeys (WebAuthn); conditional-ui: sign-in without typing the email
+webauthn-rs = { version = "0.5", features = ["conditional-ui"] }
+# signatures of webhook calls
+hmac = "0.12"
 hex = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

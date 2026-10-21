@@ -118,7 +118,7 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
 - **Menzioni** con `@`, come in Outline: persone, gruppi, documenti e collezioni (salvate come
   `@[Nome](mention://<id>/<user|document|collection>/<id>)`); documenti e collezioni sono chip che si aprono con
   un clic, anche in modifica. Chi viene menzionato in un documento pubblicato riceve una notifica nella sidebar
-  e un'email (disattivabile nelle preferenze del profilo), se può leggere il documento.
+  e un'email (disattivabile in Impostazioni → Notifiche), se può leggere il documento.
 - Salvataggio automatico, bozze, pubblicazione, cronologia revisioni con ripristino, preferiti su documenti e
   collezioni (nell'ordine che scegli), archivio, cestino con 30 giorni di conservazione, template, commenti con
   risposte e risoluzione.
@@ -126,7 +126,13 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
   sostituiti quando si crea un documento dal modello; i segnaposto (`!!testo!!`, o il pulsante segnaposto nel menu
   di formattazione di un modello) sono evidenziati nel nuovo documento e si sostituiscono con un clic e scrivendo.
 - **Ricerca full-text** in PostgreSQL con evidenziazione dei risultati e filtro per collezione.
-- **Condivisione pubblica** dei documenti tramite link (`/s/...`).
+- **Condivisione pubblica** dei documenti tramite link (`/s/...`), facoltativamente con i documenti annidati,
+  l'indicizzazione nei motori di ricerca e la data dell'ultima modifica ([dettagli](#link-pubblici)).
+- **Documenti fissati**, come in Outline: gli amministratori fissano documenti in cima alla home, chi può modificare
+  una collezione li fissa in cima alla collezione (*Fissa nella home*, *Fissa nella collezione* nel menu del
+  documento); le schede si riordinano trascinandole.
+- **Backlink**: sotto un documento, *Citato da* elenca i documenti che lo collegano o lo menzionano, tra quelli che
+  chi legge può aprire.
 - **Membri e ruoli** (admin, editor, viewer), inviti tramite link, chiavi API personali. Gli amministratori del
   workspace possono **sospendere** un membro (non apre il workspace finché non viene riattivato; ruolo, gruppi e
   permessi restano); i superadmin possono sospendere un account ovunque (niente accesso, sessioni chiuse, chiavi API
@@ -137,6 +143,11 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
 - **Seguire** documenti e collezioni (*Segui* nel loro menu): una notifica, e un'email se la si vuole, quando un
   documento seguito ha una nuova sessione di modifica, viene pubblicato un documento in una collezione seguita o
   qualcuno condivide un documento con te. Chi pubblica o modifica un documento lo segue automaticamente.
+- **Notifiche** anche per i commenti sui documenti seguiti e le risposte nelle tue discussioni, le discussioni
+  risolte, l'accesso a una collezione e gli inviti accettati. In **Impostazioni → Notifiche** ognuno sceglie, tipo
+  per tipo, quali ricevere anche per email.
+- **Webhook**: gli amministratori del workspace inviano gli eventi del workspace ad altri sistemi
+  ([dettagli](#webhook)).
 - **Commenti su un passaggio**: si seleziona il testo e si sceglie *Commenta*, anche con accesso in sola lettura; il
   passaggio viene evidenziato e la discussione mostra la citazione. Il Markdown del documento non cambia: se il
   passaggio viene cancellato il commento resta, con la citazione barrata.
@@ -185,6 +196,61 @@ Comportamento:
 - Funziona anche dalla pagina di invito ("Join with Microsoft") e riporta l'utente alla pagina richiesta prima
   del login.
 
+## Altri metodi di accesso
+
+Tutti facoltativi e spenti finché non vengono configurati; l'accesso Microsoft e le password funzionano come prima.
+
+**Google, Slack e qualsiasi provider OpenID Connect** (Keycloak, Okta, Authentik, …), con authorization code flow
+(e PKCE se il provider lo supporta). Registra presso il provider un'applicazione web con redirect URI
+`<URL>/auth/google/callback`, `<URL>/auth/slack/callback` o `<URL>/auth/oidc/callback`:
+
+| Variabile | Descrizione |
+| --- | --- |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Client OAuth di Google Cloud (tipo *Applicazione web*) |
+| `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` | App Slack con *Sign in with Slack* (OpenID Connect) |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Qualsiasi provider: gli endpoint vengono letti da `<issuer>/.well-known/openid-configuration` |
+| `OIDC_DISPLAY_NAME` | Nome sul pulsante (predefinito `OpenID Connect`) |
+| `OIDC_SCOPES` | Predefinito `openid profile email` |
+| `<PROVIDER>_ALLOWED_DOMAINS` | Facoltativo: solo questi domini email possono entrare (`GOOGLE_`, `SLACK_`, `OIDC_`) |
+| `<PROVIDER>_AUTO_PROVISION` | Crea l'account al primo accesso. Predefinito: il valore di `ALLOW_SIGNUP` |
+| `OIDC_TRUST_EMAIL` | `true` per accettare indirizzi che il provider non indica come verificati (`email_verified`) |
+
+Gli account sono legati all'identità presso il provider. Un account esistente con la stessa email viene collegato
+solo se il provider indica l'indirizzo come verificato; senza un indirizzo verificato l'accesso viene rifiutato.
+Inviti pendenti e domini consentiti dei workspace funzionano come con Microsoft.
+
+**Link via email** (`EMAIL_LOGIN=true`, richiede SMTP): dalla pagina di accesso chi ha un account chiede un link,
+valido una sola volta per 15 minuti; al massimo un'email al minuto. La pagina non rivela se un account esiste. Il
+link apre una pagina con il pulsante *Accedi*, così i sistemi che controllano i link nelle email non lo consumano.
+
+**Passkey** (`PASSKEYS=true`): ognuno aggiunge le proprie passkey in **Impostazioni → Profilo** (impronta, volto,
+PIN del dispositivo o una chiave di sicurezza) e accede con *Accedi con una passkey* senza scrivere l'email.
+Funzionano solo sull'indirizzo di `URL`, che deve essere `https` (o `http://localhost`).
+
+Con almeno uno di questi metodi, `PASSWORD_LOGIN=false` disattiva le password come con Microsoft.
+
+## Webhook
+
+In **Impostazioni → Webhook** gli amministratori del workspace aggiungono URL che ricevono gli eventi del
+workspace: tutti o alcuni gruppi (`documents`, `collections`, `comments`, `shares`, `users`, `groups`, `invites`,
+`api_keys`, `teams`, `data`). Gli eventi sono quelli del registro di audit, più `documents.update` (una nuova
+sessione di modifica di un documento pubblicato), `comments.create` e `comments.resolve`; i webhook funzionano anche
+con il registro di audit spento.
+
+Ogni evento è una `POST` con un corpo JSON (`id`, `event`, `createdAt`, `workspace`, `actor`, `target`, `data`) e
+le intestazioni `X-GetPaper-Event`, `X-GetPaper-Delivery` e `X-GetPaper-Signature: t=<unix time>,s=<firma>`, dove
+la firma è l'HMAC-SHA256 esadecimale di `<unix time>.<corpo>` con il segreto del webhook:
+
+```python
+import hmac, hashlib
+t, s = (p.split("=", 1)[1] for p in header.split(","))
+valid = hmac.compare_digest(s, hmac.new(secret.encode(), f"{t}.{body}".encode(), hashlib.sha256).hexdigest())
+```
+
+- Fino a 3 tentativi (dopo 10 e 60 secondi), timeout di 10 secondi, redirect non seguiti. Dopo 25 invii falliti di
+  seguito il webhook viene disattivato; *Invii* mostra l'ultima settimana.
+- Vengono chiamati solo indirizzi pubblici, salvo `WEBHOOKS_ALLOW_PRIVATE=true` (per destinatari nella rete locale).
+
 ## Link pubblici
 
 Un documento pubblicato si può rendere visibile fuori dall'autenticazione da **Share → Publish to internet**. Il
@@ -192,6 +258,10 @@ link ha la forma `<URL>/s/<token>`, con un token casuale di 24 caratteri (circa 
 
 - La pagina è in sola lettura, non richiede login e funziona anche con `PASSWORD_LOGIN=false`.
 - La pagina è marcata `noindex` e `no-referrer`, così non finisce nei motori di ricerca e non trapela tramite i link in uscita.
+- Opzioni nello stesso pannello, come in Outline: **Includi i documenti annidati** (i documenti pubblicati al suo
+  interno si leggono dal link, con un albero di lato; i link tra loro restano dentro il link), **Indicizzazione nei
+  motori di ricerca** (niente `noindex`, e una sitemap in `<URL>/s/<token>/sitemap.xml`) e **Mostra l'ultima
+  modifica** (attiva di default).
 - Il link si revoca dallo stesso pannello o da **Impostazioni → Shared Links**.
 - La condivisione si può disattivare per l'intero workspace o per una singola collezione.
 
@@ -430,8 +500,8 @@ Sviluppo frontend con hot reload: avvia lo stack, poi `cd web && npm install && 
 
 - Niente collaborazione in tempo reale (Y.js). Il salvataggio è automatico; se un altro utente ha modificato
   il documento nel frattempo, compare un avviso di conflitto con il pulsante per ricaricare.
-- Accesso con email e password oppure Microsoft Entra ID. Non ci sono altri SSO (Google, Slack, OIDC generico)
-  né integrazioni.
+- Accesso con email e password, Microsoft Entra ID, Google, Slack, un provider OpenID Connect generico, un link via
+  email o passkey. Nessun'altra integrazione oltre ai webhook.
 
 ## Contribuire
 

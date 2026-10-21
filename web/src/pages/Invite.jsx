@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { Button, Spinner } from '../components/ui';
 import { t } from '../i18n';
-import { AuthShell, MicrosoftButton, OrDivider } from './Login';
+import { AuthShell, OrDivider, SsoButtons, hasSso } from './Login';
 import { RegisterForm } from './Register';
 
 export default function Invite() {
@@ -65,8 +65,8 @@ export default function Invite() {
         </>
       ) : (
         <>
-          {config.microsoft && <MicrosoftButton invite={token} label={t('Join with Microsoft')} />}
-          {config.microsoft && config.passwordLogin && <OrDivider />}
+          <SsoButtons config={config} invite={token} verb="join" />
+          {hasSso(config) && config.passwordLogin && <OrDivider />}
           {config.passwordLogin && (
             <>
               <RegisterForm inviteToken={token} defaultEmail={invite.email} teamName={invite.teamName} />

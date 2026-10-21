@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useApp } from '../store';
 import Scene from '../components/Scene';
 import DocumentList from '../components/DocumentList';
+import PinnedDocs from '../components/PinnedDocs';
 import { Button, Tabs, Menu } from '../components/ui';
 import { CollectionIcon } from '../components/icons';
 import { t } from '../i18n';
@@ -59,6 +60,7 @@ export default function Home() {
     <Scene title={t('Home')} headerTitle={<span className="header-title">{t('Home')}</span>} actions={<NewDocButton />}>
       <h1 className="page-title">{t('Home')}</h1>
       <p className="page-subtitle muted">{t('Welcome back to {name}.', { name: team.name })}</p>
+      <PinnedDocs />
       <Tabs
         value={tab}
         onChange={setTab}

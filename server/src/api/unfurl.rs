@@ -30,7 +30,7 @@ pub struct UrlReq {
 }
 
 /// Addresses on the internet; everything else (the server itself, the local network…) is refused
-fn is_public(ip: IpAddr) -> bool {
+pub(crate) fn is_public(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
             let o = v4.octets();

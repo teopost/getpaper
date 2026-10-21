@@ -20,10 +20,15 @@ struct NotificationRow {
     viewed_at: Option<DateTime<Utc>>,
     actor_name: Option<String>,
     actor_color: Option<String>,
-    document_id: Uuid,
-    document_url_id: String,
-    document_title: String,
+    document_id: Option<Uuid>,
+    document_url_id: Option<String>,
+    document_title: Option<String>,
     document_emoji: Option<String>,
+    /// access given to a collection
+    collection_url_id: Option<String>,
+    collection_name: Option<String>,
+    /// the comment, for comments and resolved threads
+    comment_id: Option<Uuid>,
     /// for group mentions
     group_name: Option<String>,
 }
@@ -40,10 +45,11 @@ pub async fn list(State(st): State<AppState>, auth: Auth, Json(b): Json<ListReq>
     let rows: Vec<NotificationRow> = sqlx::query_as(
         "SELECT n.id, n.event, n.created_at, n.viewed_at, a.name AS actor_name, a.color AS actor_color, \
          d.id AS document_id, d.url_id AS document_url_id, d.title AS document_title, d.emoji AS document_emoji, \
-         g.name AS group_name \
-         FROM notifications n JOIN documents d ON d.id = n.document_id LEFT JOIN users a ON a.id = n.actor_id \
-         LEFT JOIN groups g ON g.id = n.group_id \
-         WHERE n.user_id = $1 AND n.team_id = $2 AND d.deleted_at IS NULL ORDER BY n.created_at DESC LIMIT $3",
+         c.url_id AS collection_url_id, c.name AS collection_name, n.comment_id, g.name AS group_name \
+         FROM notifications n LEFT JOIN documents d ON d.id = n.document_id LEFT JOIN users a ON a.id = n.actor_id \
+         LEFT JOIN collections c ON c.id = n.collection_id LEFT JOIN groups g ON g.id = n.group_id \
+         WHERE n.user_id = $1 AND n.team_id = $2 AND d.deleted_at IS NULL AND c.deleted_at IS NULL \
+         ORDER BY n.created_at DESC LIMIT $3",
     )
     .bind(auth.user.id)
     .bind(team)
@@ -51,8 +57,9 @@ pub async fn list(State(st): State<AppState>, auth: Auth, Json(b): Json<ListReq>
     .fetch_all(&st.db)
     .await?;
     let (unread,): (i64,) = sqlx::query_as(
-        "SELECT count(*) FROM notifications n JOIN documents d ON d.id = n.document_id \
-         WHERE n.user_id = $1 AND n.team_id = $2 AND n.viewed_at IS NULL AND d.deleted_at IS NULL",
+        "SELECT count(*) FROM notifications n LEFT JOIN documents d ON d.id = n.document_id \
+         LEFT JOIN collections c ON c.id = n.collection_id \
+         WHERE n.user_id = $1 AND n.team_id = $2 AND n.viewed_at IS NULL AND d.deleted_at IS NULL AND c.deleted_at IS NULL",
     )
     .bind(auth.user.id)
     .bind(team)

@@ -7,6 +7,7 @@ pub mod collections;
 pub mod document_shares;
 pub mod comments;
 pub mod documents;
+pub mod email_login;
 pub mod export;
 pub mod groups;
 pub mod import;
@@ -16,6 +17,9 @@ pub mod import_wikijs;
 pub mod mcp;
 pub mod instance;
 pub mod notifications;
+pub mod oidc;
+pub mod passkeys;
+pub mod pins;
 pub mod invites;
 pub mod revisions;
 pub mod session;
@@ -26,6 +30,7 @@ pub mod subscriptions;
 pub mod teams;
 pub mod unfurl;
 pub mod users;
+pub mod webhooks;
 
 use axum::{
     body::Body,
@@ -84,6 +89,14 @@ pub fn router() -> Router<AppState> {
         .route("/auth.register", post(session::register))
         .route("/auth.logout", post(session::logout))
         .route("/auth.info", post(session::info))
+        .route("/auth.emailLink", post(email_login::send_link))
+        .route("/auth.emailCallback", post(email_login::callback))
+        .route("/auth.passkeyStart", post(passkeys::sign_in_start))
+        .route("/auth.passkeyFinish", post(passkeys::sign_in_finish))
+        .route("/passkeys.list", post(passkeys::list))
+        .route("/passkeys.registerStart", post(passkeys::register_start))
+        .route("/passkeys.registerFinish", post(passkeys::register_finish))
+        .route("/passkeys.delete", post(passkeys::delete))
         // workspaces
         .route("/teams.info", post(teams::info))
         .route("/teams.list", post(teams::list))
@@ -142,6 +155,7 @@ pub fn router() -> Router<AppState> {
         .route("/documents.deleted", post(documents::deleted))
         .route("/documents.templates", post(documents::templates))
         .route("/documents.info", post(documents::info))
+        .route("/documents.backlinks", post(documents::backlinks))
         .route("/documents.create", post(documents::create))
         .route("/documents.update", post(documents::update))
         .route("/documents.move", post(documents::move_doc))
@@ -173,10 +187,17 @@ pub fn router() -> Router<AppState> {
         .route("/stars.create", post(stars::create))
         .route("/stars.update", post(stars::update))
         .route("/stars.delete", post(stars::delete))
+        // documents pinned on the home page or in a collection
+        .route("/pins.list", post(pins::list))
+        .route("/pins.info", post(pins::info))
+        .route("/pins.create", post(pins::create))
+        .route("/pins.update", post(pins::update))
+        .route("/pins.delete", post(pins::delete))
         // shares
         .route("/shares.list", post(shares::list))
         .route("/shares.info", post(shares::info))
         .route("/shares.create", post(shares::create))
+        .route("/shares.update", post(shares::update))
         .route("/shares.revoke", post(shares::revoke))
         // comments
         .route("/comments.list", post(comments::list))
@@ -189,6 +210,13 @@ pub fn router() -> Router<AppState> {
         .route("/notifications.markRead", post(notifications::mark_read))
         // attachments
         .route("/attachments.create", post(attachments::create))
+        // webhooks of the workspace (admins)
+        .route("/webhooks.list", post(webhooks::list))
+        .route("/webhooks.create", post(webhooks::create))
+        .route("/webhooks.update", post(webhooks::update))
+        .route("/webhooks.delete", post(webhooks::delete))
+        .route("/webhooks.deliveries", post(webhooks::deliveries))
+        .route("/webhooks.test", post(webhooks::test))
         // api keys
         .route("/apiKeys.list", post(api_keys::list))
         .route("/apiKeys.create", post(api_keys::create))

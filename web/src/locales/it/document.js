@@ -121,4 +121,22 @@ export default {
   'Add content to your document, then use headings or dividers to separate it into slides.':
     'Aggiungi contenuti al documento, poi usa titoli o separatori per dividerlo in slide.',
   Public: 'Pubblico',
+  // public link options
+  'Include nested documents': 'Includi i documenti annidati',
+  'The documents inside this one can be read through the link too.':
+    'Anche i documenti contenuti in questo si possono leggere dal link.',
+  'Search engine indexing': 'Indicizzazione nei motori di ricerca',
+  'Search engines may list the pages of the link.': 'I motori di ricerca possono elencare le pagine del link.',
+  'Show last modified': 'Mostra l’ultima modifica',
+  'Show when the document was last changed.': 'Mostra quando il documento è stato modificato l’ultima volta.',
+  // pins and backlinks
+  'Pin to home': 'Fissa nella home',
+  'Unpin from home': 'Togli dalla home',
+  'Pin to collection': 'Fissa nella collezione',
+  'Unpin from collection': 'Togli dalla collezione',
+  'Pinned to home': 'Fissato nella home',
+  'Unpinned from home': 'Tolto dalla home',
+  'Pinned to collection': 'Fissato nella collezione',
+  'Unpinned from collection': 'Tolto dalla collezione',
+  'Referenced by': 'Citato da',
 };

@@ -125,4 +125,21 @@ export default {
     'I modelli aiutano il tuo team a creare documentazione coerente e accurata. Sono disponibili per tutti nel workspace quando si crea un nuovo documento.',
   'There are no templates just yet.': 'Non ci sono ancora modelli.',
   'Search all workspaces': 'Cerca in tutti i workspace',
+  // sign-in: single sign-on providers, link by email, passkeys
+  'Continue with {provider}': 'Continua con {provider}',
+  'Join with {provider}': 'Entra con {provider}',
+  'Sign up with {provider}': 'Registrati con {provider}',
+  'Accounts are created the first time you sign in with single sign-on.':
+    'Gli account vengono creati al primo accesso con il single sign-on.',
+  'Sign in with a passkey': 'Accedi con una passkey',
+  'Waiting for the passkey…': 'In attesa della passkey…',
+  'Email me a sign-in link': 'Inviami un link per accedere',
+  'Email me a sign-in link instead': 'Inviami invece un link per accedere',
+  'Enter your email address first.': 'Scrivi prima il tuo indirizzo email.',
+  'Check your email': 'Controlla la tua email',
+  'If there is an account for {email}, we sent it a sign-in link. It works for 15 minutes.':
+    'Se esiste un account per {email}, gli abbiamo inviato un link per accedere. Vale 15 minuti.',
+  'Sign in to {product}': 'Accedi a {product}',
+  'Use the button to finish signing in.': 'Usa il pulsante per completare l’accesso.',
+  'Sign in': 'Accedi',
 };

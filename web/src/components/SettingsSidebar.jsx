@@ -15,6 +15,8 @@ import {
   SlidersHorizontal,
   Activity,
   ScrollText,
+  Bell,
+  Webhook,
 } from 'lucide-react';
 import { useApp } from '../store';
 import { TeamAvatar } from './ui';
@@ -41,6 +43,9 @@ export default function SettingsSidebar() {
           <div className="sidebar-heading">{t('Account')}</div>
           <Item to="/settings/profile" icon={<User size={18} />}>
             {t('Profile')}
+          </Item>
+          <Item to="/settings/notifications" icon={<Bell size={18} />}>
+            {t('Notifications')}
           </Item>
           <Item to="/settings/api-keys" icon={<Key size={18} />}>
             {t('API Keys & MCP')}
@@ -72,6 +77,11 @@ export default function SettingsSidebar() {
           {isAdmin && (
             <Item to="/settings/activity" icon={<Activity size={18} />}>
               {t('Activity')}
+            </Item>
+          )}
+          {isAdmin && (
+            <Item to="/settings/webhooks" icon={<Webhook size={18} />}>
+              {t('Webhooks')}
             </Item>
           )}
           <Item to="/settings/import" icon={<Upload size={18} />}>

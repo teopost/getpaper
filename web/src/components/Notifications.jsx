@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck } from 'lucide-react';
-import { api, docUrl, timeAgo } from '../api';
+import { api, collectionUrl, docUrl, timeAgo } from '../api';
 import { Avatar } from './ui';
 import { t } from '../i18n';
 
@@ -13,6 +13,31 @@ export function notificationsChanged() {
 }
 
 const POLL_MS = 60 * 1000;
+
+/** What happened, before the name of the document or collection */
+function notificationText(n) {
+  const name = n.actorName || t('Someone');
+  switch (n.event) {
+    case 'document_updated':
+      return t('{name} updated', { name });
+    case 'document_published':
+      return t('{name} published', { name });
+    case 'document_shared':
+      return t('{name} shared with you', { name });
+    case 'comment_created':
+      return t('{name} commented on', { name });
+    case 'comment_resolved':
+      return t('{name} resolved a thread in', { name });
+    case 'collection_added':
+      return t('{name} gave you access to', { name });
+    case 'invite_accepted':
+      return t('{name} accepted your invitation and joined the workspace', { name });
+    case 'group_mentioned_in_document':
+      return t('{name} mentioned {group} in', { name, group: `@${n.groupName}` });
+    default:
+      return t('{name} mentioned you in', { name });
+  }
+}
 
 /** Sidebar entry with the unread count; opens the list of notifications */
 export default function Notifications() {
@@ -78,7 +103,9 @@ export default function Notifications() {
     setOpen(false);
     if (!n.viewedAt) await api('notifications.markRead', { id: n.id }).catch(() => {});
     refresh();
-    navigate(docUrl({ title: n.documentTitle, urlId: n.documentUrlId }));
+    if (n.documentUrlId) navigate(docUrl({ title: n.documentTitle, urlId: n.documentUrlId }) + (n.commentId ? `?comment=${n.commentId}` : ''));
+    else if (n.collectionUrlId) navigate(collectionUrl({ name: n.collectionName, urlId: n.collectionUrlId }));
+    else if (n.event === 'invite_accepted') navigate('/settings/members');
   };
 
   return (
@@ -108,20 +135,14 @@ export default function Notifications() {
                 <Avatar name={n.actorName || '?'} color={n.actorColor} size={28} />
                 <span className="notification-body">
                   <span className="notification-text">
-                    {
-                      {
-                        document_updated: t('{name} updated', { name: n.actorName || t('Someone') }),
-                        document_published: t('{name} published', { name: n.actorName || t('Someone') }),
-                        document_shared: t('{name} shared with you', { name: n.actorName || t('Someone') }),
-                      }[n.event] ||
-                        (n.groupName
-                          ? t('{name} mentioned {group} in', { name: n.actorName || t('Someone'), group: `@${n.groupName}` })
-                          : t('{name} mentioned you in', { name: n.actorName || t('Someone') }))
-                    }{' '}
-                    <strong>
-                      {n.documentEmoji ? `${n.documentEmoji} ` : ''}
-                      {n.documentTitle || t('Untitled')}
-                    </strong>
+                    {notificationText(n)}{' '}
+                    {n.documentUrlId && (
+                      <strong>
+                        {n.documentEmoji ? `${n.documentEmoji} ` : ''}
+                        {n.documentTitle || t('Untitled')}
+                      </strong>
+                    )}
+                    {n.collectionName && <strong>{n.collectionName}</strong>}
                   </span>
                   <span className="notification-time muted">{timeAgo(n.createdAt)}</span>
                 </span>

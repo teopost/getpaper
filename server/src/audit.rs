@@ -130,6 +130,10 @@ impl<'a> Actor<'a> {
 }
 
 pub async fn insert(st: &AppState, meta: &ClientMeta, team: Option<Uuid>, actor: Actor<'_>, name: &str, target: Option<Target>, data: Value) {
+    // the webhooks of the workspace get its events even when the audit log is off
+    if let Some(team) = team {
+        crate::webhooks::send(st, team, name, Actor { id: actor.id, name: actor.name, email: actor.email }, target.as_ref(), &data);
+    }
     if st.settings().audit_retention_days == 0 {
         return;
     }
