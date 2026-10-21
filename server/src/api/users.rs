@@ -6,6 +6,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     models::User,
@@ -127,6 +128,9 @@ pub async fn update_role(State(st): State<AppState>, auth: Auth, Json(b): Json<R
         .bind(&b.role)
         .execute(&st.db)
         .await?;
+    if current != b.role {
+        audit::record(&st, &auth, "users.role", Target::user_id(&st.db, b.id).await, json!({ "from": current, "to": b.role })).await;
+    }
     ok(json!({ "success": true }))
 }
 
@@ -150,6 +154,7 @@ pub async fn remove(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
     if current == "admin" && admin_count(&st, team).await? <= 1 {
         return Err(ApiError::bad_request("A workspace must have at least one admin"));
     }
+    let target = Target::user_id(&st.db, b.id).await;
     let mut tx = st.db.begin().await?;
     sqlx::query("DELETE FROM team_memberships WHERE team_id = $1 AND user_id = $2")
         .bind(team)
@@ -179,6 +184,8 @@ pub async fn remove(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
+    let event = if b.id == auth.user.id { "users.leave" } else { "users.remove" };
+    audit::record(&st, &auth, event, target, json!({ "role": current })).await;
     ok(json!({ "success": true }))
 }
 
@@ -207,5 +214,6 @@ pub async fn change_password(State(st): State<AppState>, auth: Auth, Json(b): Js
         .bind(hash_password(&b.new_password)?)
         .execute(&st.db)
         .await?;
+    audit::record_in(&st, &auth, None, if has_password { "users.password" } else { "users.password_set" }, Target::user(&auth.user), json!({})).await;
     ok(json!({ "success": true }))
 }

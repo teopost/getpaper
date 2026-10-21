@@ -128,6 +128,9 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
 - **Ricerca full-text** in PostgreSQL con evidenziazione dei risultati e filtro per collezione.
 - **Condivisione pubblica** dei documenti tramite link (`/s/...`).
 - **Membri e ruoli** (admin, editor, viewer), inviti tramite link, chiavi API personali.
+- **Attività e registro di audit**: gli amministratori di un workspace vedono chi è attivo, chi ha modificato quale
+  documento, gli accessi e le modifiche a membri, permessi e impostazioni; i superadmin vedono accessi e impostazioni
+  dell'installazione ([dettagli](#attività-e-registro-di-audit)).
 - **Gruppi**, come in Outline: li creano gli amministratori del workspace, i membri li gestiscono gli amministratori
   del workspace e del gruppo; a un gruppo si può dare accesso in lettura o modifica a una collezione e menzionarlo
   con `@gruppo` avvisa tutti i suoi membri (le menzioni si possono disattivare per gruppo).
@@ -278,12 +281,44 @@ Il **superadmin** gestisce le impostazioni comuni a tutti i workspace dell'insta
   esistenti smettono di funzionare finché non vengono riattivati.
 - **Valori predefiniti per gli utenti**: lingua, aspetto e larghezza dei documenti. Hanno la precedenza sulle
   variabili `DEFAULT_*`, che restano il valore di partenza.
+- **Attività e registro di audit**: per quanti giorni conservare il registro e se gli amministratori dei workspace
+  vedono i documenti letti da ogni persona (vedi [Attività e registro di audit](#attività-e-registro-di-audit)).
 - **Superadmin**: elenco, aggiunta per email (l'account deve esistere) e rimozione (ne resta sempre almeno uno).
 
 Il primo account creato è superadmin. I superadmin hanno il badge *Superadmin* nell'elenco **Membri** e sono elencati
 in **Impostazioni generali → Superadmin**. Con `SUPERADMIN_EMAILS` (separati da virgola) si possono indicare account che
 sono sempre superadmin, ad esempio per recuperare l'accesso. Essere superadmin non dà accesso ai workspace di cui non
 si è membri.
+
+## Attività e registro di audit
+
+Gli amministratori di un workspace trovano **Impostazioni → Attività**, con tre schede e un filtro sul periodo:
+
+- **Persone**: per ogni membro il ruolo, l'ultima attività, l'ultimo accesso, il numero di accessi, i documenti
+  pubblicati e modificati nel periodo. Cliccando una persona si vedono le sue modifiche. Il numero di documenti letti
+  da ogni persona compare solo se un superadmin lo attiva (*Impostazioni generali → Documenti letti da ogni
+  persona*, disattivato di default).
+- **Modifiche ai documenti**: chi ha modificato quale documento pubblicato e quando, dalla cronologia delle revisioni
+  (i salvataggi della stessa persona entro 5 minuti contano come una modifica), con filtro per persona e collezione.
+- **Registro di audit**: accessi riusciti e non riusciti dei membri, inviti, ruoli, rimozioni, gruppi, collezioni e
+  loro permessi, documenti pubblicati, spostati, archiviati, ripristinati o eliminati, link pubblici, chiavi API,
+  import, export e impostazioni del workspace, con indirizzo IP, browser e canale (web, chiave API, MCP). Filtri per
+  tipo, persona e testo, ed **export CSV** (fino a 20 000 eventi).
+
+I superadmin trovano **Impostazioni → Registro di audit** dell'installazione: accessi riusciti e non riusciti (anche
+con email sconosciuta), nuovi account, impostazioni generali, superadmin, workspace creati ed eliminati. Come nel
+resto dell'applicazione, i superadmin non vedono cosa succede nei workspace di cui non sono amministratori.
+
+- Le bozze sono private: non vengono registrate finché non sono pubblicate.
+- Il registro viene conservato per 90 giorni di default; i superadmin lo cambiano in *Impostazioni generali →
+  Attività e registro di audit* (da 1 a 3650 giorni; 0 spegne il registro ed elimina ciò che è stato registrato).
+  Anche lo spegnimento viene registrato.
+- L'indirizzo è l'ultimo valore di `X-Forwarded-For` (quello aggiunto dal reverse proxy), altrimenti `X-Real-IP`,
+  altrimenti l'indirizzo della connessione: esegui GetPaper dietro un reverse proxy, altrimenti i client possono
+  inviare un `X-Forwarded-For` qualsiasi.
+- Nulla di tutto questo è disponibile con le chiavi API. La registrazione dell'attività dei dipendenti può essere
+  soggetta a norme sul lavoro e sulla privacy (in Italia l'art. 4 dello Statuto dei Lavoratori e il GDPR):
+  verificale prima di scegliere cosa attivare e per quanto tempo.
 
 ## Export
 

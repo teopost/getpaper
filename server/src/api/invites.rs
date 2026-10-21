@@ -6,6 +6,7 @@ use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     models::User,
@@ -88,6 +89,9 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
         .execute(&st.db)
         .await?;
         let added = res.rows_affected() > 0;
+        if added {
+            audit::record(&st, &auth, "invites.create", Target::user(&u), json!({ "email": u.email, "role": role, "added": true })).await;
+        }
         // tell them they were added; the link opens the app on this workspace, not on the last one they used
         let link = format!("{}/?workspace={team}", st.cfg.url.trim_end_matches('/'));
         let email_error = if send && added {
@@ -119,6 +123,7 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
     .bind(auth.user.id)
     .fetch_one(&st.db)
     .await?;
+    audit::record(&st, &auth, "invites.create", None, json!({ "email": email, "role": role, "added": false })).await;
     let link = format!("{}/invite/{}", st.cfg.url.trim_end_matches('/'), invite.token);
     let email_error = if send { deliver(&st, &auth.user, &invite, &link).await.err().map(|e| e.message) } else { None };
     ok(json!({ "added": false, "invite": invite, "link": link, "emailSent": send && email_error.is_none(), "emailError": email_error }))
@@ -179,11 +184,14 @@ pub struct IdReq {
 
 pub async fn revoke(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
     auth.require_writer()?;
-    sqlx::query("DELETE FROM invites WHERE id = $1 AND team_id = $2 AND accepted_at IS NULL")
+    let revoked: Option<(String,)> = sqlx::query_as("DELETE FROM invites WHERE id = $1 AND team_id = $2 AND accepted_at IS NULL RETURNING email")
         .bind(b.id)
         .bind(auth.team()?)
-        .execute(&st.db)
+        .fetch_optional(&st.db)
         .await?;
+    if let Some((email,)) = revoked {
+        audit::record(&st, &auth, "invites.revoke", None, json!({ "email": email })).await;
+    }
     ok(json!({ "success": true }))
 }
 
@@ -228,6 +236,7 @@ pub async fn accept_invite_internal(db: &PgPool, user: &User, token: &str) -> Ap
 
 pub async fn accept(State(st): State<AppState>, auth: Auth, Json(b): Json<TokenReq>) -> ApiResult<Json<Value>> {
     let team_id = accept_invite_internal(&st.db, &auth.user, &b.token).await?;
+    audit::record_in(&st, &auth, Some(team_id), "users.join", Target::user(&auth.user), json!({ "via": "invite" })).await;
     if let Some(h) = &auth.session_hash {
         sqlx::query("UPDATE sessions SET team_id = $1 WHERE token_hash = $2")
             .bind(team_id)

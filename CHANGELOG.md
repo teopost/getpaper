@@ -8,6 +8,17 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ## [Unreleased]
 
+### Added
+
+- **Activity and audit log**. Workspace admins have Settings → Activity: people (last activity, sign-ins, documents
+  published and edited, optionally documents viewed), changes to documents from the revision history, and an audit
+  log of sign-ins and failed sign-ins, invites, roles, groups, collection access, documents published, moved,
+  archived, restored or deleted, public links, API keys, imports, exports and workspace settings, with IP address,
+  browser and channel (web, API key, MCP), filters and CSV export. Superadmins have the audit log of the
+  installation (sign-ins, accounts, general settings, superadmins, workspaces). Drafts are not recorded. Kept for
+  90 days by default, configurable in the general settings (0 turns it off); documents viewed per person are off by
+  default. Database migration: new `events` table.
+
 ## [0.2.0] - 2026-10-21
 
 ### Added

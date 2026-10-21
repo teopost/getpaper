@@ -9,6 +9,7 @@ import { useToast } from '../components/Toast';
 import { COLORS } from '../components/icons';
 import InviteModal from '../components/InviteModal';
 import Groups from './Groups';
+import Activity, { InstanceAudit } from './Activity';
 import NewWorkspaceModal from '../components/NewWorkspaceModal';
 import { LANGUAGES, t } from '../i18n';
 import { DEFAULT_PRODUCT_NAME, getDefaults, getProductName } from '../prefs';
@@ -1371,6 +1372,40 @@ function ToggleSetting({ label, hint, checked, onChange }) {
   );
 }
 
+/** Days the audit log is kept, saved when the field loses focus or on Enter; 0 turns it off */
+function RetentionSetting({ value, onChange }) {
+  const [text, setText] = useState(String(value ?? 90));
+  useEffect(() => setText(String(value ?? 90)), [value]);
+  const commit = () => {
+    const n = Number(text);
+    if (!Number.isInteger(n) || n < 0 || n > 3650) {
+      setText(String(value ?? 90));
+      return;
+    }
+    if (n !== value) onChange(n);
+  };
+  return (
+    <div className="field row space-between">
+      <div>
+        <div className="field-label">{t('Keep the audit log for (days)')}</div>
+        <div className="field-hint">
+          {t('From 1 to 3650 days; older events are deleted every hour. 0 turns the audit log off and deletes what was recorded.')}
+        </div>
+      </div>
+      <input
+        type="number"
+        min="0"
+        max="3650"
+        className="retention-input"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+      />
+    </div>
+  );
+}
+
 /** Text setting saved when the field loses focus or on Enter; empty = default (shown as placeholder) */
 function TextSetting({ label, hint, value, placeholder, maxLength, onChange }) {
   const [text, setText] = useState(value || '');
@@ -1534,6 +1569,20 @@ function GeneralSettings() {
         />
       </div>
 
+      <h2 className="section-title">{t('Activity and audit log')}</h2>
+      <p className="muted">
+        {t('Sign-ins and the actions of people are recorded for workspace admins (Settings → Activity) and for superadmins (Audit log). Recording the activity of employees can be subject to labour and privacy rules: check them before choosing how long to keep it.')}
+      </p>
+      <div className="form settings-form">
+        <RetentionSetting value={s.auditRetentionDays} onChange={(v) => update({ auditRetentionDays: v })} />
+        <ToggleSetting
+          label={t('Documents viewed per person')}
+          hint={t('In Settings → Activity, workspace admins also see how many documents each person opened. Off by default.')}
+          checked={s.activityShowViews}
+          onChange={(v) => update({ activityShowViews: v })}
+        />
+      </div>
+
       <h2 className="section-title">{t('Email')}</h2>
       <EmailCheck enabled={!!auth.email} email={user.email} />
 
@@ -1660,6 +1709,8 @@ const SECTIONS = {
   workspace: { title: 'Details', component: Workspace },
   members: { title: 'Members', component: Members },
   groups: { title: 'Groups', component: Groups },
+  activity: { title: 'Activity', component: Activity },
+  audit: { title: 'Audit log', component: InstanceAudit },
   shares: { title: 'Shared Links', component: Shares },
   'api-keys': { title: 'API Keys', component: ApiKeys },
   workspaces: { title: 'Workspaces', component: Workspaces },

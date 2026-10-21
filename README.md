@@ -149,6 +149,9 @@ Most common commands (`make` with no arguments shows the list):
   workspaces.
 - **Public sharing** of documents by link (`/s/...`).
 - **Members and roles** (admin, editor, viewer), invites by link or email, personal API keys.
+- **Activity and audit log**: workspace admins see who is active, who changed which document, sign-ins and the
+  changes to members, access and settings; superadmins see the sign-ins and settings of the installation
+  ([details](#activity-and-audit-log)).
 - **Groups**, as in Outline: workspace admins create them, workspace and group admins manage their members; a
   group can be given read or edit access to a collection, and mentioning it with `@group` notifies all of its
   members (mentions can be turned off per group).
@@ -296,12 +299,41 @@ notice whose link opens that workspace.
   stop working until they are enabled again.
 - **Defaults for users**: language, appearance and document width. They take precedence over the `DEFAULT_*`
   variables, which remain the starting value.
+- **Activity and audit log**: how many days the audit log is kept and whether workspace admins see the documents
+  viewed per person (see [Activity and audit log](#activity-and-audit-log)).
 - **Superadmins**: list, add by email (the account must exist) and remove (at least one always remains).
 
 The first account created is a superadmin. Superadmins have the *Superadmin* badge in the **Members** list and are
 listed in **General settings → Superadmins**. With `SUPERADMIN_EMAILS` (comma separated) you can name accounts that
 are always superadmins, for example to recover access. Being a superadmin doesn't give access to workspaces you are
 not a member of.
+
+## Activity and audit log
+
+Workspace admins find **Settings → Activity**, with three tabs and a period filter:
+
+- **People**: for each member the role, last activity, last sign-in, number of sign-ins, documents published and
+  edited in the period. Clicking a person shows their changes. The number of documents each person viewed is shown
+  only if a superadmin enables it (*General settings → Documents viewed per person*, off by default).
+- **Changes to documents**: who edited which published document and when, from the revision history (saves of the
+  same person within 5 minutes count as one change), filtered by person and collection.
+- **Audit log**: sign-ins and failed sign-ins of the members, invites, roles, removals, groups, collections and
+  their access, documents published, moved, archived, restored or deleted, public links, API keys, imports,
+  exports and workspace settings, with IP address, browser and channel (web, API key, MCP). Filters by type,
+  person and text, and **CSV export** (up to 20 000 events).
+
+Superadmins find **Settings → Audit log** for the installation: sign-ins and failed sign-ins (also with unknown
+email), new accounts, general settings, superadmins, workspaces created and deleted. As everywhere else, superadmins
+don't see what happens inside workspaces they are not admins of.
+
+- Drafts are private: they are not recorded until they are published.
+- The log is kept for 90 days by default; superadmins change it in *General settings → Activity and audit log*
+  (1 to 3650 days; 0 turns the log off and deletes what was recorded). Turning it off is recorded too.
+- The address is the last entry of `X-Forwarded-For` (the one added by the reverse proxy), else `X-Real-IP`, else
+  the connection address: run GetPaper behind a reverse proxy, otherwise clients can send any `X-Forwarded-For`.
+- None of this is available through API keys. Recording the activity of employees can be subject to labour and
+  privacy rules (in Italy art. 4 of the Statuto dei Lavoratori and the GDPR): check them before choosing what to
+  enable and for how long.
 
 ## Export
 

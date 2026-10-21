@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     instance::{self, InstanceSettings},
@@ -54,8 +55,25 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(patch): Json<Va
     }
     let next: InstanceSettings = serde_json::from_value(current).map_err(|e| ApiError::bad_request(format!("Invalid settings: {e}")))?;
     next.validate()?;
+    let before = serde_json::to_value(st.settings()).unwrap_or_default();
+    let after = serde_json::to_value(&next).unwrap_or_default();
+    let changes: serde_json::Map<String, Value> = after
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter(|(k, v)| before.get(k.as_str()) != Some(*v))
+        .map(|(k, v)| (k.clone(), json!({ "from": before.get(k.as_str()), "to": v })))
+        .collect();
+    // turning the audit log off is recorded while it is still on, turning it on once it is on
+    let turning_off = next.audit_retention_days == 0;
+    if turning_off && !changes.is_empty() {
+        audit::record_in(&st, &auth, None, "instance.update", None, Value::Object(changes.clone())).await;
+    }
     instance::save(&st.db, &next, auth.user.id).await?;
     *st.instance.write().unwrap() = next;
+    if !turning_off && !changes.is_empty() {
+        audit::record_in(&st, &auth, None, "instance.update", None, Value::Object(changes)).await;
+    }
     tracing::info!(user = %auth.user.email, "general settings updated");
     ok(info_value(&st).await?)
 }
@@ -111,6 +129,10 @@ pub async fn add_superadmin(State(st): State<AppState>, auth: Auth, Json(b): Jso
     if r.rows_affected() == 0 {
         return Err(ApiError::not_found("No account with this email: the person must sign in at least once"));
     }
+    let target: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM users WHERE lower(email) = lower($1)").bind(b.email.trim()).fetch_optional(&st.db).await?;
+    if let Some((id,)) = target {
+        audit::record_in(&st, &auth, None, "instance.superadmin_add", Target::user_id(&st.db, id).await, json!({})).await;
+    }
     ok(info_value(&st).await?)
 }
 
@@ -130,5 +152,6 @@ pub async fn remove_superadmin(State(st): State<AppState>, auth: Auth, Json(b): 
         return Err(ApiError::bad_request("This superadmin is set in SUPERADMIN_EMAILS and can only be removed there"));
     }
     sqlx::query("UPDATE users SET is_superadmin = false WHERE id = $1").bind(b.id).execute(&st.db).await?;
+    audit::record_in(&st, &auth, None, "instance.superadmin_remove", Target::user_id(&st.db, b.id).await, json!({})).await;
     ok(info_value(&st).await?)
 }

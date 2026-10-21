@@ -30,6 +30,7 @@ use zip::{write::SimpleFileOptions, CompressionMethod, ZipWriter};
 
 use super::import_confluence::{safe_name, tree_paths};
 use crate::{
+    audit,
     auth::Auth,
     error::{ApiError, ApiResult},
     perm::readable_collection_ids,
@@ -75,6 +76,7 @@ pub async fn export(State(st): State<AppState>, auth: Auth, Json(b): Json<Export
         .map_err(|e| ApiError::internal(e.to_string()))??;
     let filename = format!("{}-{}-{suffix}.zip", slugify(&team_name), Utc::now().format("%Y-%m-%d"));
     tracing::info!(format = %b.format, bytes = zip.len(), "workspace exported");
+    audit::record(&st, &auth, "workspace.export", None, serde_json::json!({ "format": b.format, "bytes": zip.len() })).await;
     Ok((
         [
             (header::CONTENT_TYPE, "application/zip".to_string()),

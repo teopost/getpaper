@@ -1574,6 +1574,78 @@ body.resizing-sidebar {
   padding: 10px 8px;
   border-bottom: 1px solid var(--divider);
 }
+/* ---------- Settings → Activity and audit log ---------- */
+.activity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+.activity-filters select {
+  max-width: 100%;
+}
+.activity-filters form {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.activity-filters input {
+  width: 100%;
+  min-width: 0;
+}
+.activity-table td {
+  vertical-align: top;
+}
+.activity-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.activity-person-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.activity-role {
+  margin-left: 30px;
+  margin-top: 2px;
+}
+.activity-details {
+  min-width: 180px;
+  max-width: 340px;
+  overflow-wrap: anywhere;
+}
+.activity-failed td:nth-child(-n + 4) {
+  color: var(--danger);
+}
+.activity-note {
+  margin-top: 12px;
+}
+.activity-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+.retention-input {
+  width: 96px;
+  flex: none;
+}
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.link-button:hover {
+  color: var(--accent);
+}
+.nowrap {
+  white-space: nowrap;
+}
+.warning-text {
+  color: var(--danger);
+}
 .code-sample {
   font-family: var(--mono);
   font-size: 12px;

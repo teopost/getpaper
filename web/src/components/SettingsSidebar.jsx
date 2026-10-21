@@ -13,6 +13,8 @@ import {
   Upload,
   Download,
   SlidersHorizontal,
+  Activity,
+  ScrollText,
 } from 'lucide-react';
 import { useApp } from '../store';
 import { TeamAvatar } from './ui';
@@ -67,6 +69,11 @@ export default function SettingsSidebar() {
           <Item to="/settings/shares" icon={<Globe size={18} />}>
             {t('Shared Links')}
           </Item>
+          {isAdmin && (
+            <Item to="/settings/activity" icon={<Activity size={18} />}>
+              {t('Activity')}
+            </Item>
+          )}
           <Item to="/settings/import" icon={<Upload size={18} />}>
             {t('Import')}
           </Item>
@@ -85,6 +92,9 @@ export default function SettingsSidebar() {
             <div className="sidebar-heading">{t('Installation')}</div>
             <Item to="/settings/general" icon={<SlidersHorizontal size={18} />}>
               {t('General settings')}
+            </Item>
+            <Item to="/settings/audit" icon={<ScrollText size={18} />}>
+              {t('Audit log')}
             </Item>
           </div>
         )}

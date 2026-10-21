@@ -5,6 +5,7 @@ use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     models::{Team, User},
@@ -129,6 +130,9 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
             .execute(&st.db)
             .await?;
     }
+    // an event of the installation (superadmins) and of the new workspace (its admin)
+    audit::record_in(&st, &auth, None, "teams.create", Target::new("workspace", team.id, team.name.clone()), json!({})).await;
+    audit::record_in(&st, &auth, Some(team.id), "teams.create", Target::new("workspace", team.id, team.name.clone()), json!({})).await;
     ok(team)
 }
 
@@ -205,6 +209,7 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
         Some(url) => Some(valid_logo(&st, team_id, url.trim()).await?),
         None => None,
     };
+    let before: Team = sqlx::query_as("SELECT * FROM teams WHERE id = $1").bind(team_id).fetch_one(&st.db).await?;
     let team: Team = sqlx::query_as(
         "UPDATE teams SET name = COALESCE($2, name), color = COALESCE($3, color), sharing = COALESCE($4, sharing), \
          default_user_role = COALESCE($5, default_user_role), allowed_domains = COALESCE($6, allowed_domains), \
@@ -227,6 +232,20 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     .bind(logo.flatten())
     .fetch_one(&st.db)
     .await?;
+    let mut changes = serde_json::Map::new();
+    let mut changed = |key: &str, from: Value, to: Value| {
+        if from != to {
+            changes.insert(key.into(), json!({ "from": from, "to": to }));
+        }
+    };
+    changed("name", json!(before.name), json!(team.name));
+    changed("sharing", json!(before.sharing), json!(team.sharing));
+    changed("defaultUserRole", json!(before.default_user_role), json!(team.default_user_role));
+    changed("allowedDomains", json!(before.allowed_domains), json!(team.allowed_domains));
+    changed("logo", json!(before.avatar_url.is_some()), json!(team.avatar_url.is_some()));
+    if !changes.is_empty() {
+        audit::record(&st, &auth, "teams.update", Target::new("workspace", team.id, team.name.clone()), Value::Object(changes)).await;
+    }
     ok(team)
 }
 
@@ -254,5 +273,7 @@ pub async fn delete(State(st): State<AppState>, auth: Auth, Json(b): Json<Delete
     sqlx::query("DELETE FROM documents WHERE team_id = $1").bind(b.id).execute(&mut *tx).await?;
     sqlx::query("DELETE FROM teams WHERE id = $1").bind(b.id).execute(&mut *tx).await?;
     tx.commit().await?;
+    // the events of the workspace are deleted with it: this one is kept for the superadmins
+    audit::record_in(&st, &auth, None, "teams.delete", Target::new("workspace", team.id, team.name.clone()), json!({})).await;
     ok(json!({ "success": true }))
 }

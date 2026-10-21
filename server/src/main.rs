@@ -1,4 +1,5 @@
 mod api;
+mod audit;
 mod auth;
 mod error;
 mod html_md;
@@ -196,11 +197,15 @@ async fn main() -> anyhow::Result<()> {
     let settings = instance::load(&db).await.map_err(|e| anyhow::anyhow!("cannot load settings: {}", e.message))?;
     tracing::info!("database migrated");
 
-    // periodic cleanup of expired sessions
+    // periodic cleanup of expired sessions, old trash and old audit events
+    let instance = Arc::new(std::sync::RwLock::new(settings));
     {
         let db = db.clone();
+        let instance = instance.clone();
         tokio::spawn(async move {
             loop {
+                let retention = instance.read().map(|s| s.audit_retention_days).unwrap_or(0);
+                audit::cleanup(&db, retention).await;
                 let _ = sqlx::query("DELETE FROM sessions WHERE expires_at < now()").execute(&db).await;
                 let _ = sqlx::query(
                     "DELETE FROM documents WHERE deleted_at IS NOT NULL AND deleted_at < now() - interval '30 days'",
@@ -215,7 +220,7 @@ async fn main() -> anyhow::Result<()> {
     let static_dir: PathBuf = std::env::var("STATIC_DIR").unwrap_or_else(|_| "./public".into()).into();
     let index = static_dir.join("index.html");
     let body_limit = cfg.max_upload_mb * 1024 * 1024 + 1024 * 1024;
-    let state = AppState { db, cfg: Arc::new(cfg), instance: Arc::new(std::sync::RwLock::new(settings)) };
+    let state = AppState { db, cfg: Arc::new(cfg), instance };
 
     let app = Router::new()
         .nest("/api", api::router())
@@ -251,6 +256,7 @@ async fn main() -> anyhow::Result<()> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".into());
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}")).await?;
     tracing::info!("listening on :{port}");
-    axum::serve(listener, app).await?;
+    // the connection address is the client address in the audit log when there is no reverse proxy
+    axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>()).await?;
     Ok(())
 }

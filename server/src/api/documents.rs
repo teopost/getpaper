@@ -10,6 +10,7 @@ use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     models::{doc_select, Access, DocRow, DOC_COLUMNS, DOC_FROM},
@@ -495,6 +496,11 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
     )
     .await?;
     crate::mentions::notify(&st, &auth.user, &d, None);
+    // drafts are private: only what is published is recorded
+    if d.published_at.is_some() {
+        let data = json!({ "new": true, "template": d.template, "collection": Target::collection_name(&st.db, d.collection_id).await });
+        audit::record(&st, &auth, "documents.publish", Target::document(d.id, &d.title), data).await;
+    }
     ok(d)
 }
 
@@ -562,6 +568,10 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     let changed = nd.title != d.title || nd.text != d.text || nd.emoji != d.emoji;
     if nd.published_at.is_some() && (changed || publishing) {
         save_revision(&st.db, &nd, auth.user.id).await?;
+    }
+    if publishing {
+        let data = json!({ "new": false, "template": nd.template, "collection": Target::collection_name(&st.db, nd.collection_id).await });
+        audit::record(&st, &auth, "documents.publish", Target::document(nd.id, &nd.title), data).await;
     }
     crate::mentions::notify(&st, &auth.user, &nd, (!publishing).then_some(d.text.as_str()));
     ok(nd)
@@ -661,6 +671,17 @@ pub async fn move_doc(State(st): State<AppState>, auth: Auth, Json(b): Json<Move
             .await?;
     }
     tx.commit().await?;
+    if d.collection_id != Some(target_collection) || d.team_id != target_team {
+        let data = json!({
+            "from": Target::collection_name(&st.db, d.collection_id).await,
+            "to": Target::collection_name(&st.db, Some(target_collection)).await,
+            "nested": tree.len() - 1,
+        });
+        audit::record_in(&st, &auth, Some(d.team_id), "documents.move", Target::document(d.id, &d.title), data.clone()).await;
+        if d.team_id != target_team {
+            audit::record_in(&st, &auth, Some(target_team), "documents.move", Target::document(d.id, &d.title), data).await;
+        }
+    }
     ok(find_doc(&st.db, auth.user.id, &d.id.to_string()).await?)
 }
 
@@ -699,6 +720,7 @@ pub async fn archive(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq
         .bind(&ids)
         .execute(&st.db)
         .await?;
+    audit::record(&st, &auth, "documents.archive", Target::document(d.id, &d.title), json!({ "nested": ids.len() - 1 })).await;
     ok(find_doc(&st.db, auth.user.id, &d.id.to_string()).await?)
 }
 
@@ -714,6 +736,7 @@ pub async fn unpublish(State(st): State<AppState>, auth: Auth, Json(b): Json<IdR
         .bind(d.id)
         .execute(&st.db)
         .await?;
+    audit::record(&st, &auth, "documents.unpublish", Target::document(d.id, &d.title), json!({})).await;
     ok(find_doc(&st.db, auth.user.id, &d.id.to_string()).await?)
 }
 
@@ -744,6 +767,9 @@ pub async fn restore(State(st): State<AppState>, auth: Auth, Json(b): Json<Resto
             .await?;
         let nd = find_doc(&st.db, auth.user.id, &d.id.to_string()).await?;
         save_revision(&st.db, &nd, auth.user.id).await?;
+        if nd.published_at.is_some() {
+            audit::record(&st, &auth, "documents.restore", Target::document(nd.id, &nd.title), json!({ "from": "revision" })).await;
+        }
         return ok(nd);
     }
 
@@ -810,6 +836,10 @@ pub async fn restore(State(st): State<AppState>, auth: Auth, Json(b): Json<Resto
         }
         tx.commit().await?;
     }
+    if d.published_at.is_some() && (d.deleted_at.is_some() || d.archived_at.is_some()) {
+        let from = if d.deleted_at.is_some() { "trash" } else { "archive" };
+        audit::record(&st, &auth, "documents.restore", Target::document(d.id, &d.title), json!({ "from": from, "nested": ids.len() - 1 })).await;
+    }
     ok(find_doc(&st.db, auth.user.id, &d.id.to_string()).await?)
 }
 
@@ -832,6 +862,10 @@ pub async fn delete(State(st): State<AppState>, auth: Auth, Json(b): Json<Delete
             .bind(&ids)
             .execute(&st.db)
             .await?;
+    }
+    if d.published_at.is_some() {
+        let data = json!({ "permanent": b.permanent == Some(true), "nested": ids.len() - 1 });
+        audit::record(&st, &auth, "documents.delete", Target::document(d.id, &d.title), data).await;
     }
     ok(json!({ "success": true }))
 }
@@ -917,6 +951,9 @@ pub async fn export(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
         Some(e) => format!("{e} {}", d.title),
         None => d.title.clone(),
     };
+    if d.published_at.is_some() {
+        audit::record(&st, &auth, "documents.export", Target::document(d.id, &d.title), json!({ "format": "markdown" })).await;
+    }
     ok(format!("# {title}\n\n{}", crate::html_md::html_tables_to_gfm(&d.text)))
 }
 
@@ -967,6 +1004,9 @@ pub async fn import(State(st): State<AppState>, auth: Auth, mut mp: Multipart) -
         },
     )
     .await?;
+    if d.published_at.is_some() {
+        audit::record(&st, &auth, "data.import", Target::document(d.id, &d.title), json!({ "format": "file", "documents": 1 })).await;
+    }
     ok(d)
 }
 

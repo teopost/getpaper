@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     api::{invites::accept_invite_internal, teams::create_team},
+    audit::{self, Actor, ClientMeta, Target},
     auth::{clear_cookie, session_cookie, Auth},
     error::{ok, ApiError, ApiResult},
     models::{Team, User},
@@ -54,7 +55,7 @@ pub struct LoginReq {
     password: String,
 }
 
-pub async fn login(State(st): State<AppState>, Json(b): Json<LoginReq>) -> ApiResult<Response> {
+pub async fn login(State(st): State<AppState>, meta: ClientMeta, Json(b): Json<LoginReq>) -> ApiResult<Response> {
     if !st.cfg.password_login {
         return Err(ApiError::forbidden("Password sign-in is disabled, use Microsoft sign-in"));
     }
@@ -65,7 +66,12 @@ pub async fn login(State(st): State<AppState>, Json(b): Json<LoginReq>) -> ApiRe
         .await?;
     let user = match user {
         Some(u) if verify_password(&b.password, &u.password_hash) => u,
-        _ => {
+        other => {
+            let (actor, reason) = match &other {
+                Some(u) => (Actor::user(u), "wrong password"),
+                None => (Actor { email: Some(&email), ..Default::default() }, "unknown email"),
+            };
+            audit::insert(&st, &meta, None, actor, "auth.signin_failed", None, json!({ "method": "password", "reason": reason })).await;
             return Err(ApiError::new(
                 StatusCode::UNAUTHORIZED,
                 "authentication_failed",
@@ -74,6 +80,7 @@ pub async fn login(State(st): State<AppState>, Json(b): Json<LoginReq>) -> ApiRe
         }
     };
     let token = create_session(&st.db, user.id, None).await?;
+    audit::insert(&st, &meta, None, Actor::user(&user), "auth.signin", None, json!({ "method": "password" })).await;
     Ok(with_cookie(
         session_cookie(&token, st.cfg.secure_cookies),
         json!({ "ok": true, "data": { "user": user } }),
@@ -90,7 +97,7 @@ pub struct RegisterReq {
     invite_token: Option<String>,
 }
 
-pub async fn register(State(st): State<AppState>, Json(b): Json<RegisterReq>) -> ApiResult<Response> {
+pub async fn register(State(st): State<AppState>, meta: ClientMeta, Json(b): Json<RegisterReq>) -> ApiResult<Response> {
     if !st.cfg.password_login {
         return Err(ApiError::forbidden("Password sign-up is disabled, use Microsoft sign-in"));
     }
@@ -149,6 +156,10 @@ pub async fn register(State(st): State<AppState>, Json(b): Json<RegisterReq>) ->
     };
 
     let token = create_session(&st.db, user.id, Some(team_id)).await?;
+    audit::insert(&st, &meta, None, Actor::user(&user), "users.create", Target::user(&user), json!({ "method": "password" })).await;
+    if invite_valid {
+        audit::insert(&st, &meta, Some(team_id), Actor::user(&user), "users.join", Target::user(&user), json!({ "invite": true })).await;
+    }
     Ok(with_cookie(
         session_cookie(&token, st.cfg.secure_cookies),
         json!({ "ok": true, "data": { "user": user } }),
@@ -157,8 +168,9 @@ pub async fn register(State(st): State<AppState>, Json(b): Json<RegisterReq>) ->
 
 pub async fn logout(State(st): State<AppState>, auth: Option<Auth>) -> ApiResult<Response> {
     if let Some(a) = auth {
-        if let Some(h) = a.session_hash {
+        if let Some(h) = &a.session_hash {
             sqlx::query("DELETE FROM sessions WHERE token_hash = $1").bind(h).execute(&st.db).await?;
+            audit::record_in(&st, &a, None, "auth.signout", None, json!({})).await;
         }
     }
     Ok(with_cookie(clear_cookie(), json!({ "ok": true, "success": true })))

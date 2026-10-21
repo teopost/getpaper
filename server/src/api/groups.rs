@@ -10,6 +10,7 @@ use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     util::non_empty,
@@ -158,6 +159,7 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
         .execute(&st.db)
         .await?;
     let g = load(&st.db, &auth, id).await?;
+    audit::record(&st, &auth, "groups.create", Target::new("group", g.id, g.name.clone()), json!({})).await;
     ok(out(&auth, g))
 }
 
@@ -191,7 +193,10 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     .bind(b.disable_mentions)
     .execute(&st.db)
     .await?;
+    let old_name = g.name.clone();
     let g = load(&st.db, &auth, g.id).await?;
+    let data = if old_name != g.name { json!({ "renamedFrom": old_name }) } else { json!({}) };
+    audit::record(&st, &auth, "groups.update", Target::new("group", g.id, g.name.clone()), data).await;
     ok(out(&auth, g))
 }
 
@@ -199,6 +204,7 @@ pub async fn delete(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
     auth.require_admin()?;
     let g = load(&st.db, &auth, b.id).await?;
     sqlx::query("DELETE FROM groups WHERE id = $1").bind(g.id).execute(&st.db).await?;
+    audit::record(&st, &auth, "groups.delete", Target::new("group", g.id, g.name.clone()), json!({})).await;
     ok(json!({ "success": true }))
 }
 
@@ -254,10 +260,12 @@ pub async fn add_user(State(st): State<AppState>, auth: Auth, Json(b): Json<AddU
     )
     .bind(g.id)
     .bind(b.user_id)
-    .bind(permission)
+    .bind(&permission)
     .bind(auth.user.id)
     .execute(&st.db)
     .await?;
+    let user = Target::user_id(&st.db, b.user_id).await.map(|t| t.name);
+    audit::record(&st, &auth, "groups.add_user", Target::new("group", g.id, g.name.clone()), json!({ "user": user, "permission": permission })).await;
     ok(json!({ "success": true }))
 }
 
@@ -275,5 +283,7 @@ pub async fn remove_user(State(st): State<AppState>, auth: Auth, Json(b): Json<R
         .bind(b.user_id)
         .execute(&st.db)
         .await?;
+    let user = Target::user_id(&st.db, b.user_id).await.map(|t| t.name);
+    audit::record(&st, &auth, "groups.remove_user", Target::new("group", g.id, g.name.clone()), json!({ "user": user })).await;
     ok(json!({ "success": true }))
 }

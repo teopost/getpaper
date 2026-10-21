@@ -51,6 +51,16 @@ pub struct InstanceSettings {
     pub default_theme: Option<String>,
     #[serde(default)]
     pub default_content_width: Option<String>,
+    /// days the audit log is kept; 0 = nothing is recorded
+    #[serde(default = "audit_days")]
+    pub audit_retention_days: u32,
+    /// Settings → Activity also shows how many documents each person viewed
+    #[serde(default)]
+    pub activity_show_views: bool,
+}
+
+fn audit_days() -> u32 {
+    90
 }
 
 impl Default for InstanceSettings {
@@ -107,6 +117,9 @@ impl InstanceSettings {
         valid_color(&self.accent_color, "Accent colour")?;
         valid_choice(&self.default_language, LANGUAGES, "Default language")?;
         valid_choice(&self.default_theme, THEMES, "Default theme")?;
+        if self.audit_retention_days > 3650 {
+            return Err(ApiError::bad_request("The audit log can be kept for at most 3650 days"));
+        }
         valid_choice(&self.default_content_width, CONTENT_WIDTHS, "Default document width")
     }
 

@@ -12,6 +12,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     models::{Access, Collection},
@@ -242,6 +243,11 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
             .await?;
     }
     tx.commit().await?;
+    // personal keys: recorded in every workspace where the key works
+    let data = json!({ "name": name, "access": access, "allWorkspaces": b.all_workspaces, "limitedToCollections": b.collection_ids.is_some(), "expiresAt": expires_at });
+    for team in &workspaces {
+        audit::record_in(&st, &auth, Some(*team), "api_keys.create", Target::user(&auth.user), data.clone()).await;
+    }
     ok(json!({ "id": id, "name": name, "secret": secret }))
 }
 
@@ -251,10 +257,22 @@ pub struct IdReq {
 }
 
 pub async fn delete(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
-    sqlx::query("DELETE FROM api_keys WHERE id = $1 AND user_id = $2")
+    let teams: Vec<(Uuid,)> = sqlx::query_as(
+        "SELECT team_id FROM api_keys WHERE id = $1 AND user_id = $2 UNION SELECT team_id FROM api_key_workspaces WHERE api_key_id = $1",
+    )
+    .bind(b.id)
+    .bind(auth.user.id)
+    .fetch_all(&st.db)
+    .await?;
+    let deleted: Option<(String,)> = sqlx::query_as("DELETE FROM api_keys WHERE id = $1 AND user_id = $2 RETURNING name")
         .bind(b.id)
         .bind(auth.user.id)
-        .execute(&st.db)
+        .fetch_optional(&st.db)
         .await?;
+    if let Some((name,)) = deleted {
+        for (team,) in teams {
+            audit::record_in(&st, &auth, Some(team), "api_keys.delete", Target::user(&auth.user), json!({ "name": name })).await;
+        }
+    }
     ok(json!({ "success": true }))
 }

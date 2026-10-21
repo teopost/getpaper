@@ -114,7 +114,7 @@ async fn notify_user(st: &AppState, actor: &User, doc: &DocRow, user_id: Uuid, g
         .fetch_optional(&st.db)
         .await?;
     let Some((role,)) = role else { return Ok(()) };
-    let as_user = Auth { user: user.clone(), team_id: Some(doc.team_id), role: Some(role), session_hash: None, key: None };
+    let as_user = Auth { user: user.clone(), team_id: Some(doc.team_id), role: Some(role), session_hash: None, key: None, meta: Default::default() };
     if doc_access(&st.db, &as_user, doc).await? == Access::None {
         return Ok(());
     }

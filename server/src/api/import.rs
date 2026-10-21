@@ -801,6 +801,8 @@ pub async fn import(State(st): State<AppState>, auth: Auth, mut mp: Multipart) -
     };
     let r = import_archive(&st, &auth, &name, bytes, target, publish, source).await?;
     tracing::info!(documents = r.documents, attachments = r.attachments, "import completed");
+    let data = json!({ "file": name, "format": r.format, "documents": r.documents, "attachments": r.attachments, "collections": r.collections.iter().filter_map(|c| c["name"].as_str()).collect::<Vec<_>>() });
+    crate::audit::record(&st, &auth, "data.import", None, data).await;
     ok(json!({
         "format": r.format,
         "collections": r.collections,

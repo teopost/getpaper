@@ -13,6 +13,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Actor, ClientMeta, Target},
     api::session::create_session,
     auth::session_cookie,
     error::{ApiError, ApiResult},
@@ -189,7 +190,7 @@ fn email_domain(email: &str) -> String {
 }
 
 /// Find, link or create the local user for a Microsoft identity.
-async fn resolve_user(st: &AppState, ms: &MicrosoftConfig, id: &Identity, has_invite: bool) -> ApiResult<User> {
+async fn resolve_user(st: &AppState, meta: &ClientMeta, ms: &MicrosoftConfig, id: &Identity, has_invite: bool) -> ApiResult<User> {
     if let Some(u) = sqlx::query_as::<_, User>("SELECT * FROM users WHERE microsoft_id = $1")
         .bind(&id.microsoft_id)
         .fetch_optional(&st.db)
@@ -228,7 +229,7 @@ async fn resolve_user(st: &AppState, ms: &MicrosoftConfig, id: &Identity, has_in
     if !(ms.auto_provision || has_invite || pending > 0 || users == 0) {
         return Err(ApiError::forbidden("You don't have an account yet. Ask an admin to invite you."));
     }
-    Ok(sqlx::query_as(
+    let user: User = sqlx::query_as(
         "INSERT INTO users (id, name, email, password_hash, color, microsoft_id, is_superadmin) \
          VALUES ($1, $2, $3, '', $4, $5, NOT EXISTS (SELECT 1 FROM users) OR lower($3) = ANY($6)) RETURNING *",
     )
@@ -239,7 +240,9 @@ async fn resolve_user(st: &AppState, ms: &MicrosoftConfig, id: &Identity, has_in
     .bind(&id.microsoft_id)
     .bind(&st.cfg.superadmin_emails)
     .fetch_one(&st.db)
-    .await?)
+    .await?;
+    audit::insert(st, meta, None, Actor::user(&user), "users.create", Target::user(&user), serde_json::json!({ "method": "microsoft" })).await;
+    Ok(user)
 }
 
 impl User {
@@ -254,10 +257,14 @@ impl User {
 
 /// Join workspaces: explicit invite, pending invites for the email, and workspaces whose
 /// allowed domains include the email domain. Returns the workspace to open.
-async fn join_workspaces(st: &AppState, user: &User, invite: &str) -> ApiResult<Option<Uuid>> {
+async fn join_workspaces(st: &AppState, meta: &ClientMeta, user: &User, invite: &str) -> ApiResult<Option<Uuid>> {
     let mut preferred = None;
+    let joined = |team: Uuid, how: &'static str| {
+        audit::insert(st, meta, Some(team), Actor::user(user), "users.join", Target::user(user), serde_json::json!({ "via": how }))
+    };
     if !invite.is_empty() {
         if let Ok(t) = crate::api::invites::accept_invite_internal(&st.db, user, invite).await {
+            joined(t, "invite").await;
             preferred = Some(t);
         }
     }
@@ -267,6 +274,9 @@ async fn join_workspaces(st: &AppState, user: &User, invite: &str) -> ApiResult<
         .await?;
     for (token,) in pending {
         let t = crate::api::invites::accept_invite_internal(&st.db, user, &token).await.ok();
+        if let Some(t) = t {
+            joined(t, "invite").await;
+        }
         preferred = preferred.or(t);
     }
     let domain = email_domain(&user.email);
@@ -286,6 +296,7 @@ async fn join_workspaces(st: &AppState, user: &User, invite: &str) -> ApiResult<
                 .execute(&st.db)
                 .await?;
             if r.rows_affected() > 0 {
+                joined(team_id, "allowed domain").await;
                 preferred = preferred.or(Some(team_id));
             }
         }
@@ -294,7 +305,7 @@ async fn join_workspaces(st: &AppState, user: &User, invite: &str) -> ApiResult<
 }
 
 /// GET /auth/microsoft/callback
-pub async fn callback(State(st): State<AppState>, headers: HeaderMap, Query(q): Query<CallbackQuery>) -> Response {
+pub async fn callback(State(st): State<AppState>, meta: ClientMeta, headers: HeaderMap, Query(q): Query<CallbackQuery>) -> Response {
     let Some(ms) = &st.cfg.microsoft else {
         return login_error("Microsoft sign-in is not configured");
     };
@@ -327,14 +338,22 @@ pub async fn callback(State(st): State<AppState>, headers: HeaderMap, Query(q): 
         Ok(i) => i,
         Err(e) => return login_error(&e),
     };
+    let failed = |reason: String| {
+        let actor = Actor { name: Some(identity.name.as_str()), email: Some(identity.email.as_str()), ..Default::default() };
+        audit::insert(&st, &meta, None, actor, "auth.signin_failed", None, serde_json::json!({ "method": "microsoft", "reason": reason }))
+    };
     if !ms.allowed_domains.is_empty() && !ms.allowed_domains.contains(&email_domain(&identity.email)) {
+        failed("email domain not allowed".into()).await;
         return login_error("Your email domain is not allowed to sign in");
     }
-    let user = match resolve_user(&st, ms, &identity, !invite.is_empty()).await {
+    let user = match resolve_user(&st, &meta, ms, &identity, !invite.is_empty()).await {
         Ok(u) => u,
-        Err(e) => return login_error(&e.message),
+        Err(e) => {
+            failed(e.message.clone()).await;
+            return login_error(&e.message);
+        }
     };
-    let team = match join_workspaces(&st, &user, invite).await {
+    let team = match join_workspaces(&st, &meta, &user, invite).await {
         Ok(t) => t,
         Err(e) => return login_error(&e.message),
     };
@@ -343,6 +362,7 @@ pub async fn callback(State(st): State<AppState>, headers: HeaderMap, Query(q): 
         Err(e) => return login_error(&e.message),
     };
     tracing::info!(user = %user.email, "signed in with Microsoft");
+    audit::insert(&st, &meta, None, Actor::user(&user), "auth.signin", None, serde_json::json!({ "method": "microsoft" })).await;
     redirect(&target, vec![session_cookie(&token, st.cfg.secure_cookies), clear_state_cookie()])
 }
 

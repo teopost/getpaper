@@ -8,6 +8,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     models::{Access, Collection},
@@ -135,6 +136,7 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<Create
             .execute(&st.db)
             .await?;
     }
+    audit::record(&st, &auth, "collections.create", Target::collection(c.id, &c.name), json!({ "permission": c.permission })).await;
     ok(out(c, Access::Write))
 }
 
@@ -159,6 +161,7 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
         Some(p) => (true, parse_permission(p)?),
         None => (false, None),
     };
+    let before = (c.name.clone(), c.permission.clone(), c.sharing);
     let c: Collection = sqlx::query_as(
         "UPDATE collections SET name = COALESCE($2, name), description = COALESCE($3, description), \
          color = COALESCE($4, color), icon = COALESCE($5, icon), sharing = COALESCE($6, sharing), \
@@ -184,6 +187,21 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
         .execute(&st.db)
         .await?;
     }
+    // only what matters for access and finding it again: name, permission, public sharing
+    let mut changes = serde_json::Map::new();
+    if before.0 != c.name {
+        changes.insert("name".into(), json!({ "from": before.0, "to": c.name }));
+    }
+    if before.1 != c.permission {
+        changes.insert("permission".into(), json!({ "from": before.1, "to": c.permission }));
+    }
+    if before.2 != c.sharing {
+        changes.insert("sharing".into(), json!({ "from": before.2, "to": c.sharing }));
+    }
+    if !changes.is_empty() {
+        let name = if before.1 != c.permission { "collections.permission" } else { "collections.update" };
+        audit::record(&st, &auth, name, Target::collection(c.id, &c.name), Value::Object(changes)).await;
+    }
     ok(out(c, a))
 }
 
@@ -199,6 +217,7 @@ pub async fn delete(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
+    audit::record(&st, &auth, "collections.delete", Target::collection(c.id, &c.name), json!({})).await;
     ok(json!({ "success": true }))
 }
 
@@ -351,9 +370,11 @@ pub async fn add_user(State(st): State<AppState>, auth: Auth, Json(b): Json<AddU
     )
     .bind(c.id)
     .bind(b.user_id)
-    .bind(perm)
+    .bind(&perm)
     .execute(&st.db)
     .await?;
+    let user = Target::user_id(&st.db, b.user_id).await.map(|t| t.name);
+    audit::record(&st, &auth, "collections.add_user", Target::collection(c.id, &c.name), json!({ "user": user, "permission": perm })).await;
     ok(json!({ "success": true }))
 }
 
@@ -371,6 +392,8 @@ pub async fn remove_user(State(st): State<AppState>, auth: Auth, Json(b): Json<R
         .bind(b.user_id)
         .execute(&st.db)
         .await?;
+    let user = Target::user_id(&st.db, b.user_id).await.map(|t| t.name);
+    audit::record(&st, &auth, "collections.remove_user", Target::collection(c.id, &c.name), json!({ "user": user })).await;
     ok(json!({ "success": true }))
 }
 
@@ -426,9 +449,11 @@ pub async fn add_group(State(st): State<AppState>, auth: Auth, Json(b): Json<Add
     )
     .bind(c.id)
     .bind(b.group_id)
-    .bind(perm)
+    .bind(&perm)
     .execute(&st.db)
     .await?;
+    let group = Target::group_id(&st.db, b.group_id).await.map(|t| t.name);
+    audit::record(&st, &auth, "collections.add_group", Target::collection(c.id, &c.name), json!({ "group": group, "permission": perm })).await;
     ok(json!({ "success": true }))
 }
 
@@ -446,6 +471,8 @@ pub async fn remove_group(State(st): State<AppState>, auth: Auth, Json(b): Json<
         .bind(b.group_id)
         .execute(&st.db)
         .await?;
+    let group = Target::group_id(&st.db, b.group_id).await.map(|t| t.name);
+    audit::record(&st, &auth, "collections.remove_group", Target::collection(c.id, &c.name), json!({ "group": group })).await;
     ok(json!({ "success": true }))
 }
 
@@ -458,6 +485,7 @@ pub async fn export(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
     .bind(c.id)
     .fetch_all(&st.db)
     .await?;
+    let count = docs.len();
     let mut md = format!("# {}\n\n{}\n\n", c.name, c.description);
     for (title, emoji, text) in docs {
         let t = match emoji {
@@ -466,5 +494,6 @@ pub async fn export(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
         };
         md.push_str(&format!("---\n\n## {t}\n\n{}\n\n", crate::html_md::html_tables_to_gfm(&text)));
     }
+    audit::record(&st, &auth, "collections.export", Target::collection(c.id, &c.name), json!({ "documents": count })).await;
     ok(json!({ "name": c.name, "markdown": md }))
 }

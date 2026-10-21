@@ -8,6 +8,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::{
+    audit::ClientMeta,
     error::{ApiError, ApiResult},
     models::User,
     util::sha256_hex,
@@ -26,6 +27,8 @@ pub struct Auth {
     pub session_hash: Option<String>,
     /// Limits of the API key used, None for browser sessions
     pub key: Option<Arc<KeyScope>>,
+    /// address, browser and channel of the request, for the audit log
+    pub meta: ClientMeta,
 }
 
 /// What an API key allows besides the user's own permissions.
@@ -276,6 +279,7 @@ impl FromRequestParts<AppState> for Auth {
             role,
             session_hash: if is_session { Some(hash) } else { None },
             key,
+            meta: ClientMeta::from_parts(parts),
         })
     }
 }

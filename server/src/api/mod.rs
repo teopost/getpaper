@@ -1,3 +1,4 @@
+pub mod activity;
 pub mod api_keys;
 pub mod attachments;
 pub mod backup_restore;
@@ -62,6 +63,11 @@ pub fn router() -> Router<AppState> {
         .route("/client.error", post(client_log::log))
         .route("/instance.info", post(instance::info))
         .route("/instance.update", post(instance::update))
+        .route("/instance.events", post(activity::instance_events))
+        // activity and audit log of the workspace (admins)
+        .route("/activity.changes", post(activity::changes))
+        .route("/activity.people", post(activity::people))
+        .route("/activity.events", post(activity::events))
         .route("/instance.addSuperadmin", post(instance::add_superadmin))
         .route("/instance.removeSuperadmin", post(instance::remove_superadmin))
         .route("/instance.testEmail", post(instance::test_email))

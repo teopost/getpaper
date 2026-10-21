@@ -6,6 +6,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 use crate::{
+    audit::{self, Target},
     auth::Auth,
     error::{ok, ApiError, ApiResult},
     models::Access,
@@ -151,6 +152,7 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<DocReq
         .bind(id)
         .fetch_one(&st.db)
         .await?;
+    audit::record_in(&st, &auth, Some(d.team_id), "shares.create", Target::document(d.id, &d.title), json!({})).await;
     ok(with_url(&st, s))
 }
 
@@ -165,7 +167,7 @@ pub async fn revoke(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
         .fetch_optional(&st.db)
         .await?;
     let (doc_id, created_by) = row.ok_or_else(|| ApiError::not_found("Share not found"))?;
-    let (_, access) = load_doc(&st.db, &auth, &doc_id.to_string(), Access::Read).await?;
+    let (d, access) = load_doc(&st.db, &auth, &doc_id.to_string(), Access::Read).await?;
     if !(created_by == auth.user.id || auth.is_admin() || access == Access::Write) {
         return Err(ApiError::forbidden("You cannot revoke this share"));
     }
@@ -173,5 +175,6 @@ pub async fn revoke(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>
         .bind(b.id)
         .execute(&st.db)
         .await?;
+    audit::record_in(&st, &auth, Some(d.team_id), "shares.revoke", Target::document(d.id, &d.title), json!({})).await;
     ok(json!({ "success": true }))
 }
