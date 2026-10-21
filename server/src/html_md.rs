@@ -318,6 +318,13 @@ fn block(el: ElementRef) -> Vec<String> {
             if inner.is_empty() {
                 return vec![];
             }
+            // Wiki.js visual editor: <blockquote class="is-info|is-success|is-warning|is-danger">
+            let notice = [("is-info", "info"), ("is-success", "success"), ("is-warning", "warning"), ("is-danger", "warning")]
+                .into_iter()
+                .find(|(class, _)| has_class(el, class));
+            if let Some((_, style)) = notice {
+                return vec![format!(":::{style}\n{inner}\n:::")];
+            }
             vec![inner.lines().map(|l| if l.is_empty() { ">".to_string() } else { format!("> {l}") }).collect::<Vec<_>>().join("\n")]
         }
         "ul" | "ol" | "menu" | "dir" => vec![list(el)],

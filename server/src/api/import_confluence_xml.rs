@@ -307,7 +307,7 @@ pub fn convert(entries: Vec<(String, Vec<u8>)>) -> ApiResult<(Vec<(String, Vec<u
         let positions: Vec<Option<i64>> = members.iter().map(|&i| pages[i].position).collect();
         for (k, path) in tree_paths(&dir, &titles, &parents, &positions).into_iter().enumerate() {
             let p = &mut pages[members[k]];
-            meta.insert(path.clone(), DocMeta { order: p.position, created_at: p.created, updated_at: p.updated });
+            meta.insert(path.clone(), DocMeta { order: p.position, created_at: p.created, updated_at: p.updated, ..Default::default() });
             p.new_path = path;
         }
     }

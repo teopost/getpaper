@@ -10,6 +10,7 @@ pub mod groups;
 pub mod import;
 pub mod import_confluence;
 pub mod import_confluence_xml;
+pub mod import_wikijs;
 pub mod mcp;
 pub mod instance;
 pub mod notifications;

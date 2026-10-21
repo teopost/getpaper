@@ -83,14 +83,14 @@ export default function CollectionPage() {
   const importFile = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.zip,.md,.markdown,.txt,.html,.htm,text/markdown,text/plain';
+    input.accept = '.zip,.tar.gz,.tgz,.md,.markdown,.txt,.html,.htm,text/markdown,text/plain';
     input.multiple = true;
     input.onchange = async () => {
       let last;
       let total = 0;
       for (const file of input.files) {
         try {
-          if (file.name.toLowerCase().endsWith('.zip')) {
+          if (/\.(zip|tar\.gz|tgz)$/i.test(file.name)) {
             const r = await upload('collections.import', { file, collectionId: collection.id, publish: 'true' });
             total += r.documents;
           } else {

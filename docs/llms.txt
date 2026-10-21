@@ -10,7 +10,7 @@ Facts, as documented in the repository:
 - Outbound connections: only the optional services the administrator configures (Microsoft Entra ID for sign-in, an SMTP server for emails). No telemetry, no licence check, no hosted service required.
 - Sign-in: email and password (can be disabled) and Microsoft Entra ID via OpenID Connect with PKCE. No Google, Slack or generic OIDC providers.
 - Workspaces: multiple isolated workspaces with their own members, roles (admin, editor, viewer), groups, collections and API keys; documents can be moved between workspaces; search across workspaces.
-- Migration: Confluence XML or HTML space exports (page tree, dates with XML, attachments, common macros; not authors, comments, version history, labels or permissions); Markdown exports from Outline, Notion, Obsidian, Wiki.js, GitBook and BookStack; GetPaper backups between installations.
+- Migration: Confluence XML or HTML space exports (page tree, dates with XML, attachments, common macros; not authors, comments, version history, labels or permissions); Wiki.js 2 exports and storage files (page tree, dates, drafts, assets, links and callouts; not users, comments, history or tags); Markdown exports from Outline, Notion, Obsidian, GitBook and BookStack; GetPaper backups between installations.
 - MCP: Streamable HTTP endpoint at `/mcp`, authenticated with personal API keys that are read-only or read/write, limited to chosen workspaces or collections, with optional expiry, and never exceed the creator's permissions. Content read by an assistant is processed by that assistant and its model.
 - Differences from Outline: no real-time co-editing (conflicts detected on save), comments refer to the whole document, Microsoft Entra ID is the only SSO provider.
 

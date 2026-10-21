@@ -1009,7 +1009,7 @@ const IMPORT_SOURCES = [
     label: 'Automatic detection',
     steps: [
       'Upload a Markdown, HTML or text file, or a ZIP archive containing them.',
-      'Confluence exports (XML or HTML) are recognised automatically; any other ZIP is imported as folders of Markdown files.',
+      'Confluence exports (XML or HTML) and Wiki.js exports are recognised automatically; any other ZIP is imported as folders of Markdown files.',
       'Choose a specific source to see how to export from that tool.',
     ],
   },
@@ -1030,6 +1030,16 @@ const IMPORT_SOURCES = [
       'In the source instance open Settings → Export and download the backup (workspace admins only).',
       'Upload the ZIP here as it is: collections, documents, drafts, history, comments and attachments are restored with their dates.',
       'Authors are matched by email with the members of this workspace; content of anyone else is attributed to you. Nothing already in this workspace is changed.',
+    ],
+  },
+  {
+    value: 'wikijs',
+    label: 'Wiki.js',
+    steps: [
+      'In Wiki.js 2 open Administration → Utilities → Export, choose at least Pages and Assets and export them to a folder on the server.',
+      'Compress that folder (with {pagesFile} and {assetsFolder}) into a ZIP or tar.gz and upload it. The files of the Local File System or Git storage, and the disk backups {diskBackup}, work too.',
+      'Top-level folders become collections, nested paths become nested documents; a page with the same path as a folder names its collection. Creation and modification dates are kept and unpublished pages become drafts.',
+      'Links between pages and to assets are rewritten, {notices} blockquotes become notices and HTML pages are converted to Markdown. Users, comments, page history, tags and navigation are not imported.',
     ],
   },
   {
@@ -1060,7 +1070,7 @@ const IMPORT_SOURCES = [
     value: 'markdown',
     label: 'Markdown / other',
     steps: [
-      'Wiki.js, GitBook, BookStack and other tools: export as Markdown and upload the ZIP, or upload single .md, .html or .txt files.',
+      'GitBook, BookStack and other tools: export as Markdown and upload the ZIP, or upload single .md, .html or .txt files.',
       'Top-level folders become collections, nested folders become nested documents.',
       'A document {file} and a folder {folder} are merged; {index} or {readme} inside a folder becomes the folder’s content.',
       'Images and other files are uploaded as attachments; relative links and {wikiLinks} are rewritten.',
@@ -1072,6 +1082,8 @@ const IMPORT_FORMATS = {
   'confluence-xml': 'Confluence export (XML)',
   'confluence-html': 'Confluence export (HTML)',
   markdown: 'Markdown files',
+  'wikijs-export': 'Wiki.js export',
+  'wikijs-storage': 'Wiki.js storage files',
   'getpaper-backup': '{product} backup',
 };
 
@@ -1080,6 +1092,8 @@ const IMPORT_ERRORS = {
   not_confluence_export:
     'This archive is not a Confluence export: it contains neither entities.xml (XML export) nor Confluence HTML pages. Export the space as XML or HTML and upload the ZIP as it is.',
   confluence_export: 'This archive is a Confluence export. Choose Confluence or automatic detection as the source.',
+  not_wikijs_export:
+    'This archive is not a Wiki.js export: it contains neither pages.json.gz (Administration → Utilities → Export) nor Wiki.js page files with their metadata (Local File System or Git storage).',
   getpaper_backup: 'This archive is a {product} backup. Choose {product} backup or automatic detection as the source.',
   not_getpaper_backup: 'This archive is not a {product} backup: getpaper-backup.json is missing.',
 };
@@ -1141,6 +1155,10 @@ function ImportData() {
                 index: <code>index.md</code>,
                 readme: <code>README.md</code>,
                 wikiLinks: <code>[[wiki links]]</code>,
+                pagesFile: <code>pages.json.gz</code>,
+                assetsFolder: <code>assets/</code>,
+                diskBackup: <code>wiki-*.tar.gz</code>,
+                notices: <code>{'{.is-info}'}</code>,
               })}
             </li>
           ))}
@@ -1148,7 +1166,7 @@ function ImportData() {
         <Field label={t('File')}>
           <input
             type="file"
-            accept=".zip,.md,.markdown,.txt,.html,.htm"
+            accept=".zip,.tar.gz,.tgz,.md,.markdown,.txt,.html,.htm"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
         </Field>

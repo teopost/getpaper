@@ -18,8 +18,8 @@ cloud or a cloud account you manage), so the documentation stays in your own Pos
   configure (Microsoft Entra ID for sign-in, your SMTP server for emails).
 - **Self-hosted**: one Docker Compose file with PostgreSQL, images for amd64 and arm64.
 - **Built for teams**: multiple isolated workspaces, groups and roles, Microsoft Entra ID single sign-on.
-- **Migration**: imports Confluence space exports (XML or HTML) and Markdown exports from Outline, Notion, Obsidian,
-  Wiki.js, GitBook and BookStack.
+- **Migration**: imports Confluence space exports (XML or HTML), Wiki.js 2 exports and Markdown exports from Outline,
+  Notion, Obsidian, GitBook and BookStack.
 - **AI ready**: a built-in [MCP](https://modelcontextprotocol.io) server with scoped, expiring API keys.
 
 **Contents:** [Quick start](#quick-start-docker-image) · [Updating](#updating) ·
@@ -198,8 +198,8 @@ looks like `<URL>/s/<token>`, with a random 24-character token (about 143 bits),
 ## Import
 
 From **Settings → Import** (or from a collection's `…` menu → *Import…*) you upload a `.md`, `.txt` or `.html`
-file, or a `.zip` archive containing them. Markdown exports from Outline, Notion, Obsidian, Wiki.js, GitBook and
-BookStack all work.
+file, or a `.zip` (or `.tar.gz`) archive containing them. Markdown exports from Outline, Notion, Obsidian, GitBook
+and BookStack all work; Confluence and Wiki.js have their own importers (below).
 
 - Top-level folders become collections. If you choose a destination collection, they become documents inside it.
 - Subfolders become nested documents. `Page.md` and the folder `Page/` are merged.
@@ -232,14 +232,37 @@ format automatically.
 - Not imported: authors (pages appear as created by the person importing), comments, version history, labels and
   permissions. The PDF export is not supported.
 
-In the **Source** field you choose the tool you are coming from (Confluence, Outline, Notion, Obsidian, Markdown)
+### Wiki.js
+
+Wiki.js 2 content is recognized in two forms, as a ZIP or tar.gz:
+
+- the **export** from *Administration → Utilities → Export* (choose at least *Pages* and *Assets*; Wiki.js writes
+  `pages.json.gz` and an `assets/` folder to a folder on its server). `pages.json.gz` is not subject to the per-file
+  `MAX_UPLOAD_MB` limit;
+- the files of the **Local File System** or **Git** storage (`.md` and `.html` pages with their front matter), also
+  the disk backups `wiki-*.tar.gz` as they are.
+
+- Top-level folders become collections and nested paths nested documents. A top-level page with the same path as
+  a folder (`guide` and `guide/…`) gives its title to the collection and becomes its first document.
+- Creation and modification dates are kept; unpublished pages become drafts of the person importing.
+- Pages in a language other than the main one go into a folder named after the language (`fr/…`), as in the
+  Wiki.js storage.
+- Links between pages (also with the language, `/en/…`, and anchors) and to assets are rewritten; images and other
+  assets become attachments.
+- Blockquotes marked `{.is-info}`, `{.is-success}`, `{.is-warning}` or `{.is-danger}` (also from the visual editor)
+  become notices; image sizes (`=300x`) and `{.class}` attributes are removed. HTML pages are converted to
+  Markdown; AsciiDoc pages are imported from the export as the HTML Wiki.js rendered (from the storage files they
+  are skipped).
+- Not imported: users and authors, comments, page history, tags, navigation and descriptions.
+
+In the **Source** field you choose the tool you are coming from (Confluence, Wiki.js, Outline, Notion, Obsidian, Markdown)
 to see its export instructions; with *Automatic detection* (default) the format is recognized from the content of
 the ZIP. If the chosen source doesn't match the archive, the import is rejected with a clear message. The result
 shows the recognized format.
 
-API: `POST /api/collections.import` (multipart: `file`, optional `source` among `auto`, `confluence`, `outline`,
-`notion`, `obsidian`, `markdown`, optional `collectionId`, `publish`). The response contains `format`
-(`confluence-xml`, `confluence-html` or `markdown`).
+API: `POST /api/collections.import` (multipart: `file`, optional `source` among `auto`, `confluence`, `wikijs`,
+`outline`, `notion`, `obsidian`, `markdown`, optional `collectionId`, `publish`). The response contains `format`
+(`confluence-xml`, `confluence-html`, `wikijs-export`, `wikijs-storage` or `markdown`).
 
 ## Invitation emails
 

@@ -1,9 +1,10 @@
-//! Bulk import of an archive (ZIP) of Markdown / HTML / text files.
+//! Bulk import of an archive (ZIP, or tar.gz) of Markdown / HTML / text files.
 //!
-//! Confluence HTML space exports are recognised and rewritten to this layout first (see `import_confluence`).
+//! Confluence space exports (`import_confluence`, `import_confluence_xml`) and Wiki.js exports and
+//! storage files (`import_wikijs`) are recognised and rewritten to this layout first.
 //! HTML files are converted to Markdown.
 //!
-//! Supported layouts (covers Outline, Notion, Obsidian, Wiki.js, GitBook, BookStack markdown exports):
+//! Supported layouts (covers Outline, Notion, Obsidian, GitBook, BookStack markdown exports):
 //! - top-level folders become collections (unless a target collection is given)
 //! - nested folders become nested documents; `Doc.md` + `Doc/child.md` attaches the children to `Doc`
 //! - `index.md` / `README.md` inside a folder becomes the content of the folder document
@@ -25,7 +26,7 @@ use regex::{Captures, Regex};
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use super::{backup_restore, import_confluence, import_confluence_xml};
+use super::{backup_restore, import_confluence, import_confluence_xml, import_wikijs};
 use crate::{
     auth::Auth,
     error::{ok, ApiError, ApiResult},
@@ -250,6 +251,8 @@ pub struct DocMeta {
     pub order: Option<i64>,
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// false: imported as a draft even when publishing (unpublished in the source)
+    pub published: Option<bool>,
 }
 
 impl Node {
@@ -263,16 +266,17 @@ pub struct ImportResult {
     pub documents: usize,
     pub attachments: usize,
     pub skipped: Vec<String>,
-    /// format that was recognised: "confluence-xml", "confluence-html" or "markdown"
+    /// format that was recognised: "confluence-xml", "confluence-html", "wikijs-export", "wikijs-storage" or "markdown"
     pub format: &'static str,
 }
 
-/// Where the archive comes from, as chosen by the user. Confluence exports are recognised by their
-/// content; every other tool exports folders of Markdown files handled by the generic importer.
+/// Where the archive comes from, as chosen by the user. Confluence and Wiki.js exports are recognised
+/// by their content; every other tool exports folders of Markdown files handled by the generic importer.
 #[derive(Clone, Copy, PartialEq)]
 pub enum Source {
     Auto,
     Confluence,
+    WikiJs,
     Backup,
     Markdown,
 }
@@ -282,6 +286,7 @@ impl Source {
         match s.trim().to_lowercase().as_str() {
             "" | "auto" => Source::Auto,
             "confluence" => Source::Confluence,
+            "wikijs" | "wiki.js" => Source::WikiJs,
             "getpaper" | "horsa" | "backup" => Source::Backup,
             // outline, notion, obsidian, markdown, …
             _ => Source::Markdown,
@@ -289,7 +294,58 @@ impl Source {
     }
 }
 
+/// Files of an archive that are not imported: hidden files and folders, macOS and Windows metadata
+fn ignored(name: &str) -> bool {
+    name.split('/').any(|seg| seg.starts_with('.') || seg == "__MACOSX") || name.ends_with("Thumbs.db")
+}
+
+/// Exports that keep everything in one large file: the Confluence XML export, our backup, Wiki.js
+fn single_file_export(name: &str) -> bool {
+    name.ends_with("entities.xml") || super::backup_restore::is_backup_file(name) || name.ends_with("pages.json.gz")
+}
+
+fn is_tar(filename: &str) -> bool {
+    let f = filename.to_lowercase();
+    f.ends_with(".tar.gz") || f.ends_with(".tgz") || f.ends_with(".tar")
+}
+
+/// Files of a tar archive, gzipped or not (Wiki.js disk backups are `wiki-*.tar.gz`)
+fn read_tar(filename: &str, bytes: Vec<u8>, max_file: usize) -> ApiResult<(Vec<(String, Vec<u8>)>, Vec<String>)> {
+    let invalid = |e: std::io::Error| ApiError::bad_request(format!("Invalid tar archive: {e}"));
+    let reader: Box<dyn Read> =
+        if filename.to_lowercase().ends_with(".tar") { Box::new(Cursor::new(bytes)) } else { Box::new(flate2::read::GzDecoder::new(Cursor::new(bytes))) };
+    let mut archive = tar::Archive::new(reader);
+    let mut entries = vec![];
+    let mut skipped = vec![];
+    for f in archive.entries().map_err(invalid)? {
+        let mut f = f.map_err(invalid)?;
+        if !f.header().entry_type().is_file() {
+            continue;
+        }
+        let name = f.path().map_err(invalid)?.to_string_lossy().replace('\\', "/");
+        let name = name.trim_start_matches("./").trim_start_matches('/').to_string();
+        if name.is_empty() || ignored(&name) {
+            continue;
+        }
+        if entries.len() + skipped.len() >= MAX_ENTRIES {
+            return Err(ApiError::bad_request(format!("The archive contains more than {MAX_ENTRIES} files")));
+        }
+        let size = f.header().size().unwrap_or(0) as usize;
+        if size > max_file && !single_file_export(&name) {
+            skipped.push(format!("{name} (too large)"));
+            continue;
+        }
+        let mut buf = Vec::with_capacity(size);
+        f.read_to_end(&mut buf).map_err(|e| ApiError::bad_request(format!("Cannot read {name}: {e}")))?;
+        entries.push((name, buf));
+    }
+    Ok((entries, skipped))
+}
+
 fn read_entries(filename: &str, bytes: Vec<u8>, max_file: usize) -> ApiResult<(Vec<(String, Vec<u8>)>, Vec<String>)> {
+    if is_tar(filename) {
+        return read_tar(filename, bytes, max_file);
+    }
     let mut entries = vec![];
     let mut skipped = vec![];
     if ext_of(filename) != "zip" {
@@ -306,11 +362,10 @@ fn read_entries(filename: &str, bytes: Vec<u8>, max_file: usize) -> ApiResult<(V
             continue;
         }
         let name = f.name().replace('\\', "/").trim_start_matches('/').to_string();
-        if name.split('/').any(|seg| seg.starts_with('.') || seg == "__MACOSX") || name.ends_with("Thumbs.db") {
+        if ignored(&name) {
             continue;
         }
-        // the Confluence XML export and our backup keep everything in one large file
-        if f.size() as usize > max_file && !name.ends_with("entities.xml") && !super::backup_restore::is_backup_file(&name) {
+        if f.size() as usize > max_file && !single_file_export(&name) {
             skipped.push(format!("{name} (too large)"));
             continue;
         }
@@ -357,10 +412,14 @@ pub async fn import_archive(
         _ => {}
     }
     let mut meta: HashMap<String, DocMeta> = HashMap::new();
+    // Wiki.js content chosen as "Markdown / other" is imported as plain Markdown files
+    let wikijs = if matches!(source, Source::Auto | Source::WikiJs) { import_wikijs::detect(&entries) } else { None };
     let format = if import_confluence_xml::detect(&entries) {
         "confluence-xml"
     } else if import_confluence::detect(&entries) {
         "confluence-html"
+    } else if let Some(layout) = wikijs {
+        layout.format()
     } else {
         "markdown"
     };
@@ -374,7 +433,15 @@ pub async fn import_archive(
                  Export the space as XML or HTML and upload the ZIP as it is.",
             ))
         }
-        (Source::Markdown, "confluence-xml" | "confluence-html") => {
+        (Source::WikiJs, "markdown") => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "not_wikijs_export",
+                "This archive is not a Wiki.js export: it contains neither pages.json.gz (Administration → Utilities → Export) \
+                 nor Wiki.js page files with their metadata (Local File System or Git storage).",
+            ))
+        }
+        (Source::Markdown | Source::WikiJs, "confluence-xml" | "confluence-html") => {
             return Err(ApiError::new(
                 StatusCode::BAD_REQUEST,
                 "confluence_export",
@@ -387,6 +454,10 @@ pub async fn import_archive(
         (entries, meta) = import_confluence_xml::convert(entries)?;
     } else if format == "confluence-html" {
         (entries, meta) = import_confluence::convert(entries);
+    } else if let Some(layout) = wikijs {
+        let extra;
+        (entries, meta, extra) = import_wikijs::convert(entries, layout, target.is_some())?;
+        skipped.extend(extra);
     }
     tracing::info!(format, files = entries.len(), "importing");
 
@@ -410,6 +481,7 @@ pub async fn import_archive(
 
     let default_coll = {
         let base = filename.rsplit('/').next().unwrap_or(filename);
+        let base = base.strip_suffix(".gz").unwrap_or(base);
         clean_name(base.rsplit_once('.').map(|(s, _)| s).unwrap_or(base))
     };
 
@@ -663,6 +735,7 @@ pub async fn import_archive(
         let pos_key = (n.coll.clone(), n.key[..n.key.len().saturating_sub(1)].to_vec());
         let pos = positions.entry(pos_key).or_insert(0.0);
         *pos += 1.0;
+        let published = publish && n.meta.published.unwrap_or(true);
         sqlx::query(
             "INSERT INTO documents (id, url_id, team_id, collection_id, parent_document_id, title, text, created_by, updated_by, \
              published_at, position, created_at, updated_at) \
@@ -677,13 +750,13 @@ pub async fn import_archive(
         .bind(&n.title)
         .bind(&n.text)
         .bind(auth.user.id)
-        .bind(publish)
+        .bind(published)
         .bind(*pos)
         .bind(n.meta.created_at)
         .bind(n.meta.updated_at)
         .execute(&mut *tx)
         .await?;
-        if publish {
+        if published {
             sqlx::query(
                 "INSERT INTO revisions (id, document_id, user_id, title, text, created_at) VALUES ($1, $2, $3, $4, $5, COALESCE($6, now()))",
             )

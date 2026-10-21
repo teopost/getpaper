@@ -177,8 +177,8 @@ link ha la forma `<URL>/s/<token>`, con un token casuale di 24 caratteri (circa 
 ## Import
 
 Da **Impostazioni → Import** (o dal menu `…` di una collezione → *Import…*) si carica un file `.md`, `.txt`,
-`.html` oppure un archivio `.zip` che li contiene. Vanno bene gli export Markdown di Outline, Notion, Obsidian,
-Wiki.js, GitBook e BookStack.
+`.html` oppure un archivio `.zip` (o `.tar.gz`) che li contiene. Vanno bene gli export Markdown di Outline, Notion,
+Obsidian, GitBook e BookStack; Confluence e Wiki.js hanno un importer dedicato (sotto).
 
 - Le cartelle di primo livello diventano collezioni. Se si sceglie una collezione di destinazione, diventano
   documenti al suo interno.
@@ -212,14 +212,38 @@ riconosce il formato automaticamente.
 - Non vengono importati: autori (le pagine risultano create da chi importa), commenti, cronologia delle versioni,
   etichette e permessi. L'export PDF non è supportato.
 
-Nel campo **Origine** si sceglie lo strumento di provenienza (Confluence, Outline, Notion, Obsidian, Markdown) per
+### Wiki.js
+
+I contenuti di Wiki.js 2 vengono riconosciuti in due forme, come ZIP o tar.gz:
+
+- l'**export** da *Administration → Utilities → Export* (scegliendo almeno *Pages* e *Assets*; Wiki.js scrive
+  `pages.json.gz` e una cartella `assets/` in una cartella del suo server). `pages.json.gz` non è soggetto al limite
+  `MAX_UPLOAD_MB` dei singoli file;
+- i file dello storage **Local File System** o **Git** (pagine `.md` e `.html` con il loro front matter), anche i
+  backup su disco `wiki-*.tar.gz` così come sono.
+
+- Le cartelle di primo livello diventano collezioni e i percorsi annidati documenti annidati. Una pagina di primo
+  livello con lo stesso percorso di una cartella (`guida` e `guida/…`) dà il suo titolo alla collezione e ne diventa
+  il primo documento.
+- Le date di creazione e modifica vengono conservate; le pagine non pubblicate diventano bozze di chi importa.
+- Le pagine in una lingua diversa da quella principale finiscono in una cartella con il nome della lingua (`fr/…`),
+  come nello storage di Wiki.js.
+- I link tra le pagine (anche con la lingua, `/en/…`, e con le ancore) e agli asset vengono riscritti; immagini e
+  altri asset diventano allegati.
+- Le citazioni marcate `{.is-info}`, `{.is-success}`, `{.is-warning}` o `{.is-danger}` (anche dall'editor visuale)
+  diventano notice; le dimensioni delle immagini (`=300x`) e gli attributi `{.classe}` vengono rimossi. Le pagine
+  HTML vengono convertite in Markdown; le pagine AsciiDoc vengono importate dall'export come l'HTML generato da
+  Wiki.js (dai file dello storage vengono saltate).
+- Non vengono importati: utenti e autori, commenti, cronologia delle pagine, tag, navigazione e descrizioni.
+
+Nel campo **Origine** si sceglie lo strumento di provenienza (Confluence, Wiki.js, Outline, Notion, Obsidian, Markdown) per
 vedere le istruzioni di esportazione; con *Rilevamento automatico* (predefinito) il formato viene riconosciuto dal
 contenuto dello ZIP. Se l'origine scelta non corrisponde all'archivio, l'import viene rifiutato con un messaggio chiaro.
 Il risultato indica il formato riconosciuto.
 
-API: `POST /api/collections.import` (multipart: `file`, `source` opzionale tra `auto`, `confluence`, `outline`, `notion`,
-`obsidian`, `markdown`, `collectionId` opzionale, `publish`). La risposta contiene `format`
-(`confluence-xml`, `confluence-html` o `markdown`).
+API: `POST /api/collections.import` (multipart: `file`, `source` opzionale tra `auto`, `confluence`, `wikijs`,
+`outline`, `notion`, `obsidian`, `markdown`, `collectionId` opzionale, `publish`). La risposta contiene `format`
+(`confluence-xml`, `confluence-html`, `wikijs-export`, `wikijs-storage` o `markdown`).
 
 ## Email di invito
 

@@ -18,6 +18,10 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
   collection page or the sidebar menu); in the sidebar the Starred section folds from its heading, starred items open
   like in the tree, are dragged to change the order, and documents or collections dragged there from the tree are
   starred. Documents in the tree have a menu with Star / Unstar.
+- **Import from Wiki.js 2**: the export from Administration → Utilities → Export (`pages.json.gz` and assets) or the
+  files of the Local File System or Git storage, also disk backups (`.tar.gz` archives are now accepted). Folders
+  become collections and nested documents, dates are kept, unpublished pages become drafts, links between pages and
+  to assets are rewritten, `{.is-info}` … blockquotes become notices and HTML pages are converted to Markdown.
 
 ### Changed
 
