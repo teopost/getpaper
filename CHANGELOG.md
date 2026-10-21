@@ -14,9 +14,15 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
   and text of a template are replaced when a new document is created from it (also through MCP); placeholders
   (`!!text!!`, or the placeholder button in a template's formatting menu) are highlighted in the new document and
   replaced by clicking and typing.
+- **Starred collections and ordering of the stars**, as in Outline: collections can be starred too (from the
+  collection page or the sidebar menu); in the sidebar the Starred section folds from its heading, starred items open
+  like in the tree, are dragged to change the order, and documents or collections dragged there from the tree are
+  starred. Documents in the tree have a menu with Star / Unstar.
 
 ### Changed
 
+- "Settings" and "Invite people…" moved from the workspace menu to the bottom of the sidebar, below the trash;
+  "Invite people…" is shown only to those who can invite.
 - The workspace menu stays short with many workspaces: the list scrolls on its own and, from 8 workspaces, a search
   field filters it by name (Enter opens the first match).
 - The "Workspaces" link at the bottom of the sidebar is removed: the workspace settings are in the menu that opens

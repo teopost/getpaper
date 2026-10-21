@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Download, MoreHorizontal, Pencil, Plus, Trash2, Upload, Search as SearchIcon, Lock } from 'lucide-react';
+import { Download, MoreHorizontal, Pencil, Plus, Star, Trash2, Upload, Search as SearchIcon, Lock } from 'lucide-react';
 import { api, collectionUrl, docUrl, downloadText, slugify, upload } from '../api';
 import { useApp } from '../store';
 import Scene from '../components/Scene';
@@ -16,7 +16,7 @@ export default function CollectionPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const { createDoc, refreshCollections, refreshAllTrees, refreshTree, isAdmin, user, collections } = useApp();
+  const { createDoc, refreshCollections, refreshAllTrees, refreshTree, isAdmin, user, collections, starredIds, toggleStar } = useApp();
   const [collection, setCollection] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('updated');
@@ -128,6 +128,13 @@ export default function CollectionPage() {
         <>
           <IconButton title={t('Search in collection')} onClick={() => navigate(`/search?collectionId=${collection.id}`)}>
             <SearchIcon size={18} />
+          </IconButton>
+          <IconButton
+            title={starredIds.has(collection.id) ? t('Unstar') : t('Star')}
+            active={starredIds.has(collection.id)}
+            onClick={() => toggleStar({ collectionId: collection.id })}
+          >
+            <Star size={18} fill={starredIds.has(collection.id) ? 'currentColor' : 'none'} />
           </IconButton>
           {canWrite && (
             <Button icon={<Plus size={16} />} onClick={() => createDoc({ collectionId: collection.id })}>

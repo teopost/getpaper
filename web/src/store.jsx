@@ -49,9 +49,25 @@ export function AppProvider({ initialAuth, onOpenWorkspace, children }) {
     await Promise.all(cols.map((c) => refreshTree(c.id)));
   }, [refreshCollections, refreshTree]);
 
+  // stars on documents ({ id, documentId, document }) and collections ({ id, collectionId }), in the user's order
   const refreshStarred = useCallback(async () => {
     setStarred(await api('stars.list'));
   }, []);
+
+  const starredIds = useMemo(() => new Set(starred.map((s) => s.documentId || s.collectionId)), [starred]);
+
+  /** stars or unstars a document ({ documentId }) or a collection ({ collectionId }); index places a new star */
+  const toggleStar = useCallback(
+    async (target, star = !starredIds.has(target.documentId || target.collectionId), index) => {
+      try {
+        await api(star ? 'stars.create' : 'stars.delete', { ...target, index });
+        await refreshStarred();
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    },
+    [starredIds, refreshStarred, toast]
+  );
 
   const refreshTemplates = useCallback(async () => {
     setTemplates(await api('documents.templates'));
@@ -114,7 +130,9 @@ export function AppProvider({ initialAuth, onOpenWorkspace, children }) {
       refreshTree,
       refreshAllTrees,
       starred,
+      starredIds,
       refreshStarred,
+      toggleStar,
       templates,
       refreshTemplates,
       activeDoc,
@@ -132,7 +150,9 @@ export function AppProvider({ initialAuth, onOpenWorkspace, children }) {
       refreshTree,
       refreshAllTrees,
       starred,
+      starredIds,
       refreshStarred,
+      toggleStar,
       templates,
       refreshTemplates,
       activeDoc,

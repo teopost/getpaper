@@ -465,6 +465,8 @@ export default function DocumentPage() {
     refreshTree,
     refreshAllTrees,
     refreshStarred,
+    starredIds,
+    toggleStar: toggleStarOf,
     refreshTemplates,
     setActiveDoc,
     createDoc,
@@ -655,11 +657,9 @@ export default function DocumentPage() {
     }
   };
 
-  const toggleStar = async () => {
-    await api(doc.isStarred ? 'stars.delete' : 'stars.create', { documentId: doc.id });
-    setData((d) => ({ ...d, document: { ...d.document, isStarred: !d.document.isStarred } }));
-    refreshStarred();
-  };
+  // the same state as the sidebar, so starring or unstarring there shows here too
+  const isStarred = starredIds.has(doc.id);
+  const toggleStar = () => toggleStarOf({ documentId: doc.id }, !isStarred);
 
   // keeps the "Public" badge and the globe in the sidebar in step with the share panel
   const onShareChange = (share) => {
@@ -909,8 +909,8 @@ export default function DocumentPage() {
               </Popover>
             )}
             {!isDraft && !doc.deletedAt && (
-              <IconButton title={doc.isStarred ? t('Unstar') : t('Star')} onClick={toggleStar} active={doc.isStarred}>
-                <Star size={18} fill={doc.isStarred ? 'currentColor' : 'none'} />
+              <IconButton title={isStarred ? t('Unstar') : t('Star')} onClick={toggleStar} active={isStarred}>
+                <Star size={18} fill={isStarred ? 'currentColor' : 'none'} />
               </IconButton>
             )}
             <IconButton title={t('Comments')} active={panel === 'comments'} onClick={() => setPanel(panel === 'comments' ? null : 'comments')}>

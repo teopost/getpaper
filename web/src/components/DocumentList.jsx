@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Star } from 'lucide-react';
-import { api, docUrl, timeAgo } from '../api';
+import { docUrl, timeAgo } from '../api';
 import { useApp } from '../store';
 import { CollectionIcon, DocIcon } from './icons';
 import { Empty, TeamAvatar } from './ui';
@@ -32,13 +32,14 @@ export function docMeta(doc, user, collections, { showCollection = true } = {}) 
  * collection name and switches workspace before opening the document.
  */
 export function DocumentListItem({ doc, actions, context, showCollection = true, onStarChange, workspace, collectionName }) {
-  const { user, collections, refreshStarred, switchTeam } = useApp();
+  const { user, collections, starredIds, toggleStar: toggleStarOf, switchTeam } = useApp();
   const meta = docMeta(doc, user, collections, { showCollection: showCollection && !workspace });
+  // documents of another workspace are never starred here
+  const isStarred = !workspace && starredIds.has(doc.id);
   const toggleStar = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    await api(doc.isStarred ? 'stars.delete' : 'stars.create', { documentId: doc.id });
-    refreshStarred();
+    await toggleStarOf({ documentId: doc.id }, !isStarred);
     onStarChange?.();
   };
   return (
@@ -60,8 +61,8 @@ export function DocumentListItem({ doc, actions, context, showCollection = true,
           {!doc.publishedAt && !doc.template && <span className="badge">{t('Draft')}</span>}
           {doc.template && <span className="badge">{t('Template')}</span>}
           {!doc.deletedAt && doc.publishedAt && !workspace && (
-            <button className={`star-btn ${doc.isStarred ? 'starred' : ''}`} onClick={toggleStar} title={t('Star')}>
-              <Star size={15} fill={doc.isStarred ? 'currentColor' : 'none'} />
+            <button className={`star-btn ${isStarred ? 'starred' : ''}`} onClick={toggleStar} title={isStarred ? t('Unstar') : t('Star')}>
+              <Star size={15} fill={isStarred ? 'currentColor' : 'none'} />
             </button>
           )}
         </div>

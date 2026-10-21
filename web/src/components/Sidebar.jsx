@@ -30,6 +30,8 @@ import Notifications from './Notifications';
 import { t } from '../i18n';
 
 const DND_TYPE = 'application/x-getpaper-doc';
+// a star dragged within the Starred section
+const STAR_DND = 'application/x-getpaper-star';
 
 function usePersistentSet(key) {
   const [set, setSet] = useState(() => {
@@ -105,7 +107,6 @@ function TeamSwitcher() {
   const { team, teams, user, switchTeam } = useApp();
   const navigate = useNavigate();
   const [showNew, setShowNew] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
 
   const logout = async () => {
     await api('auth.logout');
@@ -127,9 +128,6 @@ function TeamSwitcher() {
       ),
     },
     { label: t('New workspace…'), icon: <Plus size={16} />, onClick: () => setShowNew(true) },
-    { separator: true },
-    { label: t('Settings'), icon: <Settings size={16} />, onClick: () => navigate('/settings/workspace') },
-    { label: t('Invite people…'), icon: <UserPlus size={16} />, onClick: () => setShowInvite(true) },
     { separator: true },
     {
       render: () => (
@@ -161,7 +159,6 @@ function TeamSwitcher() {
         items={items}
       />
       {showNew && <NewWorkspaceModal onClose={() => setShowNew(false)} />}
-      {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
     </>
   );
 }
@@ -277,8 +274,18 @@ function DropZone({ onDropDoc, children, className = '', allowInside = true, edg
   );
 }
 
+/** Menu item that stars or unstars a document ({ documentId }) or a collection ({ collectionId }) */
+function starItem(target, starredIds, toggleStar) {
+  const starred = starredIds.has(target.documentId || target.collectionId);
+  return {
+    label: starred ? t('Unstar') : t('Star'),
+    icon: <Star size={16} fill={starred ? 'currentColor' : 'none'} />,
+    onClick: () => toggleStar(target, !starred),
+  };
+}
+
 function DocNode({ node, collection, parentId, index, depth, expanded, toggleExpanded, onMove }) {
-  const { activeDoc, createDoc } = useApp();
+  const { activeDoc, createDoc, starredIds, toggleStar } = useApp();
   const location = useLocation();
   const isActive = location.pathname.endsWith(`-${node.urlId}`);
   const hasChildren = node.children.length > 0;
@@ -339,8 +346,26 @@ function DocNode({ node, collection, parentId, index, depth, expanded, toggleExp
               <Globe size={14} />
             </span>
           )}
-          {canWrite && (
-            <span className="sidebar-actions">
+          <span className="sidebar-actions">
+            <Menu
+              trigger={
+                <span className="sidebar-action" title={t('More')}>
+                  <MoreHorizontal size={14} />
+                </span>
+              }
+              items={[
+                starItem({ documentId: node.id }, starredIds, toggleStar),
+                canWrite && {
+                  label: t('New nested document'),
+                  icon: <Plus size={16} />,
+                  onClick: () => {
+                    toggleExpanded(node.id, true);
+                    createDoc({ parentDocumentId: node.id });
+                  },
+                },
+              ]}
+            />
+            {canWrite && (
               <span
                 className="sidebar-action"
                 title={t('New nested document')}
@@ -353,8 +378,8 @@ function DocNode({ node, collection, parentId, index, depth, expanded, toggleExp
               >
                 <Plus size={14} />
               </span>
-            </span>
-          )}
+            )}
+          </span>
         </Link>
       </DropZone>
       {isOpen &&
@@ -376,7 +401,7 @@ function DocNode({ node, collection, parentId, index, depth, expanded, toggleExp
 }
 
 function CollectionNode({ collection, index, expanded, toggleExpanded, openState, setOpen, onMove, onMoveCollection }) {
-  const { trees, activeDoc, createDoc, refreshCollections, refreshAllTrees, isAdmin, user } = useApp();
+  const { trees, activeDoc, createDoc, refreshCollections, refreshAllTrees, isAdmin, user, starredIds, toggleStar } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const toast = useToast();
@@ -462,26 +487,26 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, openState
                 <Plus size={14} />
               </span>
             )}
-            {canWrite && (
-              <Menu
-                trigger={
-                  <span className="sidebar-action" title={t('More')}>
-                    <MoreHorizontal size={14} />
-                  </span>
-                }
-                items={[
-                  { label: t('New document'), icon: <Plus size={16} />, onClick: () => createDoc({ collectionId: collection.id }) },
-                  { label: t('Edit…'), icon: <Pencil size={16} />, onClick: () => setEditing(true) },
-                  (isAdmin || collection.createdBy === user.id) && { separator: true },
+            <Menu
+              trigger={
+                <span className="sidebar-action" title={t('More')}>
+                  <MoreHorizontal size={14} />
+                </span>
+              }
+              items={[
+                canWrite && { label: t('New document'), icon: <Plus size={16} />, onClick: () => createDoc({ collectionId: collection.id }) },
+                canWrite && { label: t('Edit…'), icon: <Pencil size={16} />, onClick: () => setEditing(true) },
+                starItem({ collectionId: collection.id }, starredIds, toggleStar),
+                canWrite && (isAdmin || collection.createdBy === user.id) && { separator: true },
+                canWrite &&
                   (isAdmin || collection.createdBy === user.id) && {
                     label: t('Delete…'),
                     icon: <Trash2 size={16} />,
                     danger: true,
                     onClick: remove,
                   },
-                ]}
-              />
-            )}
+              ]}
+            />
           </span>
         </Link>
       </DropZone>
@@ -508,11 +533,226 @@ function CollectionNode({ collection, index, expanded, toggleExpanded, openState
   );
 }
 
+function findNode(nodes, id) {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const found = findNode(n.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** before or after the row under the pointer */
+const halfOf = (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  return e.clientY - r.top < r.height / 2 ? 'before' : 'after';
+};
+
+const isStarDrag = (e) => e.dataTransfer.types.includes(STAR_DND) || e.dataTransfer.types.includes(DND_TYPE);
+
+/** A starred document or collection: opens like in the tree, drags to change the order */
+function StarredItem({ star, index, expanded, toggleExpanded, onMove, onDropAt }) {
+  const { collections, trees, toggleStar } = useApp();
+  const location = useLocation();
+  const [drop, setDrop] = useState(null);
+  const doc = star.document;
+  const collection = collections.find((c) => c.id === (star.collectionId || doc?.collectionId));
+  if (star.collectionId && !collection) return null;
+  const node = doc && collection ? findNode(trees[collection.id] || [], doc.id) : null;
+  const children = star.collectionId ? trees[collection.id] || [] : node?.children || [];
+  // opened separately from the same document or collection in the tree
+  const key = `star:${star.id}`;
+  const isOpen = expanded.has(key);
+  const target = star.collectionId ? collection : doc;
+  const isActive = location.pathname.endsWith(`-${target.urlId}`);
+
+  return (
+    <div className="doc-node">
+      <div
+        className={drop ? `drop-${drop}` : ''}
+        onDragOver={(e) => {
+          if (!isStarDrag(e)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setDrop(halfOf(e));
+        }}
+        onDragLeave={() => setDrop(null)}
+        onDrop={(e) => {
+          setDrop(null);
+          if (!isStarDrag(e)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onDropAt(e, halfOf(e) === 'before' ? index : index + 1);
+        }}
+      >
+        <Link
+          to={star.collectionId ? collectionUrl(collection) : docUrl(doc)}
+          className={`sidebar-link doc-link ${isActive ? 'active' : ''}`}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(STAR_DND, JSON.stringify({ id: star.id, index }));
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+        >
+          <span
+            className={`disclosure ${children.length ? '' : 'invisible'}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleExpanded(key);
+            }}
+          >
+            {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+          <span className="sidebar-icon">
+            {star.collectionId ? <CollectionIcon collection={collection} size={16} /> : <DocIcon doc={doc} size={16} />}
+          </span>
+          <TruncatedLabel text={star.collectionId ? collection.name : doc.title || t('Untitled')} />
+          <span className="sidebar-actions">
+            <span
+              className="sidebar-action"
+              title={t('Unstar')}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleStar(star.collectionId ? { collectionId: star.collectionId } : { documentId: doc.id }, false);
+              }}
+            >
+              <Star size={14} fill="currentColor" />
+            </span>
+          </span>
+        </Link>
+      </div>
+      {isOpen &&
+        collection &&
+        children.map((c, i) => (
+          <DocNode
+            key={c.id}
+            node={c}
+            collection={collection}
+            parentId={star.collectionId ? null : doc.id}
+            index={i}
+            depth={1}
+            expanded={expanded}
+            toggleExpanded={toggleExpanded}
+            onMove={onMove}
+          />
+        ))}
+    </div>
+  );
+}
+
+/**
+ * Starred documents and collections, as in Outline: the heading folds the section, items open
+ * like in the tree and are dragged to change the order; a document or collection dragged here from
+ * the tree is starred where it is dropped.
+ */
+function StarredSection({ expanded, toggleExpanded, onMove }) {
+  const { starred, toggleStar, refreshStarred } = useApp();
+  const toast = useToast();
+  const [folded, setFolded] = useState(() => {
+    try {
+      return localStorage.getItem('sidebar-starred-folded') === '1';
+    } catch {
+      return false;
+    }
+  });
+  // while something is dragged from the tree the section shows, also when nothing is starred yet
+  const [dragging, setDragging] = useState(false);
+  const [over, setOver] = useState(false);
+
+  useEffect(() => {
+    const start = (e) => e.dataTransfer?.types.includes(DND_TYPE) && setDragging(true);
+    const end = () => {
+      setDragging(false);
+      setOver(false);
+    };
+    document.addEventListener('dragstart', start);
+    document.addEventListener('dragend', end);
+    document.addEventListener('drop', end);
+    return () => {
+      document.removeEventListener('dragstart', start);
+      document.removeEventListener('dragend', end);
+      document.removeEventListener('drop', end);
+    };
+  }, []);
+
+  const toggleFolded = () => {
+    setFolded((f) => {
+      try {
+        localStorage.setItem('sidebar-starred-folded', f ? '0' : '1');
+      } catch {
+        /* ignore */
+      }
+      return !f;
+    });
+  };
+
+  const dropAt = async (e, index) => {
+    const star = e.dataTransfer.getData(STAR_DND);
+    if (star) {
+      const { id, index: from } = JSON.parse(star);
+      const to = from < index ? index - 1 : index;
+      if (to === from) return;
+      try {
+        await api('stars.update', { id, index: to });
+        await refreshStarred();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      return;
+    }
+    const raw = e.dataTransfer.getData(DND_TYPE);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    toggleStar(data.type === 'collection' ? { collectionId: data.id } : { documentId: data.id }, true, index);
+  };
+
+  if (!starred.length && !dragging) return null;
+
+  return (
+    <div
+      className={`sidebar-section starred-section ${over ? 'drop-target' : ''}`}
+      onDragOver={(e) => {
+        if (!isStarDrag(e)) return;
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget) && setOver(false)}
+      onDrop={(e) => {
+        setOver(false);
+        if (!isStarDrag(e)) return;
+        e.preventDefault();
+        dropAt(e, starred.length);
+      }}
+    >
+      <button className="sidebar-heading sidebar-heading-toggle" onClick={toggleFolded} aria-expanded={!folded}>
+        <span>{t('Starred')}</span>
+        {folded ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+      </button>
+      {!folded &&
+        starred.map((s, i) => (
+          <StarredItem
+            key={s.id}
+            star={s}
+            index={i}
+            expanded={expanded}
+            toggleExpanded={toggleExpanded}
+            onMove={onMove}
+            onDropAt={dropAt}
+          />
+        ))}
+      {(folded || !starred.length) && dragging && <div className="sidebar-empty starred-drop">{t('Drop here to star')}</div>}
+    </div>
+  );
+}
+
 export default function Sidebar() {
-  const { collections, starred, canWrite, refreshAllTrees, refreshCollections } = useApp();
+  const { collections, canWrite, refreshAllTrees, refreshCollections } = useApp();
   const [expanded, toggleExpanded] = usePersistentSet('sidebar-expanded');
   const [openState, setOpen] = useCollectionState();
   const [creating, setCreating] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const [draftCount, setDraftCount] = useState(0);
   const location = useLocation();
   const toast = useToast();
@@ -563,19 +803,7 @@ export default function Sidebar() {
           )}
         </nav>
 
-        {starred.length > 0 && (
-          <div className="sidebar-section">
-            <div className="sidebar-heading">{t('Starred')}</div>
-            {starred.map((d) => (
-              <NavLink key={d.id} to={docUrl(d)} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                <span className="sidebar-icon">
-                  {d.emoji ? <span className="sidebar-emoji">{d.emoji}</span> : <Star size={16} />}
-                </span>
-                <TruncatedLabel text={d.title || t('Untitled')} />
-              </NavLink>
-            ))}
-          </div>
-        )}
+        <StarredSection expanded={expanded} toggleExpanded={toggleExpanded} onMove={onMove} />
 
         <div className="sidebar-section">
           <div className="sidebar-heading">
@@ -619,9 +847,21 @@ export default function Sidebar() {
           <SidebarLink to="/trash" icon={<Trash2 size={18} />}>
             {t('Trash')}
           </SidebarLink>
+          <SidebarLink to="/settings/workspace" icon={<Settings size={18} />}>
+            {t('Settings')}
+          </SidebarLink>
+          {canWrite && (
+            <button className="sidebar-link" onClick={() => setShowInvite(true)}>
+              <span className="sidebar-icon">
+                <UserPlus size={18} />
+              </span>
+              <span className="sidebar-label">{t('Invite people…')}</span>
+            </button>
+          )}
         </div>
       </div>
       {creating && <CollectionModal onClose={() => setCreating(false)} />}
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}
     </aside>
   );
 }

@@ -145,6 +145,7 @@ pub fn router() -> Router<AppState> {
         // stars
         .route("/stars.list", post(stars::list))
         .route("/stars.create", post(stars::create))
+        .route("/stars.update", post(stars::update))
         .route("/stars.delete", post(stars::delete))
         // shares
         .route("/shares.list", post(shares::list))

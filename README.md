@@ -140,8 +140,8 @@ Most common commands (`make` with no arguments shows the list):
   `@[Name](mention://<id>/<user|document|collection>/<id>)`); documents and collections are chips that open with a
   click, also while editing. Whoever is mentioned in a published document gets a notification in the sidebar and an email
   (can be turned off in the profile preferences), if they can read the document.
-- Autosave, drafts, publishing, revision history with restore, stars, archive, trash kept for 30 days,
-  templates, comments with replies and resolution.
+- Autosave, drafts, publishing, revision history with restore, stars on documents and collections (in the order
+  you choose), archive, trash kept for 30 days, templates, comments with replies and resolution.
 - **Templates** with variables and placeholders, as in Outline: `{date}`, `{time}`, `{datetime}` and `{author}` are
   replaced when a document is created from the template; placeholders (`!!text!!`, or the placeholder button in the
   formatting menu of a template) are highlighted in the new document and replaced by clicking and typing.

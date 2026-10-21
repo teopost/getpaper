@@ -34,6 +34,7 @@ export default {
   Search: 'Cerca',
   Drafts: 'Bozze',
   Starred: 'Preferiti',
+  'Drop here to star': 'Rilascia qui per aggiungere ai preferiti',
   Collections: 'Collezioni',
   'New collection': 'Nuova collezione',
   'New collection…': 'Nuova collezione…',

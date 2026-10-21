@@ -119,8 +119,9 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
   `@[Nome](mention://<id>/<user|document|collection>/<id>)`); documenti e collezioni sono chip che si aprono con
   un clic, anche in modifica. Chi viene menzionato in un documento pubblicato riceve una notifica nella sidebar
   e un'email (disattivabile nelle preferenze del profilo), se può leggere il documento.
-- Salvataggio automatico, bozze, pubblicazione, cronologia revisioni con ripristino, preferiti, archivio,
-  cestino con 30 giorni di conservazione, template, commenti con risposte e risoluzione.
+- Salvataggio automatico, bozze, pubblicazione, cronologia revisioni con ripristino, preferiti su documenti e
+  collezioni (nell'ordine che scegli), archivio, cestino con 30 giorni di conservazione, template, commenti con
+  risposte e risoluzione.
 - **Modelli** con variabili e segnaposto, come in Outline: `{date}`, `{time}`, `{datetime}` e `{author}` vengono
   sostituiti quando si crea un documento dal modello; i segnaposto (`!!testo!!`, o il pulsante segnaposto nel menu
   di formattazione di un modello) sono evidenziati nel nuovo documento e si sostituiscono con un clic e scrivendo.
