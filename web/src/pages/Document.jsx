@@ -30,6 +30,7 @@ import {
   Pin,
   PinOff,
   Link2,
+  Code,
 } from 'lucide-react';
 import {
   api,
@@ -567,6 +568,29 @@ function Backlinks({ documentId, updatedAt }) {
   );
 }
 
+/** The Markdown source of the document, edited as plain text; it grows with its content */
+function MarkdownSource({ value, readOnly, onChange }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      className="markdown-source"
+      value={value}
+      readOnly={readOnly}
+      spellCheck={false}
+      autoFocus={!readOnly}
+      aria-label={t('Markdown')}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
 export default function DocumentPage() {
   const { id } = useParams();
   const [params, setParams] = useSearchParams();
@@ -606,6 +630,9 @@ export default function DocumentPage() {
   const [pins, setPins] = useState(null);
   const [revision, setRevision] = useState(null);
   const [editorKey, setEditorKey] = useState(0);
+  // the Markdown source instead of the editor, for this visit of the document
+  const [markdownMode, setMarkdownMode] = useState(false);
+  const [markdownText, setMarkdownText] = useState('');
   const [moving, setMoving] = useState(false);
   const [confirm, setConfirm] = useState(null);
   // editor content shown as slides (presentation mode)
@@ -756,6 +783,7 @@ export default function DocumentPage() {
     setData(null);
     setRevision(null);
     setPanel(null);
+    setMarkdownMode(false);
     load();
     return () => {
       flush();
@@ -815,7 +843,7 @@ export default function DocumentPage() {
   const collection = data.collection ? collections.find((c) => c.id === data.collection.id) || data.collection : null;
   const writableCollections = collections.filter((c) => c.access === 'write');
   const showTemplatePicker =
-    editable && !doc.template && !doc.text.trim() && !title.trim() && templates.length > 0 && editorKey === 0;
+    !markdownMode && editable && !doc.template && !doc.text.trim() && !title.trim() && templates.length > 0 && editorKey === 0;
 
   const setEmoji = (emoji) => {
     setData((d) => ({ ...d, document: { ...d.document, emoji: emoji || null } }));
@@ -855,6 +883,24 @@ export default function DocumentPage() {
     }
   };
 
+  /** The text as it is now: in the editor, in the Markdown source or as loaded */
+  const currentText = () => (markdownMode ? markdownText : editorRef.current?.storage.markdown.getMarkdown() ?? doc.text);
+
+  const toggleMarkdown = () => {
+    if (markdownMode) {
+      // the editor starts again from the source
+      setData((d) => ({ ...d, document: { ...d.document, text: markdownText } }));
+      setEditorKey((k) => k + 1);
+      setMarkdownMode(false);
+    } else {
+      // readers see the text as stored, writers also their changes not saved yet
+      setMarkdownText(editable ? currentText() : doc.text);
+      editorRef.current = null;
+      setEditorInstance(null);
+      setMarkdownMode(true);
+    }
+  };
+
   const applyTemplate = (tpl) => {
     const newTitle = title.trim() ? title : replaceTemplateVariables(tpl.title, user);
     const text = replaceTemplateVariables(tpl.text, user);
@@ -878,6 +924,7 @@ export default function DocumentPage() {
       await api('documents.restore', { id: doc.id, revisionId: revision.id });
       toast(t('Document restored'));
       setRevision(null);
+      setMarkdownMode(false);
       setEditorKey((k) => k + 1);
       await load();
       refreshTree(doc.collectionId);
@@ -938,6 +985,12 @@ export default function DocumentPage() {
       icon: <FolderInput size={16} />,
       onClick: () => setMoving(true),
     },
+    !revision && {
+      label: t(editable ? 'Edit as Markdown' : 'Show Markdown'),
+      icon: <Code size={16} />,
+      checked: markdownMode,
+      onClick: toggleMarkdown,
+    },
     canWrite && !doc.template && !doc.deletedAt && {
       label: t('Create template…'),
       icon: <LayoutTemplate size={16} />,
@@ -945,7 +998,7 @@ export default function DocumentPage() {
         runAction(async () => {
           const tpl = await api('documents.create', {
             title: doc.title,
-            text: editorRef.current?.storage.markdown.getMarkdown() ?? doc.text,
+            text: currentText(),
             emoji: doc.emoji,
             template: true,
             publish: true,
@@ -960,7 +1013,7 @@ export default function DocumentPage() {
       icon: <History size={16} />,
       onClick: () => setPanel(panel === 'history' ? null : 'history'),
     },
-    !revision && {
+    !revision && !markdownMode && {
       label: t('Present'),
       icon: <Presentation size={16} />,
       onClick: () => editorRef.current && setPresenting(editorRef.current.getJSON()),
@@ -978,11 +1031,12 @@ export default function DocumentPage() {
                 downloadText(`${slugify(doc.title)}.md`, md);
               }),
           },
-          ...[
+          // they render the editor content
+          ...(markdownMode ? [] : [
             { label: 'HTML', icon: <FileCode size={16} />, run: (x) => x.downloadHtml },
             { label: 'PDF', icon: <Printer size={16} />, run: (x) => x.printPdf },
             { label: t('Word (.docx)'), icon: <FileType size={16} />, run: (x) => x.downloadDocx },
-          ].map((f) => ({
+          ]).map((f) => ({
             label: f.label,
             icon: f.icon,
             onClick: () =>
@@ -1148,6 +1202,7 @@ export default function DocumentPage() {
               variant="secondary"
               onClick={() => {
                 pending.current = {};
+                setMarkdownMode(false);
                 setEditorKey((k) => k + 1);
                 load();
               }}
@@ -1325,6 +1380,15 @@ export default function DocumentPage() {
 
           {revision ? (
             <Editor key={`rev-${revision.id}`} value={revision.text} editable={false} documentId={doc.id} />
+          ) : markdownMode ? (
+            <MarkdownSource
+              value={markdownText}
+              readOnly={!editable}
+              onChange={(md) => {
+                setMarkdownText(md);
+                queueSave({ text: md });
+              }}
+            />
           ) : (
             <Editor
               key={`${doc.id}-${editorKey}`}

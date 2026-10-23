@@ -136,7 +136,8 @@ Most common commands (`make` with no arguments shows the list):
   to). The document moves with its subpages, history, comments and attachments; its public links are revoked.
 - **WYSIWYG editor** saved as Markdown: `/` menu, formatting toolbar, Markdown shortcuts, tables, checklists,
   code blocks with highlighting, language picker, copy and wrap, notices (`:::info`, `:::warning`, `:::tip`,
-  `:::success`), images and attachments by paste or drag.
+  `:::success`), images and attachments by paste or drag. *Edit as Markdown* in the document menu switches to the
+  Markdown source and back (read only for viewers).
 - **Mentions** with `@`, as in Outline: people, groups, documents and collections (saved as
   `@[Name](mention://<id>/<user|document|collection>/<id>)`); documents and collections are chips that open with a
   click, also while editing. Whoever is mentioned in a published document gets a notification in the sidebar and an email
@@ -295,7 +296,8 @@ and BookStack all work; Confluence and Wiki.js have their own importers (below).
 - The title is taken from the `title:` front matter, the first `# Title` or the file name. Notion's hexadecimal
   suffixes are removed.
 - Images and other files become attachments. Relative links between documents, links to attachments and
-  Obsidian `[[wiki links]]` are rewritten.
+  Obsidian `[[wiki links]]` are rewritten. Links to imported documents become mentions of them (the chip with the
+  icon, as when you type `@`) with the text of the link; links with an anchor, a title or formatted text stay links.
 - A single wrapper folder (e.g. `export/…`) is ignored automatically.
 - HTML files are converted to Markdown.
 
@@ -336,7 +338,8 @@ Wiki.js 2 content is recognized in two forms, as a ZIP or tar.gz:
 - Pages in a language other than the main one go into a folder named after the language (`fr/…`), as in the
   Wiki.js storage.
 - Links between pages (also with the language, `/en/…`, and anchors) and to assets are rewritten; images and other
-  assets become attachments.
+  assets become attachments. Links to pages become mentions, as with every import; links to pages that are not
+  in the archive become plain text.
 - Diagrams (draw.io, saved by Wiki.js as base64 SVG in the page) and images embedded in the text as `data:` URIs
   become attachments next to the page.
 - Wiki.js 2 writes `pages.json.gz` reading the pages in batches without an order: pages it exported twice are

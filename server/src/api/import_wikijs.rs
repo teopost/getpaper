@@ -526,6 +526,8 @@ pub fn convert(
     let md_link = re(&MD_LINK, r#"(!?\[(?:\\.|[^\]\\])*\]\()(<[^>]+>|[^)\s]+)"#);
     let md_ref = re(&MD_REF, r"(?m)^( {0,3}\[[^\]]+\]:\s*)(\S+)");
     let html_attr = re(&HTML_ATTR, r#"\b(src|href)="([^"]+)""#);
+    static MISSING_PAGE: OnceLock<Regex> = OnceLock::new();
+    let missing_page = re(&MISSING_PAGE, r#"(!?)\[((?:\\.|[^\]\\])*)\]\((/[^)\s]*)\)"#);
 
     let mut out = vec![];
     let mut meta = HashMap::new();
@@ -548,6 +550,15 @@ pub fn convert(
         let markdown = md_ref.replace_all(&markdown, |c: &Captures| match link(&c[2]) {
             Some(u) => format!("{}{}", &c[1], u),
             None => c[0].to_string(),
+        });
+        // links to pages of the wiki that are not in the archive: their text, instead of a link that leads nowhere
+        let markdown = missing_page.replace_all(&markdown, |c: &Captures| {
+            let target = c[3].split(['#', '?']).next().unwrap_or("");
+            if c[1].is_empty() && !target.starts_with("//") && !file_name(target).contains('.') {
+                c[2].to_string()
+            } else {
+                c[0].to_string()
+            }
         });
         let stem = file_name(&archive).trim_end_matches(".md");
         let (markdown, files) = extract_embedded(&markdown, archive_dir, stem, &mut used);
@@ -604,6 +615,18 @@ mod tests {
         assert!(!page.contains("base64"), "{page}");
         assert_eq!(doc(&out, "net/Radius-diagram-1.svg"), "<svg/>");
         assert_eq!(doc(&out, "net/Radius-image-2.jpg"), "png");
+    }
+
+    #[test]
+    fn links_to_missing_pages_become_text() {
+        let json = serde_json::json!([
+            {"path": "a", "title": "A", "content": "- [B](/it/b)\n- [Missing](/it/missing#x)\n- ![img](/img/x.png)\n- [file](/f/doc.pdf)\n- [web](https://x.it/p)"},
+            {"path": "b", "title": "B", "content": "b"}
+        ])
+        .to_string();
+        let (out, _, _) = convert(vec![("pages.json.gz".to_string(), gz(&json))], Layout::Export, false).unwrap();
+        let a = doc(&out, "a.md");
+        assert!(a.contains("- [B](b.md)\n- Missing\n- ![img](/img/x.png)\n- [file](/f/doc.pdf)\n- [web](https://x.it/p)"), "{a}");
     }
 
     #[test]

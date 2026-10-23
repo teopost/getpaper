@@ -1265,6 +1265,29 @@ body.resizing-sidebar {
   overflow: hidden;
   color: var(--text);
 }
+.markdown-source {
+  display: block;
+  width: 100%;
+  min-height: 50vh;
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--divider);
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: none;
+  overflow: hidden;
+  tab-size: 4;
+}
+.markdown-source:focus {
+  outline: none;
+  border-color: var(--input-border);
+}
 .document-title::placeholder {
   color: var(--text-tertiary);
   opacity: 0.6;

@@ -114,7 +114,8 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
   scrivere). Il documento passa con sottopagine, cronologia, commenti e allegati; i suoi link pubblici vengono revocati.
 - **Editor WYSIWYG** salvato in Markdown: menu `/`, toolbar di formattazione, scorciatoie Markdown, tabelle,
   checklist, blocchi di codice con evidenziazione, notice (`:::info`, `:::warning`, `:::tip`, `:::success`),
-  immagini e allegati con incolla o trascina.
+  immagini e allegati con incolla o trascina. *Modifica in Markdown* nel menu del documento passa al sorgente
+  Markdown e ritorno (in sola lettura per chi può solo leggere).
 - **Menzioni** con `@`, come in Outline: persone, gruppi, documenti e collezioni (salvate come
   `@[Nome](mention://<id>/<user|document|collection>/<id>)`); documenti e collezioni sono chip che si aprono con
   un clic, anche in modifica. Chi viene menzionato in un documento pubblicato riceve una notifica nella sidebar
@@ -278,7 +279,9 @@ Obsidian, GitBook e BookStack; Confluence e Wiki.js hanno un importer dedicato (
 - Il titolo viene preso dal front matter `title:`, dal primo `# Titolo` o dal nome del file. I suffissi esadecimali
   di Notion vengono rimossi.
 - Immagini e altri file diventano allegati. I link relativi tra documenti, i link agli allegati e i
-  `[[wiki link]]` di Obsidian vengono riscritti.
+  `[[wiki link]]` di Obsidian vengono riscritti. I link ai documenti importati diventano menzioni (l'etichetta con
+  l'icona, come quando si scrive `@`) con il testo del link; i link con un'ancora, un titolo o testo formattato
+  restano link.
 - Una cartella contenitore unica (es. `export/…`) viene ignorata automaticamente.
 - I file HTML vengono convertiti in Markdown.
 
@@ -320,7 +323,8 @@ I contenuti di Wiki.js 2 vengono riconosciuti in due forme, come ZIP o tar.gz:
 - Le pagine in una lingua diversa da quella principale finiscono in una cartella con il nome della lingua (`fr/…`),
   come nello storage di Wiki.js.
 - I link tra le pagine (anche con la lingua, `/en/…`, e con le ancore) e agli asset vengono riscritti; immagini e
-  altri asset diventano allegati.
+  altri asset diventano allegati. I link alle pagine diventano menzioni, come in ogni import; i link a pagine che
+  non sono nell'archivio diventano testo semplice.
 - I diagrammi (draw.io, salvati da Wiki.js come SVG in base64 nella pagina) e le immagini incorporate nel testo come
   URI `data:` diventano allegati accanto alla pagina.
 - Wiki.js 2 scrive `pages.json.gz` leggendo le pagine a blocchi senza un ordine: le pagine esportate due volte

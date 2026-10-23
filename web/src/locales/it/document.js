@@ -50,6 +50,8 @@ export default {
   'Template created': 'Modello creato',
   Download: 'Scarica',
   'Full width': 'Larghezza piena',
+  'Edit as Markdown': 'Modifica in Markdown',
+  'Show Markdown': 'Mostra Markdown',
   Unpublish: 'Annulla pubblicazione',
   'Document unpublished': 'Pubblicazione del documento annullata',
   'Archive@@action': 'Archivia',

@@ -24,6 +24,8 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 - **Backlinks**: *Referenced by* under a document lists the documents that link to it or mention it.
 - **Public link options**: include the nested documents (with a tree on the public page), allow search engine
   indexing (with a sitemap), show or hide the date of the last change. Existing links keep working as before.
+- **Markdown source of a document**: *Edit as Markdown* in the document menu shows the text as Markdown, editable,
+  and switches back to the visual editor; viewers get *Show Markdown*, read only.
 - Database migrations 0017-0022: share options, notification settings, pins, document links (computed for the
   existing documents), webhooks, sign-in identities, sign-in links and passkeys.
 
@@ -62,6 +64,9 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
   (the text was too long for the search index).
 - **SVG attachments** are shown as images instead of being downloaded; they are served with a Content-Security-Policy
   that blocks scripts and external resources.
+- **Import**: links to imported documents become mentions of them, with the text of the link (links with an anchor,
+  a title or formatted text stay links); in Wiki.js exports, links to pages that are not in the export become plain
+  text. The "Referenced by" list of imported documents now includes the links to documents imported after them.
 
 ## [0.2.0] - 2026-10-21
 

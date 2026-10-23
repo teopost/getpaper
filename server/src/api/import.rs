@@ -233,6 +233,20 @@ fn callouts_to_notices(s: &str) -> String {
     out.join("\n")
 }
 
+/// The text of a link as the label of a mention: plain text only (no formatting, images or code), unescaped
+fn mention_label(label: &str) -> Option<String> {
+    static ESCAPE: OnceLock<Regex> = OnceLock::new();
+    let l = re(&ESCAPE, r"\\(.)").replace_all(label.trim(), "$1").to_string();
+    let plain = !l.is_empty() && !l.contains(['*', '`', '[', ']', '<', '>', '~', '\n']) && !l.starts_with('_');
+    plain.then_some(l)
+}
+
+/// A mention of document `doc`, in the format of the editor
+fn mention(label: &str, doc: Uuid) -> String {
+    let label = label.replace('\\', "\\\\").replace(']', "\\]");
+    format!("@[{label}](mention://{}/document/{doc})", Uuid::new_v4())
+}
+
 struct Node {
     coll: String,
     key: Vec<String>,
@@ -599,6 +613,7 @@ pub async fn import_archive(
     // ---- rewrite links
     let doc_urls: HashMap<String, String> =
         nodes.iter().filter_map(|n| n.zip_path.clone().map(|p| (p, n.url()))).collect();
+    let doc_ids: HashMap<String, Uuid> = nodes.iter().map(|n| (n.url(), n.id)).collect();
     let mut title_urls: HashMap<String, String> = HashMap::new();
     for n in &nodes {
         title_urls.entry(n.title.to_lowercase()).or_insert_with(|| n.url());
@@ -651,7 +666,14 @@ pub async fn import_archive(
         let Some(zp) = &n.zip_path else { continue };
         let base_dir = zp.rsplit_once('/').map(|(d, _)| d).unwrap_or("").to_string();
         let t = md_link.replace_all(&n.text, |c: &Captures| match resolve(&base_dir, &c[2]) {
-            Some(u) => format!("{}{}{}", &c[1], u, &c[3]),
+            Some(u) => {
+                // a link to an imported document becomes a mention of it, as when it is written with @
+                let label = c[1].strip_prefix('[').and_then(|l| l.strip_suffix("](")).and_then(mention_label);
+                match (label, doc_ids.get(&u)) {
+                    (Some(label), Some(&doc)) if c[3].trim() == ")" => mention(&label, doc),
+                    _ => format!("{}{}{}", &c[1], u, &c[3]),
+                }
+            }
             None => c[0].to_string(),
         });
         let t = html_attr.replace_all(&t, |c: &Captures| match resolve(&base_dir, &c[2]) {
@@ -670,7 +692,10 @@ pub async fn import_archive(
                 };
             }
             match title_urls.get(&target.to_lowercase()) {
-                Some(u) => format!("[{label}]({u})"),
+                Some(u) => match (mention_label(label), doc_ids.get(u)) {
+                    (Some(l), Some(&doc)) => mention(&l, doc),
+                    _ => format!("[{label}]({u})"),
+                },
                 None => label.to_string(),
             }
         });
@@ -770,6 +795,16 @@ pub async fn import_archive(
                 .await?;
         }
     }
+    // the links between the imported documents: the trigger only finds the documents inserted before each one
+    let ids: Vec<Uuid> = nodes.iter().map(|n| n.id).collect();
+    sqlx::query(
+        "INSERT INTO document_links (source_id, target_id) \
+         SELECT DISTINCT d.id, t FROM documents d, LATERAL document_link_targets(d.id, d.team_id, d.text) AS t \
+         WHERE d.id = ANY($1) ON CONFLICT DO NOTHING",
+    )
+    .bind(&ids)
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
 
     Ok(ImportResult { collections: created_collections, documents: nodes.len(), attachments: att_count, skipped, format })
@@ -810,4 +845,26 @@ pub async fn import(State(st): State<AppState>, auth: Auth, mut mp: Multipart) -
         "attachments": r.attachments,
         "skipped": r.skipped.into_iter().take(100).collect::<Vec<_>>(),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn links_to_documents_as_mentions() {
+        assert_eq!(mention_label(" Firmware_RAID "), Some("Firmware_RAID".into()));
+        assert_eq!(mention_label(r"Uso \[beta\] e a\_b"), None);
+        assert_eq!(mention_label(r"a\_b"), Some("a_b".into()));
+        assert_eq!(mention_label("**Bold**"), None);
+        assert_eq!(mention_label("`code`"), None);
+        assert_eq!(mention_label(""), None);
+        let doc = Uuid::nil();
+        let m = mention(r"a]b\c", doc);
+        assert!(m.starts_with(r"@[a\]b\\c](mention://"), "{m}");
+        assert!(m.ends_with("/document/00000000-0000-0000-0000-000000000000)"), "{m}");
+        let parsed = crate::mentions::parse(&m);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!((parsed[0].kind.as_str(), parsed[0].model_id), ("document", doc));
+    }
 }
