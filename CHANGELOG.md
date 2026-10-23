@@ -57,6 +57,11 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 - **Import from Wiki.js**: exports whose `pages.json.gz` lacks the comma between some pages, as Wiki.js writes it
   when it exports the pages in batches, are imported instead of failing with "Cannot read pages.json.gz"; pages
   that the export contains more than once are imported once, in their most recent version.
+- **Import from Wiki.js**: diagrams (base64 SVG in a ```` ```diagram ```` block) and images embedded as `data:` URIs
+  become attachments next to the page. Pages with several MB of them made the import fail with "Internal error"
+  (the text was too long for the search index).
+- **SVG attachments** are shown as images instead of being downloaded; they are served with a Content-Security-Policy
+  that blocks scripts and external resources.
 
 ## [0.2.0] - 2026-10-21
 

@@ -93,14 +93,19 @@ pub async fn serve(State(st): State<AppState>, Path((id, _name)): Path<(Uuid, St
         Ok(b) => b,
         Err(_) => return StatusCode::NOT_FOUND.into_response(),
     };
-    let safe_inline = ct.starts_with("image/") && ct != "image/svg+xml" || ct == "application/pdf" || ct.starts_with("video/") || ct.starts_with("audio/");
+    let safe_inline = ct.starts_with("image/") || ct == "application/pdf" || ct.starts_with("video/") || ct.starts_with("audio/");
+    // SVG is shown inline (diagrams) but can't run scripts or load anything, also when opened on its own
+    let svg = ct == "image/svg+xml";
     let (ct, disposition) = if safe_inline {
         (ct, format!("inline; filename=\"{name}\""))
     } else {
         ("application/octet-stream".to_string(), format!("attachment; filename=\"{name}\""))
     };
-    Response::builder()
-        .header(header::CONTENT_TYPE, ct)
+    let mut res = Response::builder().header(header::CONTENT_TYPE, ct);
+    if svg {
+        res = res.header(header::CONTENT_SECURITY_POLICY, "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:");
+    }
+    res
         .header(header::CONTENT_DISPOSITION, disposition)
         .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
         .header("X-Content-Type-Options", "nosniff")

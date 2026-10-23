@@ -337,6 +337,11 @@ Wiki.js 2 content is recognized in two forms, as a ZIP or tar.gz:
   Wiki.js storage.
 - Links between pages (also with the language, `/en/…`, and anchors) and to assets are rewritten; images and other
   assets become attachments.
+- Diagrams (draw.io, saved by Wiki.js as base64 SVG in the page) and images embedded in the text as `data:` URIs
+  become attachments next to the page.
+- Wiki.js 2 writes `pages.json.gz` reading the pages in batches without an order: pages it exported twice are
+  imported once, the missing commas this leaves in the file are tolerated, but pages it left out can't be recovered.
+  If pages are missing, import the storage files instead.
 - Blockquotes marked `{.is-info}`, `{.is-success}`, `{.is-warning}` or `{.is-danger}` (also from the visual editor)
   become notices; image sizes (`=300x`) and `{.class}` attributes are removed. HTML pages are converted to
   Markdown; AsciiDoc pages are imported from the export as the HTML Wiki.js rendered (from the storage files they

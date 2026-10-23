@@ -321,6 +321,11 @@ I contenuti di Wiki.js 2 vengono riconosciuti in due forme, come ZIP o tar.gz:
   come nello storage di Wiki.js.
 - I link tra le pagine (anche con la lingua, `/en/…`, e con le ancore) e agli asset vengono riscritti; immagini e
   altri asset diventano allegati.
+- I diagrammi (draw.io, salvati da Wiki.js come SVG in base64 nella pagina) e le immagini incorporate nel testo come
+  URI `data:` diventano allegati accanto alla pagina.
+- Wiki.js 2 scrive `pages.json.gz` leggendo le pagine a blocchi senza un ordine: le pagine esportate due volte
+  vengono importate una volta sola, le virgole mancanti che questo lascia nel file sono tollerate, ma le pagine che ha
+  saltato non si possono recuperare. Se mancano pagine, importa i file dello storage.
 - Le citazioni marcate `{.is-info}`, `{.is-success}`, `{.is-warning}` o `{.is-danger}` (anche dall'editor visuale)
   diventano notice; le dimensioni delle immagini (`=300x`) e gli attributi `{.classe}` vengono rimossi. Le pagine
   HTML vengono convertite in Markdown; le pagine AsciiDoc vengono importate dall'export come l'HTML generato da

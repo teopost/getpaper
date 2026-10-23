@@ -23,6 +23,7 @@ use std::{
     sync::OnceLock,
 };
 
+use base64::{engine::general_purpose::STANDARD, Engine};
 use chrono::{DateTime, Utc};
 use regex::{Captures, Regex};
 use serde_json::Value;
@@ -391,6 +392,48 @@ fn convert_inline(line: &str, attr_end: &Regex, attr_inline: &Regex, imsize: &Re
     attr_end.replace(&l, "").to_string()
 }
 
+/// Diagrams (a ```` ```diagram ```` block with the SVG in base64) and images embedded as `data:` URIs become
+/// files next to the page, `<stem>-diagram-N.svg` and `<stem>-image-N.png`: kept in the text they make it too
+/// large for search (a few MB of base64) and the editor can't show the diagrams.
+fn extract_embedded(markdown: &str, archive_dir: &str, stem: &str, used: &mut HashSet<String>) -> (String, Vec<(String, Vec<u8>)>) {
+    static DIAGRAM: OnceLock<Regex> = OnceLock::new();
+    static DATA_IMAGE: OnceLock<Regex> = OnceLock::new();
+    let diagram = re(&DIAGRAM, r"(?m)^```diagram[ \t]*\n([A-Za-z0-9+/=\s]+?)\n```[ \t]*$");
+    let data_image = re(&DATA_IMAGE, r"!\[((?:\\.|[^\]\\])*)\]\(<?data:image/(png|jpe?g|gif|webp|svg\+xml);base64,([A-Za-z0-9+/=\s]+)>?\)");
+    let stem: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' }).collect();
+    let mut files = vec![];
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    let mut file = |kind: &str, ext: &str, data: Vec<u8>| -> String {
+        let n = counts.entry(kind.to_string()).or_default();
+        let name = loop {
+            *n += 1;
+            let name = format!("{stem}-{kind}-{n}.{ext}");
+            if used.insert(join_path(archive_dir, &name).to_lowercase()) {
+                break name;
+            }
+        };
+        files.push((join_path(archive_dir, &name), data));
+        name
+    };
+    let decode = |b64: &str| STANDARD.decode(b64.chars().filter(|c| !c.is_whitespace()).collect::<String>()).ok();
+    let text = diagram.replace_all(markdown, |c: &Captures| match decode(&c[1]) {
+        Some(svg) => format!("![]({})", file("diagram", "svg", svg)),
+        None => c[0].to_string(),
+    });
+    let text = data_image.replace_all(&text, |c: &Captures| match decode(&c[3]) {
+        Some(img) => {
+            let ext = match &c[2] {
+                "jpg" | "jpeg" => "jpg",
+                "svg+xml" => "svg",
+                e => e,
+            };
+            format!("![{}]({})", &c[1], file("image", ext, img))
+        }
+        None => c[0].to_string(),
+    });
+    (text.into_owned(), files)
+}
+
 /// Rewrites the Wiki.js content to the generic layout. `into_collection`: everything goes into one
 /// existing collection, so top-level folders don't become collections.
 pub fn convert(
@@ -486,6 +529,8 @@ pub fn convert(
 
     let mut out = vec![];
     let mut meta = HashMap::new();
+    let mut used: HashSet<String> =
+        archive_paths.values().cloned().chain(asset_paths.iter().map(|a| a.to_string())).map(|p| p.to_lowercase()).collect();
     for p in &pages {
         let archive = archive_paths[p.path.as_str()].clone();
         let archive_dir = archive.rsplit_once('/').map(|(d, _)| d).unwrap_or("");
@@ -504,6 +549,9 @@ pub fn convert(
             Some(u) => format!("{}{}", &c[1], u),
             None => c[0].to_string(),
         });
+        let stem = file_name(&archive).trim_end_matches(".md");
+        let (markdown, files) = extract_embedded(&markdown, archive_dir, stem, &mut used);
+        out.extend(files);
         let title = p.title.clone().unwrap_or_else(|| file_name(&p.path).to_string());
         let text = format!("---\ntitle: {}\n---\n\n{}\n", title.replace('\n', " "), markdown.trim());
         // the page that names a collection comes first in it
@@ -540,6 +588,22 @@ mod tests {
         let entries = vec![("pages.json.gz".to_string(), gz(json))];
         let (out, _, _) = convert(entries, Layout::Export, false).unwrap();
         assert_eq!(out.len(), 3);
+    }
+
+    #[test]
+    fn embedded_diagrams_and_images() {
+        let svg = STANDARD.encode("<svg/>");
+        let png = STANDARD.encode("png");
+        let content = format!("Intro\n\n```diagram\n{svg}\n```\n\n![shot](data:image/png;base64,{png}) and ![x](data:image/jpeg;base64,{png})\n\n```diagram\n{svg}\n```\n\n```js\nlet a = 1;\n```");
+        let json = serde_json::json!([{"path": "net/Radius", "title": "Radius", "content": content}]).to_string();
+        let (out, _, _) = convert(vec![("pages.json.gz".to_string(), gz(&json))], Layout::Export, false).unwrap();
+        let page = doc(&out, "net/Radius.md");
+        assert!(page.contains("![](Radius-diagram-1.svg)") && page.contains("![](Radius-diagram-2.svg)"), "{page}");
+        assert!(page.contains("![shot](Radius-image-1.png) and ![x](Radius-image-2.jpg)"), "{page}");
+        assert!(page.contains("```js\nlet a = 1;\n```"), "{page}");
+        assert!(!page.contains("base64"), "{page}");
+        assert_eq!(doc(&out, "net/Radius-diagram-1.svg"), "<svg/>");
+        assert_eq!(doc(&out, "net/Radius-image-2.jpg"), "png");
     }
 
     #[test]
