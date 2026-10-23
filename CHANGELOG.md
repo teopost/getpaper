@@ -67,6 +67,9 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 - **Import**: links to imported documents become mentions of them, with the text of the link (links with an anchor,
   a title or formatted text stay links); in Wiki.js exports, links to pages that are not in the export become plain
   text. The "Referenced by" list of imported documents now includes the links to documents imported after them.
+- **Import from Wiki.js**: terminal screens written as HTML in the page (a `<pre>` with coloured text, such as IBM i
+  5250 screens) become SVG images that look like the original, with its colours, underlines and alignment; the
+  editor showed them as a single line of text.
 
 ## [0.2.0] - 2026-10-21
 

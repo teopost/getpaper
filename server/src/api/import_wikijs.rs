@@ -31,7 +31,7 @@ use serde_json::Value;
 use super::import::{join_path, percent_decode, DocMeta};
 use crate::{
     error::{ApiError, ApiResult},
-    html_md,
+    html_md, terminal_svg,
 };
 
 fn re(cell: &'static OnceLock<Regex>, pattern: &str) -> &'static Regex {
@@ -394,12 +394,19 @@ fn convert_inline(line: &str, attr_end: &Regex, attr_inline: &Regex, imsize: &Re
 
 /// Diagrams (a ```` ```diagram ```` block with the SVG in base64) and images embedded as `data:` URIs become
 /// files next to the page, `<stem>-diagram-N.svg` and `<stem>-image-N.png`: kept in the text they make it too
-/// large for search (a few MB of base64) and the editor can't show the diagrams.
+/// large for search (a few MB of base64) and the editor can't show the diagrams. Terminal screens written as
+/// HTML (a `<pre>` with coloured spans, often in an inline-block `<div>` after a `<style>` loading fonts) become
+/// `<stem>-screen-N.svg` images that look like them.
 fn extract_embedded(markdown: &str, archive_dir: &str, stem: &str, used: &mut HashSet<String>) -> (String, Vec<(String, Vec<u8>)>) {
     static DIAGRAM: OnceLock<Regex> = OnceLock::new();
     static DATA_IMAGE: OnceLock<Regex> = OnceLock::new();
+    static SCREEN: OnceLock<Regex> = OnceLock::new();
     let diagram = re(&DIAGRAM, r"(?m)^```diagram[ \t]*\n([A-Za-z0-9+/=\s]+?)\n```[ \t]*$");
     let data_image = re(&DATA_IMAGE, r"!\[((?:\\.|[^\]\\])*)\]\(<?data:image/(png|jpe?g|gif|webp|svg\+xml);base64,([A-Za-z0-9+/=\s]+)>?\)");
+    let screen = re(
+        &SCREEN,
+        r#"(?s)(?:<style>[^<]*</style>\s*)?(?:<div [^>]*inline-block[^>]*>\s*(<pre\s+style="[^"]*"\s*>.*?</pre>)\s*</div>|(<pre\s+style="[^"]*"\s*>.*?</pre>))"#,
+    );
     let stem: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' }).collect();
     let mut files = vec![];
     let mut counts: HashMap<String, usize> = HashMap::new();
@@ -430,6 +437,13 @@ fn extract_embedded(markdown: &str, archive_dir: &str, stem: &str, used: &mut Ha
             format!("![{}]({})", &c[1], file("image", ext, img))
         }
         None => c[0].to_string(),
+    });
+    let text = screen.replace_all(&text, |c: &Captures| {
+        let pre = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
+        match terminal_svg::render(pre) {
+            Some(svg) => format!("![]({})", file("screen", "svg", svg.into_bytes())),
+            None => c[0].to_string(),
+        }
     });
     (text.into_owned(), files)
 }
@@ -615,6 +629,17 @@ mod tests {
         assert!(!page.contains("base64"), "{page}");
         assert_eq!(doc(&out, "net/Radius-diagram-1.svg"), "<svg/>");
         assert_eq!(doc(&out, "net/Radius-image-2.jpg"), "png");
+    }
+
+    #[test]
+    fn terminal_screens_become_images() {
+        let content = "# Menu\n\n<style>@import url('https://fonts.googleapis.com/css2?family=Fira+Code');</style><div style=\"overflow:auto;display:inline-block;\"><pre style=\"color:#00cc00;background:#000000;\"><span style=\"display:block\"><span style=\"color:#ffffff\">10.</span> Configurazione</span></pre></div>\n\nAfter\n\n<pre style=\"background:#000\">ok</pre>";
+        let json = serde_json::json!([{"path": "m", "title": "M", "content": content}]).to_string();
+        let (out, _, _) = convert(vec![("pages.json.gz".to_string(), gz(&json))], Layout::Export, false).unwrap();
+        let page = doc(&out, "m.md");
+        assert!(page.contains("# Menu\n\n![](m-screen-1.svg)\n\nAfter\n\n![](m-screen-2.svg)"), "{page}");
+        assert!(!page.contains("<style>") && !page.contains("</div>"), "{page}");
+        assert!(doc(&out, "m-screen-1.svg").contains(">10.</text>"));
     }
 
     #[test]

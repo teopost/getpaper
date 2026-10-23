@@ -341,7 +341,8 @@ Wiki.js 2 content is recognized in two forms, as a ZIP or tar.gz:
   assets become attachments. Links to pages become mentions, as with every import; links to pages that are not
   in the archive become plain text.
 - Diagrams (draw.io, saved by Wiki.js as base64 SVG in the page) and images embedded in the text as `data:` URIs
-  become attachments next to the page.
+  become attachments next to the page. Terminal screens written as HTML (a `<pre>` with coloured text, such as
+  IBM i 5250 screens) become SVG images that look like the original.
 - Wiki.js 2 writes `pages.json.gz` reading the pages in batches without an order: pages it exported twice are
   imported once, the missing commas this leaves in the file are tolerated, but pages it left out can't be recovered.
   If pages are missing, import the storage files instead.

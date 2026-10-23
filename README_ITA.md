@@ -326,7 +326,8 @@ I contenuti di Wiki.js 2 vengono riconosciuti in due forme, come ZIP o tar.gz:
   altri asset diventano allegati. I link alle pagine diventano menzioni, come in ogni import; i link a pagine che
   non sono nell'archivio diventano testo semplice.
 - I diagrammi (draw.io, salvati da Wiki.js come SVG in base64 nella pagina) e le immagini incorporate nel testo come
-  URI `data:` diventano allegati accanto alla pagina.
+  URI `data:` diventano allegati accanto alla pagina. Le schermate di terminale scritte in HTML (un `<pre>` con
+  testo colorato, come le schermate 5250 di IBM i) diventano immagini SVG uguali all'originale.
 - Wiki.js 2 scrive `pages.json.gz` leggendo le pagine a blocchi senza un ordine: le pagine esportate due volte
   vengono importate una volta sola, le virgole mancanti che questo lascia nel file sono tollerate, ma le pagine che ha
   saltato non si possono recuperare. Se mancano pagine, importa i file dello storage.

@@ -10,6 +10,7 @@ mod models;
 mod notify;
 mod perm;
 mod subscriptions;
+mod terminal_svg;
 mod util;
 mod webhooks;
 
