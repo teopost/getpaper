@@ -144,6 +144,55 @@ fn locale_like(s: &str) -> bool {
     re(&R, r"(?i)^[a-z]{2}(-[a-z]{2})?$").is_match(s)
 }
 
+/// The array of pages of `pages.json.gz`. Wiki.js writes the pages in batches and leaves out the comma between
+/// the last page of a batch and the first of the next one (`}{`): the pages are read one by one, skipping the
+/// commas that are there.
+fn parse_pages(json: &str) -> serde_json::Result<Vec<Value>> {
+    if let Ok(pages) = serde_json::from_str(json) {
+        return Ok(pages);
+    }
+    let body = json.trim().strip_prefix('[').and_then(|s| s.strip_suffix(']'));
+    let Some(mut rest) = body else { return serde_json::from_str(json) };
+    let mut pages = vec![];
+    loop {
+        rest = rest.trim_start_matches(|c: char| c == ',' || c.is_whitespace());
+        if rest.is_empty() {
+            return Ok(pages);
+        }
+        let mut stream = serde_json::Deserializer::from_str(rest).into_iter::<Value>();
+        match stream.next() {
+            Some(page) => pages.push(page?),
+            None => return Ok(pages),
+        }
+        rest = &rest[stream.byte_offset()..];
+    }
+}
+
+/// Wiki.js reads the pages in batches of 10 without an order, so the same page can be exported more than once (and
+/// others not at all): one page per `id`, the most recently updated one, in the order of its first appearance.
+fn dedup_pages(pages: Vec<Value>) -> Vec<Value> {
+    let mut out: Vec<Value> = vec![];
+    let mut seen: HashMap<i64, usize> = HashMap::new();
+    for p in pages {
+        let Some(id) = p["id"].as_i64() else {
+            out.push(p);
+            continue;
+        };
+        match seen.get(&id) {
+            Some(&i) => {
+                if date(p["updatedAt"].as_str()) > date(out[i]["updatedAt"].as_str()) {
+                    out[i] = p;
+                }
+            }
+            None => {
+                seen.insert(id, out.len());
+                out.push(p);
+            }
+        }
+    }
+    out
+}
+
 /// Pages and assets of an Administration → Utilities → Export folder
 fn read_export(entries: Vec<(String, Vec<u8>)>, skipped: &mut Vec<String>) -> ApiResult<(Vec<Page>, Vec<(String, Vec<u8>)>)> {
     let json_path = entries.iter().map(|(p, _)| p).find(|p| file_name(p) == "pages.json.gz").cloned().unwrap_or_default();
@@ -156,7 +205,7 @@ fn read_export(entries: Vec<(String, Vec<u8>)>, skipped: &mut Vec<String>) -> Ap
             flate2::read::GzDecoder::new(&data[..])
                 .read_to_string(&mut json)
                 .map_err(|e| ApiError::bad_request(format!("Cannot read pages.json.gz: {e}")))?;
-            pages_raw = serde_json::from_str(&json).map_err(|e| ApiError::bad_request(format!("Cannot read pages.json.gz: {e}")))?;
+            pages_raw = parse_pages(&json).map_err(|e| ApiError::bad_request(format!("Cannot read pages.json.gz: {e}")))?;
         } else if let Some(asset) = path.strip_prefix(&format!("{base}assets/")) {
             assets.push((asset.to_string(), data));
         } else {
@@ -164,6 +213,7 @@ fn read_export(entries: Vec<(String, Vec<u8>)>, skipped: &mut Vec<String>) -> Ap
             skipped.push(path);
         }
     }
+    let pages_raw = dedup_pages(pages_raw);
     let locale = |p: &Value| p["localeCode"].as_str().unwrap_or("").to_string();
     let mut counts: HashMap<String, usize> = HashMap::new();
     for p in &pages_raw {
@@ -478,6 +528,33 @@ mod tests {
 
     fn doc<'a>(out: &'a [(String, Vec<u8>)], path: &str) -> String {
         String::from_utf8(out.iter().find(|(p, _)| p == path).unwrap_or_else(|| panic!("{path} missing")).1.clone()).unwrap()
+    }
+
+    #[test]
+    fn export_without_commas_between_batches() {
+        let json = "[\n{\"path\": \"a\", \"title\": \"A\", \"content\": \"x\"},\n{\"path\": \"b\", \"title\": \"B\", \"content\": \"}{\"}{\n\"path\": \"c\", \"title\": \"C\", \"content\": \"z\"}\n]\n";
+        let pages = parse_pages(json).unwrap();
+        assert_eq!(pages.iter().map(|p| p["path"].as_str().unwrap()).collect::<Vec<_>>(), ["a", "b", "c"]);
+        assert_eq!(pages[1]["content"], "}{");
+        assert!(parse_pages("[{\"path\": \"a\"} x]").is_err());
+        let entries = vec![("pages.json.gz".to_string(), gz(json))];
+        let (out, _, _) = convert(entries, Layout::Export, false).unwrap();
+        assert_eq!(out.len(), 3);
+    }
+
+    #[test]
+    fn export_with_repeated_pages() {
+        let json = r#"[
+{"id": 1, "path": "a", "title": "A", "content": "old", "updatedAt": "2024-01-01T00:00:00.000Z"},
+{"id": 2, "path": "b", "title": "B", "content": "b"},
+{"id": 1, "path": "a", "title": "A", "content": "new", "updatedAt": "2024-02-01T00:00:00.000Z"},
+{"id": 2, "path": "b", "title": "B", "content": "b"}
+]"#;
+        let pages = dedup_pages(parse_pages(json).unwrap());
+        assert_eq!(pages.iter().map(|p| p["content"].as_str().unwrap()).collect::<Vec<_>>(), ["new", "b"]);
+        let (out, _, _) = convert(vec![("pages.json.gz".to_string(), gz(json))], Layout::Export, false).unwrap();
+        assert_eq!(out.len(), 2);
+        assert!(doc(&out, "a.md").contains("new"));
     }
 
     #[test]

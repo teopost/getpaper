@@ -52,6 +52,12 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
   90 days by default, configurable in the general settings (0 turns it off); documents viewed per person are off by
   default. Database migration: new `events` table.
 
+### Fixed
+
+- **Import from Wiki.js**: exports whose `pages.json.gz` lacks the comma between some pages, as Wiki.js writes it
+  when it exports the pages in batches, are imported instead of failing with "Cannot read pages.json.gz"; pages
+  that the export contains more than once are imported once, in their most recent version.
+
 ## [0.2.0] - 2026-10-21
 
 ### Added
