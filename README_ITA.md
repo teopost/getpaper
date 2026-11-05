@@ -114,7 +114,7 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
   scrivere). Il documento passa con sottopagine, cronologia, commenti e allegati; i suoi link pubblici vengono revocati.
 - **Editor WYSIWYG** salvato in Markdown: menu `/`, toolbar di formattazione, scorciatoie Markdown, tabelle,
   checklist, blocchi di codice con evidenziazione, notice (`:::info`, `:::warning`, `:::tip`, `:::success`),
-  immagini e allegati con incolla o trascina. *Modifica in Markdown* nel menu del documento passa al sorgente
+  testo evidenziato (`==testo==`, come in Outline), immagini e allegati con incolla o trascina. *Modifica in Markdown* nel menu del documento passa al sorgente
   Markdown e ritorno (in sola lettura per chi può solo leggere).
 - **Menzioni** con `@`, come in Outline: persone, gruppi, documenti e collezioni (salvate come
   `@[Nome](mention://<id>/<user|document|collection>/<id>)`); documenti e collezioni sono chip che si aprono con

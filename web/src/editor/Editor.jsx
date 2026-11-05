@@ -11,7 +11,6 @@ import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
-import Highlight from '@tiptap/extension-highlight';
 import Underline from '@tiptap/extension-underline';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
@@ -73,7 +72,7 @@ import { api, uploadFile } from '../api';
 import { t, getLanguage } from '../i18n';
 import { Avatar } from '../components/ui';
 import { CollectionIcon, DocIcon } from '../components/icons';
-import { Mention, Notice, TemplatePlaceholder, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable, CommentAnchors, anchorFor, Embed } from './extensions';
+import { MarkdownHighlight, Mention, Notice, TemplatePlaceholder, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable, CommentAnchors, anchorFor, Embed } from './extensions';
 import { embedFor } from './embeds';
 import LinkPreview from './LinkPreview';
 import CodeBlockView from './CodeBlockView';
@@ -549,7 +548,7 @@ export default function Editor({
       TableRow,
       TableHeader,
       TableCell,
-      Highlight,
+      MarkdownHighlight,
       Underline,
       CodeBlock.configure({ lowlight }),
       Notice,

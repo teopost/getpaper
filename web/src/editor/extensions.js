@@ -9,6 +9,7 @@ import CommandList from './CommandList';
 import TocView from './TocView';
 import EmbedView from './EmbedView';
 import { embedFor } from './embeds';
+import Highlight from '@tiptap/extension-highlight';
 
 export const NOTICE_STYLES = ['info', 'warning', 'tip', 'success'];
 
@@ -276,6 +277,45 @@ export const TemplatePlaceholder = Mark.create({
                 state.md.inline.tokenize(state);
                 state.posMax = max;
                 state.push('placeholder_close', 'span', -1);
+              }
+              state.pos = end + 2;
+              return true;
+            });
+          },
+        },
+      },
+    };
+  },
+});
+
+/**
+ * Highlighted text, stored in markdown as ==text== as in Outline (documents imported from Outline
+ * use it for labels such as ==Deleted==). Text written as <mark>text</mark> is still read.
+ */
+export const MarkdownHighlight = Highlight.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize: { open: '==', close: '==', mixable: true, expelEnclosingWhitespace: true },
+        parse: {
+          setup(md) {
+            md.inline.ruler.before('emphasis', 'highlight', (state, silent) => {
+              const start = state.pos;
+              const src = state.src;
+              if (src.charCodeAt(start) !== 0x3d || src.charCodeAt(start + 1) !== 0x3d) return false;
+              // ==text==: not "===", the text doesn't start or end with a space and stays on one line
+              if (src.charCodeAt(start + 2) === 0x3d || /\s/.test(src[start + 2] || ' ')) return false;
+              let end = src.indexOf('==', start + 3);
+              while (end >= 0 && end < state.posMax && src.charCodeAt(end + 2) === 0x3d) end = src.indexOf('==', end + 1);
+              if (end < 0 || end > state.posMax || /\s/.test(src[end - 1]) || /\n/.test(src.slice(start + 2, end))) return false;
+              if (!silent) {
+                state.push('mark_open', 'mark', 1);
+                const max = state.posMax;
+                state.pos = start + 2;
+                state.posMax = end;
+                state.md.inline.tokenize(state);
+                state.posMax = max;
+                state.push('mark_close', 'mark', -1);
               }
               state.pos = end + 2;
               return true;

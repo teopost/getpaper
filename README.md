@@ -136,7 +136,7 @@ Most common commands (`make` with no arguments shows the list):
   to). The document moves with its subpages, history, comments and attachments; its public links are revoked.
 - **WYSIWYG editor** saved as Markdown: `/` menu, formatting toolbar, Markdown shortcuts, tables, checklists,
   code blocks with highlighting, language picker, copy and wrap, notices (`:::info`, `:::warning`, `:::tip`,
-  `:::success`), images and attachments by paste or drag. *Edit as Markdown* in the document menu switches to the
+  `:::success`), highlighted text (`==text==`, as in Outline), images and attachments by paste or drag. *Edit as Markdown* in the document menu switches to the
   Markdown source and back (read only for viewers).
 - **Mentions** with `@`, as in Outline: people, groups, documents and collections (saved as
   `@[Name](mention://<id>/<user|document|collection>/<id>)`); documents and collections are chips that open with a
