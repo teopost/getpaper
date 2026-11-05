@@ -135,7 +135,7 @@ Most common commands (`make` with no arguments shows the list):
 - **Moving between workspaces**: *Move* also lets you choose the destination workspace (among those you can write
   to). The document moves with its subpages, history, comments and attachments; its public links are revoked.
 - **WYSIWYG editor** saved as Markdown: `/` menu, formatting toolbar, Markdown shortcuts, tables (handles to select,
-  insert and delete rows and columns, as in Outline), checklists,
+  insert, delete and drag rows and columns, as in Outline), checklists,
   code blocks with highlighting, language picker, copy and wrap, notices (`:::info`, `:::warning`, `:::tip`,
   `:::success`), highlighted text (`==text==`, as in Outline), images and attachments by paste or drag. *Edit as Markdown* in the document menu switches to the
   Markdown source and back (read only for viewers).

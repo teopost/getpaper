@@ -348,10 +348,14 @@
   pointer-events: none;
 }
 /* room above and on the left of the table for the handles (see TableGrips) */
+/* room around the table for the handles and the "+" (see TableGrips), so that they don't make it
+   scroll; it scrolls sideways only when it is wider than the page (resized columns) */
 .ProseMirror .tableWrapper {
   overflow-x: auto;
-  margin: calc(0.75em - 18px) 0 0.25em -18px;
-  padding: 18px 0 0.5em 18px;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  margin: calc(0.75em - 18px) -14px calc(0.75em - 14px) -18px;
+  padding: 18px 14px 14px 18px;
 }
 
 /* handles around the table the cursor is in, as in Outline */
@@ -364,6 +368,22 @@
   display: block;
   cursor: pointer;
   user-select: none;
+}
+.ProseMirror .table-grip-column,
+.ProseMirror .table-grip-row {
+  cursor: grab;
+}
+body.table-dragging,
+body.table-dragging * {
+  cursor: grabbing !important;
+}
+/* where the dragged row or column will go */
+.table-drop-indicator {
+  position: fixed;
+  z-index: 1000;
+  background: var(--accent);
+  border-radius: 1px;
+  pointer-events: none;
 }
 .ProseMirror .table-grip-column {
   top: -14px;

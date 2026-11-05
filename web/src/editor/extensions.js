@@ -4,7 +4,7 @@ import { ReactNodeViewRenderer, ReactRenderer } from '@tiptap/react';
 import Suggestion from '@tiptap/suggestion';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
-import { CellSelection, addColumn, addRow, isInTable, selectedRect } from '@tiptap/pm/tables';
+import { CellSelection, TableMap, addColumn, addRow, isInTable, selectedRect } from '@tiptap/pm/tables';
 import container from 'markdown-it-container';
 import CommandList from './CommandList';
 import TocView from './TocView';
@@ -403,6 +403,117 @@ export function tableSelection(state) {
   return { rect: selectedRect(state), rows, cols, table: rows && cols };
 }
 
+/**
+ * Moves a row or a column of the table the selection is in from one index to another. Tables with
+ * merged cells are left as they are. Each position keeps its cell type, so the header row stays a
+ * header row whichever row is moved there.
+ */
+function moveTableLine(view, kind, from, to) {
+  const { state } = view;
+  const rect = selectedRect(state);
+  const { table, map } = rect;
+  let simple = true;
+  table.forEach((row) => {
+    if (row.childCount !== map.width) simple = false;
+    row.forEach((cell) => {
+      if (cell.attrs.colspan > 1 || cell.attrs.rowspan > 1) simple = false;
+    });
+  });
+  if (!simple || from === to) return false;
+  const grid = [];
+  table.forEach((row) => {
+    const cells = [];
+    row.forEach((cell) => cells.push(cell));
+    grid.push(cells);
+  });
+  const order = (n) => {
+    const list = Array.from({ length: n }, (_, i) => i);
+    list.splice(to, 0, list.splice(from, 1)[0]);
+    return list;
+  };
+  const moved = kind === 'row' ? order(map.height).map((r) => grid[r]) : grid.map((cells) => order(map.width).map((c) => cells[c]));
+  const rowNodes = moved.map((cells, r) => {
+    const rowNode = table.child(kind === 'row' ? order(map.height)[r] : r);
+    return rowNode.type.create(
+      rowNode.attrs,
+      cells.map((cell, c) => {
+        const type = grid[r][c].type;
+        return cell.type === type ? cell : type.create(cell.attrs, cell.content, cell.marks);
+      })
+    );
+  });
+  const start = rect.tableStart - 1;
+  const newTable = table.type.create(table.attrs, rowNodes, table.marks);
+  const tr = state.tr.replaceWith(start, start + table.nodeSize, newTable);
+  const newMap = TableMap.get(newTable);
+  const $cell = (r, c) => tr.doc.resolve(rect.tableStart + newMap.map[r * newMap.width + c]);
+  tr.setSelection(kind === 'row' ? CellSelection.rowSelection($cell(to, 0)) : CellSelection.colSelection($cell(0, to)));
+  view.dispatch(tr);
+  return true;
+}
+
+/**
+ * Dragging a row or column handle, as in Outline: a line shows where the row or column will go and it
+ * is moved there when the mouse is released (Escape cancels).
+ */
+function dragTableLine(view, kind, from, downEvent) {
+  const node = view.nodeDOM(selectedRect(view.state).tableStart - 1);
+  const table = node?.nodeName === 'TABLE' ? node : node?.querySelector?.('table');
+  if (!table) return;
+  const lines = () =>
+    kind === 'row'
+      ? Array.from(table.querySelectorAll(':scope > tbody > tr'))
+      : Array.from(table.querySelectorAll(':scope > tbody > tr:first-child > th, :scope > tbody > tr:first-child > td'));
+  let indicator = null;
+  let target = from;
+  const cleanup = () => {
+    indicator?.remove();
+    document.body.classList.remove('table-dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('keydown', onKey, true);
+  };
+  const onMove = (e) => {
+    if (!indicator) {
+      if (Math.abs(e.clientX - downEvent.clientX) + Math.abs(e.clientY - downEvent.clientY) < 5) return;
+      indicator = document.createElement('div');
+      indicator.className = 'table-drop-indicator';
+      document.body.appendChild(indicator);
+      document.body.classList.add('table-dragging');
+    }
+    e.preventDefault();
+    const rects = lines().map((el) => el.getBoundingClientRect());
+    const box = table.getBoundingClientRect();
+    // insertion point: before the first row (or column) whose middle is past the mouse
+    const at = kind === 'row' ? e.clientY : e.clientX;
+    let slot = rects.findIndex((r) => (kind === 'row' ? r.top + r.height / 2 : r.left + r.width / 2) > at);
+    if (slot < 0) slot = rects.length;
+    target = slot > from ? slot - 1 : slot;
+    const edge = slot < rects.length ? (kind === 'row' ? rects[slot].top : rects[slot].left) : kind === 'row' ? rects[rects.length - 1].bottom : rects[rects.length - 1].right;
+    Object.assign(
+      indicator.style,
+      kind === 'row'
+        ? { left: `${box.left}px`, top: `${edge - 1}px`, width: `${box.width}px`, height: '2px' }
+        : { left: `${edge - 1}px`, top: `${box.top}px`, width: '2px', height: `${box.height}px` }
+    );
+    indicator.style.opacity = target === from ? '0' : '1';
+  };
+  const onUp = () => {
+    const dragged = !!indicator;
+    cleanup();
+    if (dragged && target !== from) moveTableLine(view, kind, from, target);
+  };
+  const onKey = (e) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    cleanup();
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('keydown', onKey, true);
+}
+
 const gripWidget = (pos, className, index) =>
   Decoration.widget(
     pos,
@@ -517,6 +628,7 @@ export const TableGrips = Extension.create({
                 const extend = (event.shiftKey || event.metaKey || event.ctrlKey) && sel instanceof CellSelection && (row ? sel.isRowSelection() : sel.isColSelection());
                 const $from = extend ? sel.$anchorCell : $to;
                 tr = state.tr.setSelection(row ? CellSelection.rowSelection($from, $to) : CellSelection.colSelection($from, $to));
+                if (!extend && event.button === 0) dragTableLine(view, row ? 'row' : 'col', index, event);
               }
               view.dispatch(tr.scrollIntoView());
               view.focus();

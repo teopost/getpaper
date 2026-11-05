@@ -113,7 +113,7 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
 - **Spostamento tra workspace**: da *Sposta* si sceglie anche il workspace di destinazione (tra quelli in cui si può
   scrivere). Il documento passa con sottopagine, cronologia, commenti e allegati; i suoi link pubblici vengono revocati.
 - **Editor WYSIWYG** salvato in Markdown: menu `/`, toolbar di formattazione, scorciatoie Markdown, tabelle (maniglie
-  per selezionare, inserire ed eliminare righe e colonne, come in Outline),
+  per selezionare, inserire, eliminare e trascinare righe e colonne, come in Outline),
   checklist, blocchi di codice con evidenziazione, notice (`:::info`, `:::warning`, `:::tip`, `:::success`),
   testo evidenziato (`==testo==`, come in Outline), immagini e allegati con incolla o trascina. *Modifica in Markdown* nel menu del documento passa al sorgente
   Markdown e ritorno (in sola lettura per chi può solo leggere).
