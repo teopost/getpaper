@@ -57,8 +57,7 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 ### Fixed
 
 - The table menu (add or delete rows and columns) sits above the table instead of covering the row above the
-  cursor, and hides while typing in a cell; it shows again when the mouse moves. It is faint until the mouse is over
-  it, so the text above the table stays readable.
+  cursor, and hides while typing in a cell; it shows again when the mouse moves.
 - Text between `==` (for example `==Deleted==` in documents imported from Outline) is shown highlighted, as in
   Outline, instead of showing the `==` signs; highlights are now saved in Markdown as `==text==`.
 - **Import from Wiki.js**: exports whose `pages.json.gz` lacks the comma between some pages, as Wiki.js writes it

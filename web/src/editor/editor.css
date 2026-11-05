@@ -572,14 +572,6 @@
   padding: 4px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
-/* the table menu covers the text above the table: faint until the mouse is over it */
-.formatting-menu.table-menu {
-  opacity: 0.3;
-  transition: opacity 0.15s;
-}
-.formatting-menu.table-menu:hover {
-  opacity: 1;
-}
 /* the table menu hides while typing in a cell */
 .formatting-menu.is-typing {
   visibility: hidden;
