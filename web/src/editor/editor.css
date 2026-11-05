@@ -572,10 +572,6 @@
   padding: 4px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
-/* the table menu hides while typing in a cell */
-.formatting-menu.is-typing {
-  visibility: hidden;
-}
 .fmt-btn {
   display: inline-flex;
   align-items: center;

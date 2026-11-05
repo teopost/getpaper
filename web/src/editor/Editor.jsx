@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { posToDOMRect } from '@tiptap/core';
 import { useNavigate } from 'react-router-dom';
 import { BubbleMenu, EditorContent, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -487,41 +486,14 @@ function TableMenu({ editor }) {
       {children}
     </button>
   );
-  // hidden while typing in a cell, shown again when the mouse moves
-  const [typing, setTyping] = useState(false);
-  useEffect(() => {
-    const dom = editor.view.dom;
-    const onKey = (e) => {
-      if (!e.metaKey && !e.ctrlKey && !e.altKey && editor.isActive('table')) setTyping(true);
-    };
-    const onMouse = () => setTyping(false);
-    dom.addEventListener('keydown', onKey);
-    document.addEventListener('mousemove', onMouse);
-    return () => {
-      dom.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousemove', onMouse);
-    };
-  }, [editor]);
-  // above the table, outside the text; above the current row when the top of the table is scrolled away
-  const referenceRect = () => {
-    const { view, state } = editor;
-    const at = view.domAtPos(state.selection.from).node;
-    const el = at.nodeType === 1 ? at : at.parentElement;
-    const table = el?.closest('.tableWrapper') || el?.closest('table');
-    if (!table) return posToDOMRect(view, state.selection.from, state.selection.to);
-    const box = table.getBoundingClientRect();
-    const visibleTop = (document.querySelector('.scene-header')?.getBoundingClientRect().bottom ?? 0) + 48;
-    const top = box.top >= visibleTop ? box.top : el.closest('tr')?.getBoundingClientRect().top ?? box.top;
-    return new DOMRect(box.left, top, Math.min(box.width, view.dom.getBoundingClientRect().width), 0);
-  };
   return (
     <BubbleMenu
       editor={editor}
       pluginKey="tableMenu"
-      tippyOptions={{ duration: 100, placement: 'top-start', maxWidth: 'none', getReferenceClientRect: referenceRect }}
+      tippyOptions={{ duration: 100, placement: 'top', maxWidth: 'none' }}
       shouldShow={({ editor, state }) => editor.isEditable && editor.isActive('table') && state.selection.empty}
     >
-      <div className={`formatting-menu${typing ? ' is-typing' : ''}`}>
+      <div className="formatting-menu">
         <B title={t('Add row above')} onClick={() => editor.chain().focus().addRowBefore().run()}>{t('+ Row ↑')}</B>
         <B title={t('Add row below')} onClick={() => editor.chain().focus().addRowAfter().run()}>{t('+ Row ↓')}</B>
         <B title={t('Add column left')} onClick={() => editor.chain().focus().addColumnBefore().run()}>{t('+ Col ←')}</B>
