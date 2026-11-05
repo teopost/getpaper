@@ -521,7 +521,7 @@ function TableMenu({ editor }) {
       tippyOptions={{ duration: 100, placement: 'top-start', maxWidth: 'none', getReferenceClientRect: referenceRect }}
       shouldShow={({ editor, state }) => editor.isEditable && editor.isActive('table') && state.selection.empty}
     >
-      <div className={`formatting-menu${typing ? ' is-typing' : ''}`}>
+      <div className={`formatting-menu table-menu${typing ? ' is-typing' : ''}`}>
         <B title={t('Add row above')} onClick={() => editor.chain().focus().addRowBefore().run()}>{t('+ Row ↑')}</B>
         <B title={t('Add row below')} onClick={() => editor.chain().focus().addRowAfter().run()}>{t('+ Row ↓')}</B>
         <B title={t('Add column left')} onClick={() => editor.chain().focus().addColumnBefore().run()}>{t('+ Col ←')}</B>
