@@ -369,13 +369,14 @@
   cursor: pointer;
   user-select: none;
 }
+/* system cursors: the "grab" hands are low resolution bitmaps in Chrome on Windows and Linux */
 .ProseMirror .table-grip-column,
 .ProseMirror .table-grip-row {
-  cursor: grab;
+  cursor: pointer;
 }
 body.table-dragging,
 body.table-dragging * {
-  cursor: grabbing !important;
+  cursor: move !important;
 }
 /* where the dragged row or column will go */
 .table-drop-indicator {
