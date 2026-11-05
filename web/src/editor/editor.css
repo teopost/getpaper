@@ -322,10 +322,9 @@
 
 .ProseMirror table {
   border-collapse: collapse;
-  margin: 0.75em 0;
+  margin: 0;
   width: 100%;
   table-layout: fixed;
-  overflow: hidden;
 }
 .ProseMirror th,
 .ProseMirror td {
@@ -334,6 +333,7 @@
   vertical-align: top;
   min-width: 60px;
   position: relative;
+  overflow-wrap: anywhere;
 }
 .ProseMirror th {
   background: var(--code-bg);
@@ -347,8 +347,163 @@
   background: rgba(3, 102, 214, 0.12);
   pointer-events: none;
 }
+/* room above and on the left of the table for the handles (see TableGrips) */
 .ProseMirror .tableWrapper {
   overflow-x: auto;
+  margin: calc(0.75em - 18px) 0 0.25em -18px;
+  padding: 18px 0 0.5em 18px;
+}
+
+/* handles around the table the cursor is in, as in Outline */
+.ProseMirror .table-grip-column,
+.ProseMirror .table-grip-row,
+.ProseMirror .table-grip,
+.ProseMirror .table-add-column,
+.ProseMirror .table-add-row {
+  position: absolute;
+  display: block;
+  cursor: pointer;
+  user-select: none;
+}
+.ProseMirror .table-grip-column {
+  top: -14px;
+  left: 0;
+  width: 100%;
+  height: 10px;
+  background: var(--divider);
+}
+.ProseMirror .table-grip-row {
+  left: -14px;
+  top: 0;
+  height: 100%;
+  width: 10px;
+  background: var(--divider);
+}
+.ProseMirror .table-grip-column.first {
+  border-radius: 3px 0 0 3px;
+}
+.ProseMirror .table-grip-column.last {
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+.ProseMirror .table-grip-row.first {
+  border-radius: 3px 3px 0 0;
+}
+.ProseMirror .table-grip-row.last {
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+}
+.ProseMirror .table-grip {
+  top: -16px;
+  left: -16px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  background: var(--divider);
+  z-index: 3;
+}
+.ProseMirror .table-grip-column:hover,
+.ProseMirror .table-grip-row:hover,
+.ProseMirror .table-grip:hover {
+  background: var(--text-tertiary);
+}
+.ProseMirror .table-grip-column.selected,
+.ProseMirror .table-grip-row.selected,
+.ProseMirror .table-grip.selected {
+  background: var(--accent);
+}
+/* "+" between columns (on the right edge of a header cell) and between rows (on the bottom edge of a
+   first column cell): a dot that grows into a button and a line across the table on hover */
+.ProseMirror .table-add-column {
+  top: -16px;
+  right: -1px;
+  width: 2px;
+  height: 0;
+  z-index: 2;
+}
+.ProseMirror .table-add-column.first {
+  right: auto;
+  left: -1px;
+}
+.ProseMirror .table-add-row {
+  left: -16px;
+  bottom: -1px;
+  width: 0;
+  height: 2px;
+  z-index: 2;
+}
+.ProseMirror .table-add-row.first {
+  bottom: auto;
+  top: -1px;
+}
+.ProseMirror .table-add-column::after,
+.ProseMirror .table-add-row::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+.ProseMirror .table-add-column::after {
+  top: -9px;
+  right: -1px;
+}
+.ProseMirror .table-add-row::after {
+  left: -9px;
+  bottom: -1px;
+}
+/* larger area to click */
+.ProseMirror .table-add-column::before,
+.ProseMirror .table-add-row::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+}
+.ProseMirror .table-add-column::before {
+  top: -18px;
+  right: -9px;
+}
+.ProseMirror .table-add-row::before {
+  left: -18px;
+  bottom: -9px;
+}
+.ProseMirror .table-add-column:hover,
+.ProseMirror .table-add-row:hover {
+  background: var(--accent);
+}
+.ProseMirror .table-add-column:hover {
+  height: var(--table-height, 100px);
+}
+.ProseMirror .table-add-row:hover {
+  width: var(--table-width, 100px);
+}
+.ProseMirror .table-add-column:hover::after,
+.ProseMirror .table-add-row:hover::after {
+  width: 16px;
+  height: 16px;
+  background: var(--accent)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 5v14M5 12h14' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E")
+    center / 14px no-repeat;
+}
+.ProseMirror .table-add-column:hover::after {
+  top: -16px;
+  right: -7px;
+}
+.ProseMirror .table-add-row:hover::after {
+  left: -16px;
+  bottom: -7px;
+}
+@media print {
+  .ProseMirror .table-grip-column,
+  .ProseMirror .table-grip-row,
+  .ProseMirror .table-grip,
+  .ProseMirror .table-add-column,
+  .ProseMirror .table-add-row {
+    display: none;
+  }
 }
 /* column resizing (drag the right border of a cell) */
 .ProseMirror .column-resize-handle {

@@ -54,6 +54,13 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
   90 days by default, configurable in the general settings (0 turns it off); documents viewed per person are off by
   default. Database migration: new `events` table.
 
+### Changed
+
+- **Tables are edited as in Outline**: clicking in a cell no longer opens a menu over the text. Around the table
+  the cursor is in there are handles: a bar above each column and on the left of each row selects it and shows
+  its actions (insert before or after, delete), the dot in the corner selects the whole table (delete), and the
+  "+" on the edges inserts a row or a column there.
+
 ### Fixed
 
 - Text between `==` (for example `==Deleted==` in documents imported from Outline) is shown highlighted, as in

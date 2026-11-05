@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BubbleMenu, EditorContent, ReactNodeViewRenderer, useEditor } from '@tiptap/react';
+import { BubbleMenu, EditorContent, ReactNodeViewRenderer, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
@@ -72,7 +72,7 @@ import { api, uploadFile } from '../api';
 import { t, getLanguage } from '../i18n';
 import { Avatar } from '../components/ui';
 import { CollectionIcon, DocIcon } from '../components/icons';
-import { MarkdownHighlight, Mention, Notice, TemplatePlaceholder, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable, CommentAnchors, anchorFor, Embed } from './extensions';
+import { MarkdownHighlight, TableGrips, tableSelection, Mention, Notice, TemplatePlaceholder, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable, CommentAnchors, anchorFor, Embed } from './extensions';
 import { embedFor } from './embeds';
 import LinkPreview from './LinkPreview';
 import CodeBlockView from './CodeBlockView';
@@ -363,6 +363,8 @@ function FormattingMenu({ editor, template, onComment }) {
       shouldShow={({ editor, state }) => {
         const { from, to, empty } = state.selection;
         if (empty || !editor.isEditable) return false;
+        // selected table cells get the table menu
+        if (tableSelection(state)) return false;
         if (editor.isActive('codeBlock') || editor.isActive('image')) return false;
         return state.doc.textBetween(from, to, ' ').length > 0;
       }}
@@ -486,21 +488,39 @@ function TableMenu({ editor }) {
       {children}
     </button>
   );
+  // shown when rows, columns or the whole table are selected with the handles around the table
+  const kind = useEditorState({
+    editor,
+    selector: ({ editor }) => {
+      const s = tableSelection(editor.state);
+      return s ? (s.table ? 'table' : s.rows ? 'rows' : s.cols ? 'cols' : 'cells') : '';
+    },
+  });
+  const rows = kind === 'rows' || kind === 'cells';
+  const cols = kind === 'cols' || kind === 'cells';
   return (
     <BubbleMenu
       editor={editor}
       pluginKey="tableMenu"
       tippyOptions={{ duration: 100, placement: 'top', maxWidth: 'none' }}
-      shouldShow={({ editor, state }) => editor.isEditable && editor.isActive('table') && state.selection.empty}
+      shouldShow={({ editor, state }) => editor.isEditable && !!tableSelection(state)}
     >
       <div className="formatting-menu">
-        <B title={t('Add row above')} onClick={() => editor.chain().focus().addRowBefore().run()}>{t('+ Row ↑')}</B>
-        <B title={t('Add row below')} onClick={() => editor.chain().focus().addRowAfter().run()}>{t('+ Row ↓')}</B>
-        <B title={t('Add column left')} onClick={() => editor.chain().focus().addColumnBefore().run()}>{t('+ Col ←')}</B>
-        <B title={t('Add column right')} onClick={() => editor.chain().focus().addColumnAfter().run()}>{t('+ Col →')}</B>
-        <span className="fmt-sep" />
-        <B title={t('Delete row')} onClick={() => editor.chain().focus().deleteRow().run()}>{t('− Row')}</B>
-        <B title={t('Delete column')} onClick={() => editor.chain().focus().deleteColumn().run()}>{t('− Col')}</B>
+        {rows && (
+          <>
+            <B title={t('Add row above')} onClick={() => editor.chain().focus().addRowBefore().run()}>{t('+ Row ↑')}</B>
+            <B title={t('Add row below')} onClick={() => editor.chain().focus().addRowAfter().run()}>{t('+ Row ↓')}</B>
+          </>
+        )}
+        {cols && (
+          <>
+            <B title={t('Add column left')} onClick={() => editor.chain().focus().addColumnBefore().run()}>{t('+ Col ←')}</B>
+            <B title={t('Add column right')} onClick={() => editor.chain().focus().addColumnAfter().run()}>{t('+ Col →')}</B>
+          </>
+        )}
+        {kind !== 'table' && <span className="fmt-sep" />}
+        {rows && <B title={t('Delete row')} onClick={() => editor.chain().focus().deleteRow().run()}>{t('− Row')}</B>}
+        {cols && <B title={t('Delete column')} onClick={() => editor.chain().focus().deleteColumn().run()}>{t('− Col')}</B>}
         <B title={t('Delete table')} danger onClick={() => editor.chain().focus().deleteTable().run()}>
           <Trash2 size={14} />
         </B>
@@ -545,6 +565,7 @@ export default function Editor({
       TaskList,
       TaskItem.configure({ nested: true }),
       ResizableTable.configure({ resizable: true, cellMinWidth: 60, lastColumnResizable: false }),
+      TableGrips,
       TableRow,
       TableHeader,
       TableCell,

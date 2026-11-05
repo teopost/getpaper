@@ -4,6 +4,7 @@ import { ReactNodeViewRenderer, ReactRenderer } from '@tiptap/react';
 import Suggestion from '@tiptap/suggestion';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { CellSelection, addColumn, addRow, isInTable, selectedRect } from '@tiptap/pm/tables';
 import container from 'markdown-it-container';
 import CommandList from './CommandList';
 import TocView from './TocView';
@@ -392,6 +393,141 @@ export function serializeTable(state, node, parent) {
   state.closeBlock(node);
   state.inTable = false;
 }
+
+/** Which rows and columns of the table the selection covers entirely (a CellSelection), as in Outline */
+export function tableSelection(state) {
+  const sel = state.selection;
+  if (!(sel instanceof CellSelection)) return null;
+  const rows = sel.isRowSelection();
+  const cols = sel.isColSelection();
+  return { rect: selectedRect(state), rows, cols, table: rows && cols };
+}
+
+const gripWidget = (pos, className, index) =>
+  Decoration.widget(
+    pos,
+    () => {
+      const el = document.createElement('a');
+      el.role = 'button';
+      el.className = className;
+      el.contentEditable = 'false';
+      if (index != null) el.dataset.index = String(index);
+      return el;
+    },
+    { side: -1, ignoreSelection: true, key: `${className}-${index ?? ''}` }
+  );
+
+/**
+ * Handles around the table the cursor is in, as in Outline: a bar above each column and on the left
+ * of each row selects it (and shows the table menu), the dot in the corner selects the whole table,
+ * and the "+" on the edges between rows or columns inserts one there. Clicking in a cell shows nothing.
+ */
+export const TableGrips = Extension.create({
+  name: 'tableGrips',
+
+  addProseMirrorPlugins() {
+    const editor = this.editor;
+    const cellPos = (rect, row, col) => rect.tableStart + rect.map.map[row * rect.map.width + col];
+
+    return [
+      new Plugin({
+        key: new PluginKey('tableGrips'),
+        // size of the table, for the line that the "+" draws across it on hover
+        view: () => ({
+          update: (view) => {
+            if (!view.editable || !isInTable(view.state)) return;
+            const node = view.nodeDOM(selectedRect(view.state).tableStart - 1);
+            const table = node?.nodeName === 'TABLE' ? node : node?.querySelector?.('table');
+            if (!table) return;
+            table.style.setProperty('--table-width', `${table.offsetWidth}px`);
+            table.style.setProperty('--table-height', `${table.offsetHeight}px`);
+          },
+        }),
+        props: {
+          decorations: (state) => {
+            if (!editor.isEditable || !isInTable(state)) return null;
+            const rect = selectedRect(state);
+            const { map } = rect;
+            const sel = tableSelection(state);
+            const within = (i, a, b) => sel && i >= a && i < b;
+            const out = [];
+            // columns: grips and "+" in the cells of the first row
+            let prev = -1;
+            for (let c = 0; c < map.width; c++) {
+              const pos = cellPos(rect, 0, c);
+              if (pos === prev) continue;
+              prev = pos;
+              const cell = state.doc.nodeAt(pos);
+              const span = cell?.attrs.colspan || 1;
+              const selected = sel?.cols && within(c, rect.left, rect.right);
+              let cls = 'table-grip-column';
+              if (c === 0) cls += ' first';
+              if (c + span >= map.width) cls += ' last';
+              if (selected) cls += ' selected';
+              if (c === 0) {
+                out.push(gripWidget(pos + 1, `table-grip${sel?.table ? ' selected' : ''}`));
+                out.push(gripWidget(pos + 1, 'table-add-column first', 0));
+              }
+              out.push(gripWidget(pos + 1, cls, c));
+              out.push(gripWidget(pos + 1, 'table-add-column', c + span));
+            }
+            // rows: grips and "+" in the cells of the first column
+            prev = -1;
+            for (let r = 0; r < map.height; r++) {
+              const pos = cellPos(rect, r, 0);
+              if (pos === prev) continue;
+              prev = pos;
+              const cell = state.doc.nodeAt(pos);
+              const span = cell?.attrs.rowspan || 1;
+              const selected = sel?.rows && within(r, rect.top, rect.bottom);
+              let cls = 'table-grip-row';
+              if (r === 0) cls += ' first';
+              if (r + span >= map.height) cls += ' last';
+              if (selected) cls += ' selected';
+              if (r === 0) out.push(gripWidget(pos + 1, 'table-add-row first', 0));
+              out.push(gripWidget(pos + 1, cls, r));
+              out.push(gripWidget(pos + 1, 'table-add-row', r + span));
+            }
+            return DecorationSet.create(state.doc, out);
+          },
+          handleDOMEvents: {
+            mousedown: (view, event) => {
+              const target = event.target instanceof Element ? event.target.closest('[class^="table-grip"], [class^="table-add-"]') : null;
+              if (!target || !view.editable || !isInTable(view.state)) return false;
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              const { state } = view;
+              const rect = selectedRect(state);
+              const { map } = rect;
+              const index = Number(target.dataset.index);
+              const $cell = (row, col) => state.doc.resolve(cellPos(rect, row, col));
+              const list = target.classList;
+              let tr = null;
+              if (list.contains('table-add-row')) {
+                tr = addRow(state.tr, rect, index);
+              } else if (list.contains('table-add-column')) {
+                tr = addColumn(state.tr, rect, index);
+              } else if (list.contains('table-grip')) {
+                tr = state.tr.setSelection(new CellSelection($cell(0, 0), $cell(map.height - 1, map.width - 1)));
+              } else {
+                const row = list.contains('table-grip-row');
+                const $to = row ? $cell(index, 0) : $cell(0, index);
+                const sel = state.selection;
+                // with Shift (or Cmd/Ctrl) the selection extends from the rows or columns already selected
+                const extend = (event.shiftKey || event.metaKey || event.ctrlKey) && sel instanceof CellSelection && (row ? sel.isRowSelection() : sel.isColSelection());
+                const $from = extend ? sel.$anchorCell : $to;
+                tr = state.tr.setSelection(row ? CellSelection.rowSelection($from, $to) : CellSelection.colSelection($from, $to));
+              }
+              view.dispatch(tr.scrollIntoView());
+              view.focus();
+              return true;
+            },
+          },
+        },
+      }),
+    ];
+  },
+});
 
 /** Popup next to the cursor with a keyboard navigable list, for the "/" and "@" menus */
 function suggestionPopup() {
