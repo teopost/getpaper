@@ -630,7 +630,9 @@ export const TableGrips = Extension.create({
                 tr = state.tr.setSelection(row ? CellSelection.rowSelection($from, $to) : CellSelection.colSelection($from, $to));
                 if (!extend && event.button === 0) dragTableLine(view, row ? 'row' : 'col', index, event);
               }
-              view.dispatch(tr.scrollIntoView());
+              // selecting rows or columns keeps the page where it is: in a tall table, scrolling to the
+              // selection would jump to the middle of the column
+              view.dispatch(list.contains('table-add-row') || list.contains('table-add-column') ? tr.scrollIntoView() : tr);
               view.focus();
               return true;
             },

@@ -522,9 +522,12 @@ function TableMenu({ editor }) {
         {kind !== 'table' && <span className="fmt-sep" />}
         {rows && <B title={t('Delete row')} onClick={() => editor.chain().focus().deleteRow().run()}>{t('− Row')}</B>}
         {cols && <B title={t('Delete column')} onClick={() => editor.chain().focus().deleteColumn().run()}>{t('− Col')}</B>}
-        <B title={t('Delete table')} danger onClick={() => editor.chain().focus().deleteTable().run()}>
-          <Trash2 size={14} />
-        </B>
+        {/* the whole table is deleted only from the handle in its top left corner */}
+        {kind === 'table' && (
+          <B title={t('Delete table')} danger onClick={() => editor.chain().focus().deleteTable().run()}>
+            <Trash2 size={14} />
+          </B>
+        )}
       </div>
     </BubbleMenu>
   );

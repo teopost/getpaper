@@ -64,7 +64,7 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
   the cursor is in there are handles: a bar above each column and on the left of each row selects it and shows
   its actions (insert before or after, delete), the dot in the corner selects the whole table (delete), and the
   "+" on the edges inserts a row or a column there. Dragging a row or column bar moves it (Escape cancels); the
-  table no longer shows scroll bars around the handles.
+  table no longer shows scroll bars around the handles. Selecting a row or column keeps the page where it is.
 
 ### Fixed
 
