@@ -10,9 +10,11 @@ DB_NAME    ?= codex
 BACKUP_DIR ?= /opt/getpaper-backups
 # keep backups for this many days (make backup-clean)
 BACKUP_DAYS ?= 30
+# a user counts as online if active in the last N minutes (make online)
+MINUTES    ?= 15
 
 .DEFAULT_GOAL := help
-.PHONY: help start stop restart rebuild down status logs logs-db shell psql backup backup-clean restore update push publish
+.PHONY: help start stop restart rebuild down status logs logs-db shell psql online backup backup-clean restore update push publish
 
 help: ## Show this list
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  \033[1m%-13s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -51,6 +53,17 @@ shell: ## Open a shell in the application container
 
 psql: ## Open psql on the database
 	$(COMPOSE) exec $(DB_SERVICE) psql -U $(DB_USER) -d $(DB_NAME)
+
+# last_active_at is refreshed at most every 5 minutes, so windows shorter than that miss people.
+online: ## List users active in the last 15 minutes (make online MINUTES=60)
+	@case "$(MINUTES)" in ''|*[!0-9]*) echo "MINUTES must be a number"; exit 1;; esac
+	@$(COMPOSE) exec -T $(DB_SERVICE) psql -U $(DB_USER) -d $(DB_NAME) -P footer=off -c \
+	  "SELECT name, email, to_char(last_active_at AT TIME ZONE current_setting('TIMEZONE'), 'YYYY-MM-DD HH24:MI') AS last_active, \
+	          floor(extract(epoch FROM now() - last_active_at) / 60)::int AS minutes_ago \
+	   FROM users WHERE last_active_at > now() - interval '$(MINUTES) minutes' AND suspended_at IS NULL \
+	   ORDER BY last_active_at DESC" | sed '/^$$/d'
+	@$(COMPOSE) exec -T $(DB_SERVICE) psql -U $(DB_USER) -d $(DB_NAME) -tA -c \
+	  "SELECT count(*) || ' user(s) active in the last $(MINUTES) minutes' FROM users WHERE last_active_at > now() - interval '$(MINUTES) minutes' AND suspended_at IS NULL"
 
 # ---------------------------------------------------------------------------
 # data

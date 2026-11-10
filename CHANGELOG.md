@@ -10,6 +10,7 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ### Added
 
+- `make online` lists the users active in the last 15 minutes (`MINUTES=` changes the window).
 - **More ways to sign in**, all off until configured: Google, Slack and any OpenID Connect provider (`GOOGLE_*`,
   `SLACK_*`, `OIDC_*`; accounts linked by verified email), a sign-in link by email (`EMAIL_LOGIN=true`, needs
   SMTP) and passkeys (`PASSKEYS=true`, added in the profile). Microsoft sign-in and its configuration are unchanged.

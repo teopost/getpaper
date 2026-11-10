@@ -98,6 +98,7 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
 | `make restart` | Riavvia solo l'applicazione |
 | `make logs` | Segue il log dell'applicazione |
 | `make status` | Stato e salute dei container |
+| `make online` | Utenti attivi negli ultimi 15 minuti (`make online MINUTES=60` per una finestra più lunga) |
 | `make backup` | Copia del database in `/opt/getpaper-backups` (`make backup-clean` elimina quelle vecchie) |
 | `make restore FILE=…` | Ripristina una copia del database (chiede conferma) |
 | `make psql` / `make shell` | Console del database / shell nel container |

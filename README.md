@@ -120,6 +120,7 @@ Most common commands (`make` with no arguments shows the list):
 | `make restart` | Restart the application only |
 | `make logs` | Follow the application log |
 | `make status` | Container status and health |
+| `make online` | Users active in the last 15 minutes (`make online MINUTES=60` for a longer window) |
 | `make backup` | Dump the database to `/opt/getpaper-backups` (`make backup-clean` deletes old dumps) |
 | `make restore FILE=…` | Restore a database dump (asks for confirmation) |
 | `make psql` / `make shell` | Database console / shell in the container |
