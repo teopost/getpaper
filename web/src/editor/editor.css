@@ -987,3 +987,45 @@ body.table-dragging * {
   color: var(--danger);
 }
 
+
+/* history: changes from the version before (see diff.js) */
+.diff-added {
+  background: rgba(58, 217, 132, 0.25);
+  border-radius: 2px;
+}
+.diff-removed {
+  background: rgba(237, 38, 81, 0.14);
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  text-decoration-color: rgba(237, 38, 81, 0.7);
+  border-radius: 2px;
+}
+.ProseMirror .diff-added-block {
+  background: rgba(58, 217, 132, 0.14);
+  box-shadow: -8px 0 0 rgba(58, 217, 132, 0.14), inset 3px 0 0 rgb(58, 217, 132);
+  padding-left: 6px;
+}
+.ProseMirror .diff-changed-block {
+  box-shadow: inset 3px 0 0 rgb(240, 138, 36);
+  padding-left: 6px;
+}
+.diff-removed-block {
+  margin: 0.5em 0;
+  padding: 2px 8px 2px 10px;
+  border-left: 3px solid rgb(237, 38, 81);
+  background: rgba(237, 38, 81, 0.08);
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  text-decoration-color: rgba(237, 38, 81, 0.6);
+  overflow-wrap: anywhere;
+}
+.diff-removed-block p,
+.diff-removed-block pre {
+  margin: 0.25em 0;
+  white-space: pre-wrap;
+}
+.diff-removed-block img {
+  max-width: 100%;
+  max-height: 200px;
+  opacity: 0.5;
+}

@@ -2716,3 +2716,21 @@ body.resizing-sidebar {
 .webhook-groups .checkbox-row code {
   margin-left: auto;
 }
+.history-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 8px 10px;
+  border-bottom: 1px solid var(--divider);
+  font-size: 14px;
+  cursor: pointer;
+}
+.history-option > span {
+  display: flex;
+  flex-direction: column;
+}
+.diff-summary {
+  display: block;
+  margin-top: 2px;
+}

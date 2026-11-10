@@ -1,7 +1,7 @@
 use axum::{extract::State, Json};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -57,6 +57,14 @@ struct RevisionFull {
     user_name: String,
 }
 
+#[derive(Serialize)]
+struct RevisionInfo {
+    #[serde(flatten)]
+    revision: RevisionFull,
+    latest: bool,
+    previous: Option<Value>,
+}
+
 #[derive(Deserialize)]
 pub struct IdReq {
     id: Uuid,
@@ -71,5 +79,25 @@ pub async fn info(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) 
     .fetch_one(&st.db)
     .await?;
     load_doc(&st.db, &auth, &r.document_id.to_string(), Access::Read).await?;
-    ok(r)
+    // the revision before this one, to show what this revision changed; latest says whether this
+    // revision is the current text of the document
+    let previous: Option<(Uuid, String, String, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT id, title, text, created_at FROM revisions WHERE document_id = $1 AND (created_at, id) < ($2, $3) \
+         ORDER BY created_at DESC, id DESC LIMIT 1",
+    )
+    .bind(r.document_id)
+    .bind(r.created_at)
+    .bind(r.id)
+    .fetch_optional(&st.db)
+    .await?;
+    let latest: bool = sqlx::query_scalar(
+        "SELECT NOT EXISTS (SELECT 1 FROM revisions WHERE document_id = $1 AND (created_at, id) > ($2, $3))",
+    )
+    .bind(r.document_id)
+    .bind(r.created_at)
+    .bind(r.id)
+    .fetch_one(&st.db)
+    .await?;
+    let previous = previous.map(|(id, title, text, created_at)| json!({ "id": id, "title": title, "text": text, "createdAt": created_at }));
+    ok(RevisionInfo { revision: r, latest, previous })
 }

@@ -10,6 +10,9 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ### Added
 
+- **What changed in each version**: in the history, every version (the current one too) shows the text added and
+  removed since the version before, and the previous title; a switch in the panel turns the highlighting off.
+  `revisions.info` also returns `previous` and `latest`.
 - `make online` lists the users active in the last 15 minutes (`MINUTES=` changes the window).
 - **More ways to sign in**, all off until configured: Google, Slack and any OpenID Connect provider (`GOOGLE_*`,
   `SLACK_*`, `OIDC_*`; accounts linked by verified email), a sign-in link by email (`EMAIL_LOGIN=true`, needs

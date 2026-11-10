@@ -72,6 +72,7 @@ import { api, uploadFile } from '../api';
 import { t, getLanguage } from '../i18n';
 import { Avatar } from '../components/ui';
 import { CollectionIcon, DocIcon } from '../components/icons';
+import { RevisionDiff } from './diff';
 import { MarkdownHighlight, TableGrips, tableSelection, Mention, Notice, TemplatePlaceholder, Toc, createMentionSuggestion, createSlashCommand, newMentionId, serializeTable, CommentAnchors, anchorFor, Embed } from './extensions';
 import { embedFor } from './embeds';
 import LinkPreview from './LinkPreview';
@@ -532,6 +533,8 @@ function TableMenu({ editor }) {
 /**
  * Markdown-backed rich text editor.
  * value: markdown string (initial value, the editor is uncontrolled afterwards)
+ * diffAgainst: markdown of an older version; when set, the changes from it are highlighted, and
+ * onDiff receives how many places changed (null when the versions are too different to compare)
  */
 export default function Editor({
   value,
@@ -543,6 +546,8 @@ export default function Editor({
   autoFocus,
   onReady,
   onComment,
+  diffAgainst = null,
+  onDiff,
   className = '',
 }) {
   const navigate = useNavigate();
@@ -576,6 +581,7 @@ export default function Editor({
       Toc,
       Embed,
       CommentAnchors,
+      RevisionDiff,
       TemplatePlaceholder.configure({ template }),
       Mention.configure({ navigate: (path) => navigateRef.current(path) }),
       createSlashCommand(() => slashItems(documentId)),
@@ -656,6 +662,15 @@ export default function Editor({
   useEffect(() => {
     if (editor && editor.isEditable !== editable) editor.setEditable(editable);
   }, [editor, editable]);
+
+  const onDiffRef = useRef(onDiff);
+  onDiffRef.current = onDiff;
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (diffAgainst == null && !editor.storage.revisionDiff.changes) return;
+    editor.commands.setRevisionDiff(diffAgainst);
+    onDiffRef.current?.(diffAgainst == null ? 0 : editor.storage.revisionDiff.changes);
+  }, [editor, diffAgainst]);
 
   return (
     <div ref={containerRef} className={`editor ${editable ? 'is-editable' : 'is-readonly'} ${className}`}>

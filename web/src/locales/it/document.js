@@ -77,6 +77,15 @@ export default {
   'This document was archived {time}.': 'Questo documento è stato archiviato {time}.',
   'Viewing revision from {date} by {name}.': 'Stai visualizzando la revisione del {date} di {name}.',
   'Restore this version': 'Ripristina questa versione',
+  'Viewing the current version, saved on {date} by {name}.': 'Stai visualizzando la versione attuale, salvata il {date} da {name}.',
+  'Highlight changes': 'Evidenzia le modifiche',
+  'Compared with the version before': 'Rispetto alla versione precedente',
+  'This is the first version.': 'Questa è la prima versione.',
+  'The text is too different from the version before to highlight the changes.': 'Il testo è troppo diverso dalla versione precedente per evidenziare le modifiche.',
+  'The text is the same as in the version of {date}.': 'Il testo è uguale a quello della versione del {date}.',
+  '{count} change from the version of {date}.': '{count} modifica rispetto alla versione del {date}.',
+  '{count} changes from the version of {date}.': '{count} modifiche rispetto alla versione del {date}.',
+  'Title before: “{title}”.': 'Titolo precedente: “{title}”.',
   'You’re editing a template. It will be available to everyone when creating a new document.':
     'Stai modificando un modello. Sarà disponibile a tutti durante la creazione di un nuovo documento.',
   'Select some text and use the placeholder button to add placeholders that can be filled out when creating new documents. {date}, {time}, {datetime} and {author} are replaced when the template is used.':

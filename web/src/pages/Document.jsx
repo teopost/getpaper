@@ -311,7 +311,17 @@ function MoveModal({ doc, onClose, onMoved }) {
 // History panel
 // ---------------------------------------------------------------------------
 
-function HistoryPanel({ doc, onSelect, selectedId, onClose }) {
+const SHOW_CHANGES_KEY = 'getpaper.history.showChanges';
+
+function loadShowChanges() {
+  try {
+    return localStorage.getItem(SHOW_CHANGES_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function HistoryPanel({ doc, onSelect, selectedId, onClose, showChanges, onShowChanges }) {
   const [revisions, setRevisions] = useState(null);
   useEffect(() => {
     api('revisions.list', { documentId: doc.id }).then(setRevisions);
@@ -325,13 +335,22 @@ function HistoryPanel({ doc, onSelect, selectedId, onClose }) {
         </IconButton>
       </div>
       <div className="side-panel-body">
+        {revisions?.length > 0 && (
+          <label className="history-option">
+            <span>
+              {t('Highlight changes')}
+              <span className="muted small">{t('Compared with the version before')}</span>
+            </span>
+            <Switch checked={showChanges} onChange={onShowChanges} />
+          </label>
+        )}
         {!revisions && <Spinner />}
         {revisions?.length === 0 && <div className="muted small">{t('No history yet. Revisions are saved once the document is published.')}</div>}
         {revisions?.map((r, i) => (
           <button
             key={r.id}
             className={`revision-item ${selectedId === r.id ? 'active' : ''}`}
-            onClick={() => onSelect(i === 0 ? null : r.id)}
+            onClick={() => onSelect(selectedId === r.id ? null : r.id)}
           >
             <Avatar name={r.userName} color={r.userColor} size={28} />
             <div>
@@ -629,6 +648,9 @@ export default function DocumentPage() {
   // where the document is pinned, and where it can be
   const [pins, setPins] = useState(null);
   const [revision, setRevision] = useState(null);
+  // history: what the shown revision changed from the one before
+  const [showChanges, setShowChanges] = useState(loadShowChanges);
+  const [diffCount, setDiffCount] = useState(0);
   const [editorKey, setEditorKey] = useState(0);
   // the Markdown source instead of the editor, for this visit of the document
   const [markdownMode, setMarkdownMode] = useState(false);
@@ -917,6 +939,15 @@ export default function DocumentPage() {
     }
     await flush();
     setRevision(await api('revisions.info', { id: rid }));
+  };
+
+  const toggleShowChanges = (on) => {
+    setShowChanges(on);
+    try {
+      localStorage.setItem(SHOW_CHANGES_KEY, String(on));
+    } catch {
+      // the preference is only kept for this visit
+    }
   };
 
   const restoreRevision = async () => {
@@ -1264,9 +1295,30 @@ export default function DocumentPage() {
         )}
         {revision && (
           <div className="notice-bar">
-            {t('Viewing revision from {date} by {name}.', { date: formatDate(revision.createdAt), name: revision.userName })}
+            <span className="notice-bar-text">
+              {revision.latest
+                ? t('Viewing the current version, saved on {date} by {name}.', { date: formatDate(revision.createdAt), name: revision.userName })
+                : t('Viewing revision from {date} by {name}.', { date: formatDate(revision.createdAt), name: revision.userName })}
+              {showChanges && (
+                <span className="diff-summary">
+                  {!revision.previous
+                    ? t('This is the first version.')
+                    : diffCount === null
+                      ? t('The text is too different from the version before to highlight the changes.')
+                      : diffCount === 0
+                        ? t('The text is the same as in the version of {date}.', { date: formatDate(revision.previous.createdAt) })
+                        : t(diffCount === 1 ? '{count} change from the version of {date}.' : '{count} changes from the version of {date}.', {
+                            count: diffCount,
+                            date: formatDate(revision.previous.createdAt),
+                          })}
+                  {revision.previous && revision.previous.title !== revision.title && (
+                    <> {t('Title before: “{title}”.', { title: revision.previous.title || t('Untitled') })}</>
+                  )}
+                </span>
+              )}
+            </span>
             <span className="row gap">
-              {canWrite && !doc.deletedAt && (
+              {canWrite && !doc.deletedAt && !revision.latest && (
                 <Button small icon={<RotateCcw size={14} />} onClick={restoreRevision}>
                   {t('Restore this version')}
                 </Button>
@@ -1379,7 +1431,14 @@ export default function DocumentPage() {
           )}
 
           {revision ? (
-            <Editor key={`rev-${revision.id}`} value={revision.text} editable={false} documentId={doc.id} />
+            <Editor
+              key={`rev-${revision.id}`}
+              value={revision.text}
+              editable={false}
+              documentId={doc.id}
+              diffAgainst={showChanges && revision.previous ? revision.previous.text : null}
+              onDiff={setDiffCount}
+            />
           ) : markdownMode ? (
             <MarkdownSource
               value={markdownText}
@@ -1433,7 +1492,14 @@ export default function DocumentPage() {
       </Scene>
 
       {panel === 'history' && (
-        <HistoryPanel doc={doc} selectedId={revision?.id} onSelect={selectRevision} onClose={() => { setPanel(null); setRevision(null); }} />
+        <HistoryPanel
+          doc={doc}
+          selectedId={revision?.id}
+          onSelect={selectRevision}
+          onClose={() => { setPanel(null); setRevision(null); }}
+          showChanges={showChanges}
+          onShowChanges={toggleShowChanges}
+        />
       )}
       {panel === 'comments' && (
         <CommentsPanel
