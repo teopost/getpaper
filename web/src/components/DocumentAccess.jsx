@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Trash2, Users } from 'lucide-react';
-import { api } from '../api';
+import { api, timeAgo } from '../api';
 import { useApp } from '../store';
 import { Avatar, Button } from './ui';
 import { useToast } from './Toast';
@@ -27,11 +27,12 @@ export default function DocumentAccess({ doc }) {
   const [groups, setGroups] = useState([]);
   const [group, setGroup] = useState('');
   const [adding, setAdding] = useState(false);
+  const [allReaders, setAllReaders] = useState(false);
 
   const load = () =>
     api('documents.memberships', { id: doc.id })
       .then(setData)
-      .catch(() => setData({ users: [], groups: [], canManage: false }));
+      .catch(() => setData({ users: [], groups: [], viewers: [], canManage: false }));
   useEffect(() => {
     load();
     api('groups.list').then(setGroups).catch(() => setGroups([]));
@@ -52,7 +53,29 @@ export default function DocumentAccess({ doc }) {
   const { canManage } = data;
   const direct = (rows) => rows.filter((r) => !r.inheritedFromId);
   const candidates = groups.filter((g) => !direct(data.groups).some((m) => m.id === g.id));
-  if (!canManage && !data.users.length && !data.groups.length) return null;
+  // who opened the document, besides the people listed with their access
+  const readers = (data.viewers || []).filter((v) => !data.users.some((u) => u.id === v.id));
+  const shownReaders = allReaders ? readers : readers.slice(0, 5);
+  const readersBlock = readers.length > 0 && (
+    <div className="doc-access">
+      <div className="share-title">{t('Read by')}</div>
+      {shownReaders.map((v) => (
+        <div key={`v-${v.id}`} className="member-row">
+          <Avatar name={v.name} color={v.color} size={24} />
+          <span className="member-name">{v.name}</span>
+          <span className="muted small" title={new Date(v.lastViewedAt).toLocaleString()}>
+            {timeAgo(v.lastViewedAt)}
+          </span>
+        </div>
+      ))}
+      {readers.length > shownReaders.length && (
+        <button className="link-btn muted small doc-access-more" onClick={() => setAllReaders(true)}>
+          {t('Show {count} more', { count: readers.length - shownReaders.length })}
+        </button>
+      )}
+    </div>
+  );
+  if (!canManage && !data.users.length && !data.groups.length) return readersBlock || null;
 
   const inherited = (r) =>
     r.inheritedFromId && (
@@ -60,6 +83,7 @@ export default function DocumentAccess({ doc }) {
     );
 
   return (
+    <>
     <div className="doc-access">
       <div className="share-title">{t('People with access')}</div>
       <div className="muted small">{t('Besides the members of the collection. Nested documents are shared too.')}</div>
@@ -69,6 +93,11 @@ export default function DocumentAccess({ doc }) {
           <span className="member-name">
             {u.name} {u.id === auth.user.id && <span className="muted">{t('(you)')}</span>}
             {inherited(u)}
+            {u.id !== auth.user.id && (
+              <span className="muted small doc-access-read" title={u.lastViewedAt ? new Date(u.lastViewedAt).toLocaleString() : undefined}>
+                {u.lastViewedAt ? t('Read {time}', { time: timeAgo(u.lastViewedAt) }) : t('Not read yet')}
+              </span>
+            )}
           </span>
           <PermissionSelect
             value={u.permission}
@@ -139,5 +168,7 @@ export default function DocumentAccess({ doc }) {
           </Button>
         ))}
     </div>
+    {readersBlock}
+    </>
   );
 }

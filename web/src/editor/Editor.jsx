@@ -4,7 +4,6 @@ import { BubbleMenu, EditorContent, ReactNodeViewRenderer, useEditor, useEditorS
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import Table from '@tiptap/extension-table';
@@ -22,7 +21,11 @@ import nginx from 'highlight.js/lib/languages/nginx';
 import powershell from 'highlight.js/lib/languages/powershell';
 import properties from 'highlight.js/lib/languages/properties';
 import { Markdown } from 'tiptap-markdown';
+import { ImageBlock } from './ImageView';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
   Italic,
   Strikethrough,
@@ -476,6 +479,56 @@ function FormattingMenu({ editor, template, onComment }) {
   );
 }
 
+/** Alignment and size of the selected image */
+function ImageMenu({ editor }) {
+  const attrs = useEditorState({
+    editor,
+    selector: ({ editor }) => (editor.isActive('image') ? editor.getAttributes('image') : null),
+  });
+  const B = ({ active, onClick, title, children, text }) => (
+    <button
+      className={`fmt-btn ${text ? 'text' : ''} ${active ? 'active' : ''}`}
+      title={title}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+    >
+      {children}
+    </button>
+  );
+  const set = (values) => editor.chain().focus().updateAttributes('image', values).run();
+  const align = attrs?.align || 'left';
+  return (
+    <BubbleMenu
+      editor={editor}
+      pluginKey="imageMenu"
+      tippyOptions={{ duration: 100, placement: 'top', maxWidth: 'none' }}
+      shouldShow={({ editor }) => editor.isEditable && editor.isActive('image')}
+    >
+      <div className="formatting-menu">
+        <B title={t('Align left')} active={align === 'left'} onClick={() => set({ align: null })}>
+          <AlignLeft size={16} />
+        </B>
+        <B title={t('Align center')} active={align === 'center'} onClick={() => set({ align: 'center' })}>
+          <AlignCenter size={16} />
+        </B>
+        <B title={t('Align right')} active={align === 'right'} onClick={() => set({ align: 'right' })}>
+          <AlignRight size={16} />
+        </B>
+        {attrs?.width && (
+          <>
+            <span className="fmt-sep" />
+            <B text title={t('Back to the original size')} onClick={() => set({ width: null })}>
+              {t('Original size')}
+            </B>
+          </>
+        )}
+      </div>
+    </BubbleMenu>
+  );
+}
+
 function TableMenu({ editor }) {
   const B = ({ onClick, children, title, danger }) => (
     <button
@@ -569,7 +622,7 @@ export default function Editor({
         includeChildren: false,
       }),
       Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: null } }),
-      Image.configure({ inline: false, allowBase64: false }),
+      ImageBlock.configure({ inline: false, allowBase64: false }),
       TaskList,
       TaskItem.configure({ nested: true }),
       ResizableTable.configure({ resizable: true, cellMinWidth: 60, lastColumnResizable: false }),
@@ -681,6 +734,7 @@ export default function Editor({
       {editor && editable && <FormattingMenu editor={editor} template={template} onComment={onComment} />}
       {editor && !editable && onComment && <CommentMenu editor={editor} onComment={onComment} />}
       {editor && editable && <TableMenu editor={editor} />}
+      {editor && editable && <ImageMenu editor={editor} />}
       <EditorContent editor={editor} />
     </div>
   );

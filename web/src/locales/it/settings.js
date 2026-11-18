@@ -207,6 +207,11 @@ export default {
   'These settings apply to every workspace of this installation.': 'Queste impostazioni valgono per tutti i workspace di questa installazione.',
   'Branding': 'Aspetto del marchio',
   'Header colour': 'Colore dell’header',
+  'Also the width of the documents opened with a public link. A single document can be made full width from its menu.':
+    'È anche la larghezza dei documenti aperti con un link pubblico. Un singolo documento si può mettere a larghezza piena dal suo menu.',
+  'Header colour of public links': 'Colore dell’header dei link pubblici',
+  'Background of the top bar of the documents shared with a public link. The text colour is chosen automatically for contrast.':
+    'Sfondo della barra in alto dei documenti condivisi con un link pubblico. Il colore del testo è scelto automaticamente per il contrasto.',
   'Background of the top bar. The text colour is chosen automatically for contrast.': 'Sfondo della barra in alto. Il colore del testo viene scelto automaticamente per il contrasto.',
   'Accent colour': 'Colore di accento',
   'Buttons, links and selections.': 'Pulsanti, link e selezioni.',
@@ -442,6 +447,10 @@ export default {
   'From “{title}”': 'Da “{title}”',
   'Open': 'Apri',
   'People with access': 'Persone con accesso',
+  'Read by': 'Letto da',
+  'Read {time}': 'Letto {time}',
+  'Not read yet': 'Non ancora letto',
+  'Show {count} more': 'Mostra altri {count}',
   'Previews of external links': 'Anteprime dei link esterni',
   'Reactivate in this workspace': 'Riattiva in questo workspace',
   'Reactivate the account': 'Riattiva l’account',

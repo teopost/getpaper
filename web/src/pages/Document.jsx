@@ -127,6 +127,16 @@ function SharePanel({ doc, onChange }) {
           </Button>
         </div>
       )}
+      {share && (
+        <div className="muted small" title={share.lastAccessedAt ? new Date(share.lastAccessedAt).toLocaleString() : undefined}>
+          {share.views > 0
+            ? t(share.views === 1 ? 'Opened once, {time}' : 'Opened {count} times, last {time}', {
+                count: share.views,
+                time: timeAgo(share.lastAccessedAt),
+              })
+            : t('Nobody has opened the link yet')}
+        </div>
+      )}
       {share && <ShareOptions share={share} onChange={setShare} />}
       </>
       )}

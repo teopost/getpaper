@@ -320,6 +320,70 @@
   outline: 2px solid var(--accent);
 }
 
+/* images: aligned left (default), centre or right, resized with the handles on their sides */
+.ProseMirror .image-block {
+  display: flex;
+  margin: 0.5em 0;
+}
+.ProseMirror .image-block.align-center {
+  justify-content: center;
+}
+.ProseMirror .image-block.align-right {
+  justify-content: flex-end;
+}
+.ProseMirror .image-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.ProseMirror .image-frame img {
+  margin: 0;
+}
+.ProseMirror .image-frame.selected img {
+  outline: 2px solid var(--accent);
+}
+.ProseMirror .image-handle {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 40px;
+  max-height: 60%;
+  transform: translateY(-50%);
+  background: var(--accent);
+  border: 1px solid var(--bg, #fff);
+  border-radius: 4px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.ProseMirror .image-handle.left {
+  left: -5px;
+}
+.ProseMirror .image-handle.right {
+  right: -5px;
+}
+.ProseMirror .image-frame.resizing {
+  user-select: none;
+}
+/* width while resizing; accented when it snaps to another image or a fraction of the page */
+.ProseMirror .image-size {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.ProseMirror .image-size.snapped {
+  background: var(--accent);
+}
+
 .ProseMirror table {
   border-collapse: collapse;
   margin: 0;

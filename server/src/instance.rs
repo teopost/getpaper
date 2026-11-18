@@ -1,7 +1,7 @@
 //! Installation settings managed by superadmins in the web UI (Settings → General settings).
 //!
 //! They apply to every workspace: data protection switches (exports, public links), branding
-//! (header and accent colour) and the defaults for users without a personal preference, which
+//! (header, accent and public link header colour) and the defaults for users without a personal preference, which
 //! override DEFAULT_LANGUAGE / DEFAULT_THEME / DEFAULT_CONTENT_WIDTH from the environment.
 //! Stored as one JSON document in the `settings` table and cached in memory.
 
@@ -45,6 +45,9 @@ pub struct InstanceSettings {
     /// buttons, links and selection, "#rrggbb"
     #[serde(default)]
     pub accent_color: Option<String>,
+    /// background of the top bar of public links (/s/…), "#rrggbb"; None = no colour
+    #[serde(default)]
+    pub shared_header_color: Option<String>,
     #[serde(default)]
     pub default_language: Option<String>,
     #[serde(default)]
@@ -118,6 +121,7 @@ impl InstanceSettings {
         }
         valid_color(&self.header_color, "Header colour")?;
         valid_color(&self.accent_color, "Accent colour")?;
+        valid_color(&self.shared_header_color, "Header colour of public links")?;
         valid_choice(&self.default_language, LANGUAGES, "Default language")?;
         valid_choice(&self.default_theme, THEMES, "Default theme")?;
         if self.audit_retention_days > 3650 {
@@ -150,6 +154,7 @@ impl InstanceSettings {
             "productName": self.product_name,
             "headerColor": self.header_color,
             "accentColor": self.accent_color,
+            "sharedHeaderColor": self.shared_header_color,
         })
     }
 }

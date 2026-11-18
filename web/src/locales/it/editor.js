@@ -55,6 +55,12 @@ export default {
   'Delete row': 'Elimina riga',
   'Delete column': 'Elimina colonna',
   'Delete table': 'Elimina tabella',
+  // image menu
+  'Align left': 'Allinea a sinistra',
+  'Align center': 'Allinea al centro',
+  'Align right': 'Allinea a destra',
+  'Back to the original size': 'Torna alla dimensione originale',
+  'Original size': 'Dimensione originale',
   '+ Row ↑': '+ Riga ↑',
   '+ Row ↓': '+ Riga ↓',
   '+ Col ←': '+ Col ←',

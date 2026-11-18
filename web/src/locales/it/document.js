@@ -9,6 +9,9 @@ export default {
   Copy: 'Copia',
   'Link copied to clipboard': 'Link copiato negli appunti',
   'Copy internal link': 'Copia link interno',
+  'Opened once, {time}': 'Aperto una volta, {time}',
+  'Opened {count} times, last {time}': 'Aperto {count} volte, l’ultima {time}',
+  'Nobody has opened the link yet': 'Nessuno ha ancora aperto il link',
   // move modal
   'Document moved': 'Documento spostato',
   'Move “{title}”': 'Sposta “{title}”',

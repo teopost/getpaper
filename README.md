@@ -104,7 +104,7 @@ Useful variables (in a `.env` file next to `docker-compose.yml`, or in the envir
 | `SUPERADMIN_EMAILS` | | Accounts that are always superadmins, comma separated (see below) |
 | `DEFAULT_LANGUAGE` | `en` | Interface language for users who haven't chosen one: `en`, `it` |
 | `DEFAULT_THEME` | `system` | Appearance for users who haven't chosen one: `system`, `light`, `dark` |
-| `DEFAULT_CONTENT_WIDTH` | `normal` | Text width in documents: `normal`, `wide`, `full` |
+| `DEFAULT_CONTENT_WIDTH` | `normal` | Text width in documents, also for public links: `normal`, `wide`, `full` |
 
 Each user can override language, appearance and text width in **Settings → Profile → Preferences**.
 The `DEFAULT_*` values also apply to the sign-in pages and public links.
@@ -138,7 +138,9 @@ Most common commands (`make` with no arguments shows the list):
 - **WYSIWYG editor** saved as Markdown: `/` menu, formatting toolbar, Markdown shortcuts, tables (handles to select,
   insert, delete and drag rows and columns, as in Outline), checklists,
   code blocks with highlighting, language picker, copy and wrap, notices (`:::info`, `:::warning`, `:::tip`,
-  `:::success`), highlighted text (`==text==`, as in Outline), images and attachments by paste or drag. *Edit as Markdown* in the document menu switches to the
+  `:::success`), highlighted text (`==text==`, as in Outline), images and attachments by paste or drag (a selected image is aligned left, centre or right from its menu and
+  resized with the handles on its sides, snapping to the width of the other images and to fractions of the page;
+  Ctrl or Cmd held resizes freely). *Edit as Markdown* in the document menu switches to the
   Markdown source and back (read only for viewers).
 - **Mentions** with `@`, as in Outline: people, groups, documents and collections (saved as
   `@[Name](mention://<id>/<user|document|collection>/<id>)`); documents and collections are chips that open with a
@@ -164,6 +166,8 @@ Most common commands (`make` with no arguments shows the list):
   superadmins can suspend an account everywhere (no sign-in, sessions closed, API keys stop working).
 - **Sharing a document** with people or groups beyond its collection (*Share → People with access*, "can edit" or
   "view only"), also for its nested documents, as in Outline; shared documents appear in **Shared with me**.
+  The same panel shows whether each person has read it yet (and when), and under **Read by** the other members
+  of the workspace who opened it, most recent first.
 - **Following** documents and collections (*Follow* in their menu): a notification, and an email if wanted, when a
   followed document gets a new editing session, a document is published in a followed collection or a document is
   shared with you. People who publish or edit a document follow it automatically.
@@ -284,6 +288,8 @@ looks like `<URL>/s/<token>`, with a random 24-character token (about 143 bits),
   read through the link, with a tree on the side; links between them stay inside the link), **Search engine
   indexing** (no `noindex`, and a sitemap at `<URL>/s/<token>/sitemap.xml`) and **Show last modified** (on by
   default).
+- The panel shows how many times the link has been opened and when it was last opened; opens by signed-in
+  members of the workspace are not counted. Readers are anonymous, so who opened it is not known.
 - The link is revoked from the same panel or from **Settings → Shared Links**.
 - Sharing can be disabled for the whole workspace or for a single collection.
 
@@ -391,6 +397,8 @@ notice whose link opens that workspace.
   next to the logo, in public links, in emails and in the welcome document of new workspaces; backup files and the
   MCP server keep the technical name GetPaper), header colour (the top bar; the text colour is chosen automatically
   for contrast) and accent colour (buttons, links). They also apply to the sign-in pages and public links.
+  **Header colour of public links** colours the top bar of the pages opened with a public link (text and logo
+  in black or white for contrast).
 - **Data protection**: enables or disables workspace backups, Markdown export (Obsidian vault and single document
   downloads) and public links. The block is enforced by the server; when public links are disabled, existing ones
   stop working until they are enabled again.

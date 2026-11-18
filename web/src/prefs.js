@@ -71,6 +71,11 @@ export function applyInstance(next) {
   set('--logo-color', header);
   if (header) root.dataset.brandedHeader = '';
   else delete root.dataset.brandedHeader;
+  const shared = instance.sharedHeaderColor;
+  set('--shared-header-bg', shared);
+  set('--shared-header-text', shared && contrastText(shared));
+  if (shared) root.dataset.brandedSharedHeader = '';
+  else delete root.dataset.brandedSharedHeader;
   const accent = instance.accentColor;
   set('--accent', accent);
   set('--accent-hover', accent && `color-mix(in srgb, ${accent} 85%, black)`);

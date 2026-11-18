@@ -36,6 +36,19 @@ struct UserGrant {
     inherited_from_id: Option<Uuid>,
     inherited_from_title: Option<String>,
     created_at: DateTime<Utc>,
+    /// when they last opened the document, None if never
+    last_viewed_at: Option<DateTime<Utc>>,
+}
+
+/// A member of the workspace who opened the document
+#[derive(Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+struct Viewer {
+    id: Uuid,
+    name: String,
+    color: String,
+    last_viewed_at: DateTime<Utc>,
+    count: i32,
 }
 
 #[derive(Serialize, FromRow)]
@@ -55,13 +68,15 @@ pub struct IdReq {
     id: String,
 }
 
-/// People and groups the document is shared with, also through its parents.
+/// People and groups the document is shared with, also through its parents, with when they last
+/// opened it, and the other members of the workspace who opened it (most recent first).
 pub async fn memberships(State(st): State<AppState>, auth: Auth, Json(b): Json<IdReq>) -> ApiResult<Json<Value>> {
     let (d, access) = load_doc(&st.db, &auth, &b.id, Access::Read).await?;
     let users: Vec<UserGrant> = sqlx::query_as(&format!(
         "{ANCESTORS} SELECT u.id, u.name, u.email, u.color, m.permission, \
          CASE WHEN up.depth > 0 THEN up.id END AS inherited_from_id, CASE WHEN up.depth > 0 THEN up.title END AS inherited_from_title, \
-         m.created_at FROM up JOIN document_memberships m ON m.document_id = up.id JOIN users u ON u.id = m.user_id \
+         m.created_at, v.last_viewed_at FROM up JOIN document_memberships m ON m.document_id = up.id JOIN users u ON u.id = m.user_id \
+         LEFT JOIN views v ON v.user_id = u.id AND v.document_id = $1 \
          ORDER BY up.depth, lower(u.name)"
     ))
     .bind(d.id)
@@ -76,7 +91,22 @@ pub async fn memberships(State(st): State<AppState>, auth: Auth, Json(b): Json<I
     .bind(d.id)
     .fetch_all(&st.db)
     .await?;
-    ok(json!({ "users": users, "groups": groups, "canManage": access == Access::Write && d.published_at.is_some() }))
+    let viewers: Vec<Viewer> = sqlx::query_as(
+        "SELECT u.id, u.name, u.color, v.last_viewed_at, v.count FROM views v JOIN users u ON u.id = v.user_id \
+         JOIN team_memberships tm ON tm.user_id = u.id AND tm.team_id = $2 \
+         WHERE v.document_id = $1 AND u.id <> $3 ORDER BY v.last_viewed_at DESC LIMIT 50",
+    )
+    .bind(d.id)
+    .bind(d.team_id)
+    .bind(auth.user.id)
+    .fetch_all(&st.db)
+    .await?;
+    ok(json!({
+        "users": users,
+        "groups": groups,
+        "viewers": viewers,
+        "canManage": access == Access::Write && d.published_at.is_some(),
+    }))
 }
 
 /// The document, if the signed-in user can share it: published, and editable by them

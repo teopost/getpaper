@@ -309,10 +309,14 @@ pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<
                 find_doc(&st.db, Uuid::nil(), &node.id.to_string()).await?
             }
         };
-        sqlx::query("UPDATE shares SET views = views + 1, last_accessed_at = now() WHERE id = $1")
-            .bind(share.id)
-            .execute(&st.db)
-            .await?;
+        // opens by members of the workspace (the author checking the link) are not counted
+        let member = matches!(&auth, Some(a) if a.team_id == Some(root.team_id));
+        if !member {
+            sqlx::query("UPDATE shares SET views = views + 1, last_accessed_at = now() WHERE id = $1")
+                .bind(share.id)
+                .execute(&st.db)
+                .await?;
+        }
         let mut document = serde_json::to_value(&d).unwrap_or_default();
         if !share.show_last_updated {
             for k in ["updatedAt", "updatedBy", "updatedByName", "updatedByColor"] {

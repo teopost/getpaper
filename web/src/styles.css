@@ -1948,6 +1948,15 @@ body.resizing-sidebar {
   padding: 16px 24px;
   border-bottom: 1px solid var(--divider);
 }
+/* custom header colour of public links from the general settings; the logo takes the text colour */
+:root[data-branded-shared-header] .shared-header {
+  background: var(--shared-header-bg);
+  color: var(--shared-header-text);
+  border-bottom-color: transparent;
+  --text: var(--shared-header-text);
+  --logo-color: var(--shared-header-text);
+  --bg: var(--shared-header-bg);
+}
 .shared-brand {
   display: inline-flex;
   align-items: center;
@@ -2607,6 +2616,12 @@ body.resizing-sidebar {
 }
 .doc-access-inherited {
   display: block;
+}
+.doc-access-read {
+  display: block;
+}
+.doc-access-more {
+  align-self: flex-start;
 }
 
 /* preview of the link under the pointer */

@@ -10,6 +10,16 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ### Added
 
+- **Header colour of public links** (Settings → General settings → Branding): the top bar of the pages opened
+  with a public link can have its own colour; text and logo turn black or white for contrast.
+- **Images can be aligned and resized**: a selected image shows a menu to align it left, centre or right (and to
+  go back to its original size) and handles on its sides to change its width; while dragging, the width snaps to the width of the other images
+  and to a quarter, a third, half, two thirds and three quarters of the page (hold Ctrl or Cmd to resize freely). Resized or aligned images are saved
+  as an HTML `<img>` with `width` and `data-align`; the HTML, PDF and Word exports keep size and alignment.
+- **Who read a shared document**: in *Share*, every person the document is shared with shows "Read 2 hours ago"
+  or "Not read yet", and **Read by** lists the other members of the workspace who opened it. Under a public link,
+  how many times it was opened and when it was last opened; opens by signed-in members no longer count.
+  `documents.memberships` also returns `lastViewedAt` and `viewers`.
 - **What changed in each version**: in the history, every version (the current one too) shows the text added and
   removed since the version before, and the previous title; a switch in the panel turns the highlighting off.
   `revisions.info` also returns `previous` and `latest`.

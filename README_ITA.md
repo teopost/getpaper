@@ -82,7 +82,7 @@ Variabili utili (file `.env` accanto a `docker-compose.yml` oppure in ambiente):
 | `SUPERADMIN_EMAILS` | | Account sempre superadmin, separati da virgola (vedi sotto) |
 | `DEFAULT_LANGUAGE` | `en` | Lingua dell'interfaccia per chi non l'ha scelta: `en`, `it` |
 | `DEFAULT_THEME` | `system` | Aspetto per chi non l'ha scelto: `system`, `light`, `dark` |
-| `DEFAULT_CONTENT_WIDTH` | `normal` | Larghezza del testo nei documenti: `normal`, `wide`, `full` |
+| `DEFAULT_CONTENT_WIDTH` | `normal` | Larghezza del testo nei documenti, anche nei link pubblici: `normal`, `wide`, `full` |
 
 Ogni utente può sovrascrivere lingua, aspetto e larghezza del testo in **Impostazioni → Profile → Preferenze**.
 I valori `DEFAULT_*` valgono anche per le pagine di login e i link pubblici.
@@ -116,7 +116,9 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
 - **Editor WYSIWYG** salvato in Markdown: menu `/`, toolbar di formattazione, scorciatoie Markdown, tabelle (maniglie
   per selezionare, inserire, eliminare e trascinare righe e colonne, come in Outline),
   checklist, blocchi di codice con evidenziazione, notice (`:::info`, `:::warning`, `:::tip`, `:::success`),
-  testo evidenziato (`==testo==`, come in Outline), immagini e allegati con incolla o trascina. *Modifica in Markdown* nel menu del documento passa al sorgente
+  testo evidenziato (`==testo==`, come in Outline), immagini e allegati con incolla o trascina (un'immagine selezionata si allinea a sinistra, al centro o a destra
+  dal suo menu e si ridimensiona con le maniglie ai lati, agganciandosi alla larghezza delle altre immagini e a
+  frazioni della pagina; tenendo premuto Ctrl o Cmd si ridimensiona liberamente). *Modifica in Markdown* nel menu del documento passa al sorgente
   Markdown e ritorno (in sola lettura per chi può solo leggere).
 - **Menzioni** con `@`, come in Outline: persone, gruppi, documenti e collezioni (salvate come
   `@[Nome](mention://<id>/<user|document|collection>/<id>)`); documenti e collezioni sono chip che si aprono con
@@ -142,7 +144,8 @@ Comandi più comuni (`make` senza argomenti mostra l'elenco):
   disattivate).
 - **Condivisione di un documento** con persone o gruppi oltre la sua collezione (*Condividi → Persone con accesso*,
   "può modificare" o "sola lettura"), anche per i documenti annidati, come in Outline; i documenti condivisi
-  compaiono in **Condivisi con me**.
+  compaiono in **Condivisi con me**. Lo stesso pannello mostra se ogni persona l'ha già letto (e quando), e sotto
+  **Letto da** gli altri membri del workspace che l'hanno aperto, dal più recente.
 - **Seguire** documenti e collezioni (*Segui* nel loro menu): una notifica, e un'email se la si vuole, quando un
   documento seguito ha una nuova sessione di modifica, viene pubblicato un documento in una collezione seguita o
   qualcuno condivide un documento con te. Chi pubblica o modifica un documento lo segue automaticamente.
@@ -265,6 +268,8 @@ link ha la forma `<URL>/s/<token>`, con un token casuale di 24 caratteri (circa 
   interno si leggono dal link, con un albero di lato; i link tra loro restano dentro il link), **Indicizzazione nei
   motori di ricerca** (niente `noindex`, e una sitemap in `<URL>/s/<token>/sitemap.xml`) e **Mostra l'ultima
   modifica** (attiva di default).
+- Il pannello mostra quante volte il link è stato aperto e quando l'ultima volta; le aperture dei membri del
+  workspace con login non vengono contate. Chi legge è anonimo, quindi non si sa chi l'ha aperto.
 - Il link si revoca dallo stesso pannello o da **Impostazioni → Shared Links**.
 - La condivisione si può disattivare per l'intero workspace o per una singola collezione.
 
@@ -376,6 +381,8 @@ Il **superadmin** gestisce le impostazioni comuni a tutti i workspace dell'insta
   pagina di accesso, accanto al logo, nei link pubblici, nelle email e nel documento di benvenuto dei nuovi workspace;
   file di backup e server MCP mantengono il nome tecnico GetPaper), colore dell'header (la barra in alto; il colore del testo è scelto in automatico per il
   contrasto) e colore di accento (pulsanti, link). Valgono anche nelle pagine di accesso e nei link pubblici.
+  **Colore dell'header dei link pubblici** colora la barra in alto delle pagine aperte con un link pubblico (testo e
+  logo in bianco o nero per il contrasto).
 - **Protezione dei dati**: abilita o disabilita i backup dei workspace, l'export Markdown (vault Obsidian e download
   dei singoli documenti) e i link pubblici. Il blocco è applicato dal server; disattivando i link pubblici quelli
   esistenti smettono di funzionare finché non vengono riattivati.

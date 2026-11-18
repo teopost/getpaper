@@ -1612,6 +1612,12 @@ function GeneralSettings() {
           value={s.accentColor}
           onChange={(v) => update({ accentColor: v })}
         />
+        <ColorSetting
+          label={t('Header colour of public links')}
+          hint={t('Background of the top bar of the documents shared with a public link. The text colour is chosen automatically for contrast.')}
+          value={s.sharedHeaderColor}
+          onChange={(v) => update({ sharedHeaderColor: v })}
+        />
       </div>
 
       <h2 className="section-title">{t('Data protection')}</h2>
@@ -1664,7 +1670,10 @@ function GeneralSettings() {
       <div className="form settings-form">
         <Field label={t('Language')}>{choice(LANGUAGES, s.defaultLanguage, env.language, 'defaultLanguage')}</Field>
         <Field label={t('Appearance')}>{choice(THEMES, s.defaultTheme, env.theme, 'defaultTheme')}</Field>
-        <Field label={t('Document width')}>
+        <Field
+          label={t('Document width')}
+          hint={t('Also the width of the documents opened with a public link. A single document can be made full width from its menu.')}
+        >
           {choice(CONTENT_WIDTHS, s.defaultContentWidth, env.contentWidth, 'defaultContentWidth')}
         </Field>
       </div>

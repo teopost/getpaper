@@ -24,6 +24,8 @@ h1 { font-size: 1.75em; } h2 { font-size: 1.4em; } h3 { font-size: 1.15em; } h4 
 p { margin: 0 0 0.8em; }
 a { color: #0366d6; }
 img { max-width: 100%; height: auto; }
+img[data-align="center"] { display: block; margin-left: auto; margin-right: auto; }
+img[data-align="right"] { display: block; margin-left: auto; }
 hr { border: 0; border-top: 1px solid #dae1e9; margin: 2em 0; }
 blockquote { margin: 1em 0; padding: 0 0 0 1em; border-left: 3px solid #dae1e9; color: #4e5c6e; }
 code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.9em; background: #f4f7fa; padding: 0.1em 0.3em; border-radius: 3px; }
@@ -258,7 +260,8 @@ export async function downloadDocx(editor, doc) {
   function imageRun(n) {
     const img = images.get(n.attrs.src);
     if (!img) return n.attrs.src ? [new ExternalHyperlink({ link: absolute(n.attrs.src), children: [run(n.attrs.alt || n.attrs.src, [], { style: 'Hyperlink' })] })] : [];
-    const scale = Math.min(1, MAX_IMAGE_WIDTH / img.width);
+    // the width chosen in the editor, never wider than the page
+    const scale = Math.min(1, MAX_IMAGE_WIDTH / img.width, n.attrs.width ? n.attrs.width / img.width : 1);
     return new ImageRun({
       type: 'png',
       data: img.data,
@@ -327,7 +330,9 @@ export async function downloadDocx(editor, doc) {
         case 'horizontalRule':
           return new Paragraph({ children: [], border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: 'DAE1E9', space: 1 } } });
         case 'image':
-          return paragraph([].concat(imageRun(n)), ctx);
+          return paragraph([].concat(imageRun(n)), ctx, {
+            alignment: n.attrs.align === 'center' ? AlignmentType.CENTER : n.attrs.align === 'right' ? AlignmentType.RIGHT : undefined,
+          });
         case 'toc':
           return tocParagraphs();
         case 'table':
