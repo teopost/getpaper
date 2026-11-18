@@ -299,6 +299,7 @@ pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<
     if let Some(share_id) = &b.share_id {
         let gone = || ApiError::not_found("This link is no longer valid");
         let share = crate::api::shares::public_share(&st, share_id).await?.ok_or_else(gone)?;
+        let member = crate::api::shares::check_audience(&st, auth.as_ref(), &share).await?;
         let root = &share.document;
         let tree = if share.include_children { crate::api::shares::shared_descendants(&st, root.id).await? } else { vec![] };
         // a nested document, when the link includes them
@@ -310,12 +311,22 @@ pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<
             }
         };
         // opens by members of the workspace (the author checking the link) are not counted
-        let member = matches!(&auth, Some(a) if a.team_id == Some(root.team_id));
-        if !member {
+        if !member && !b.preview {
             sqlx::query("UPDATE shares SET views = views + 1, last_accessed_at = now() WHERE id = $1")
                 .bind(share.id)
                 .execute(&st.db)
                 .await?;
+            // links for the organization: who read it is known (Share → the link)
+            if let (Some(a), "organization") = (&auth, share.audience.as_str()) {
+                sqlx::query(
+                    "INSERT INTO views (user_id, document_id, count, last_viewed_at) VALUES ($1, $2, 1, now()) \
+                     ON CONFLICT (user_id, document_id) DO UPDATE SET count = views.count + 1, last_viewed_at = now()",
+                )
+                .bind(a.user.id)
+                .bind(d.id)
+                .execute(&st.db)
+                .await?;
+            }
         }
         let mut document = serde_json::to_value(&d).unwrap_or_default();
         if !share.show_last_updated {
@@ -334,6 +345,7 @@ pub async fn info(State(st): State<AppState>, auth: Option<Auth>, Json(b): Json<
                 "includeChildDocuments": share.include_children,
                 "allowIndexing": share.allow_indexing,
                 "showLastUpdated": share.show_last_updated,
+                "audience": share.audience,
                 "rootId": root.id,
             },
             "team": { "name": share.team_name },

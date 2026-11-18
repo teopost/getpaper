@@ -99,7 +99,7 @@ Useful variables (in a `.env` file next to `docker-compose.yml`, or in the envir
 | --- | --- | --- |
 | `URL` | `http://localhost:3000` | Public URL, used in invite and share links |
 | `PORT` | `3000` | Port published on the host |
-| `ALLOW_SIGNUP` | `true` | With `false`, people can only sign up with an invite (the first user can always sign up) |
+| `ALLOW_SIGNUP` | `true` | With `false`, people can only sign up with an invite (the first user can always sign up), and only superadmins and members of a workspace can create a new workspace |
 | `IMPORT_MAX_MB` | `500` | Maximum size of a ZIP archive to import |
 | `SUPERADMIN_EMAILS` | | Accounts that are always superadmins, comma separated (see below) |
 | `DEFAULT_LANGUAGE` | `en` | Interface language for users who haven't chosen one: `en`, `it` |
@@ -292,6 +292,24 @@ looks like `<URL>/s/<token>`, with a random 24-character token (about 143 bits),
   members of the workspace are not counted. Readers are anonymous, so who opened it is not known.
 - The link is revoked from the same panel or from **Settings → Shared Links**.
 - Sharing can be disabled for the whole workspace or for a single collection.
+
+### Links for the organization
+
+A link can also be opened only by the people of your organization, without making them members of the workspace
+(they don't see collections, search or other documents). Set the domains in **Settings → Details → Organization
+domains** (for example `example.com`), then in **Share** choose *Who can open the link → People of example.com*;
+it's the default for new links when domains are set, and an existing link can be switched either way.
+
+- Readers must sign in. Members of the workspace can always open the link; anyone else needs an account whose
+  email belongs to one of the domains and was verified by a sign-in: Microsoft (with a specific tenant or
+  `MICROSOFT_ALLOWED_DOMAINS`), Google, Slack, OpenID Connect or a sign-in link by email. A password or a passkey
+  doesn't prove the address, so accounts that have only used those are refused.
+- Accounts are created at the first sign-in when `MICROSOFT_AUTO_PROVISION` / `<PROVIDER>_AUTO_PROVISION` allow it;
+  people who don't belong to any workspace land on the document they asked for. With `ALLOW_SIGNUP=false` they
+  can't create a workspace of their own either: signed in, they can only open the links shared with them.
+- The panel lists who opened it from outside the workspace (and when); the pages are never indexed.
+- It follows the same rules as public links: it doesn't work when public links are disabled for the installation,
+  the workspace or the collection.
 
 ## Import
 

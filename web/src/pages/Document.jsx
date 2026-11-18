@@ -20,6 +20,7 @@ import {
   Undo2,
   X,
   Globe,
+  Building2,
   Smile,
   FolderInput,
   FileText,
@@ -63,8 +64,11 @@ import { replaceTemplateVariables } from '../templates';
 
 /** onChange(share): the public link was created (share) or revoked (null) */
 function SharePanel({ doc, onChange }) {
-  const { instance } = useApp();
+  const { instance, team } = useApp();
+  const domains = team.organizationDomains || '';
   const [share, setShare] = useState(undefined);
+  // who a new link is for: the organization when its domains are set, the safer choice
+  const [audience, setAudience] = useState(domains ? 'organization' : 'public');
   const [busy, setBusy] = useState(false);
   const toast = useToast();
   useEffect(() => {
@@ -75,7 +79,7 @@ function SharePanel({ doc, onChange }) {
     setBusy(true);
     try {
       if (on) {
-        const created = await api('shares.create', { documentId: doc.id });
+        const created = await api('shares.create', { documentId: doc.id, audience });
         setShare(created);
         onChange?.(created);
       } else {
@@ -89,6 +93,17 @@ function SharePanel({ doc, onChange }) {
       setBusy(false);
     }
   };
+  const changeAudience = async (value) => {
+    if (!share) return setAudience(value);
+    try {
+      const updated = await api('shares.update', { id: share.id, audience: value });
+      setShare(updated);
+      onChange?.(updated);
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
+  const forOrganization = (share ? share.audience : audience) === 'organization';
   return (
     <div className="share-panel">
       {doc.publishedAt && (
@@ -102,16 +117,30 @@ function SharePanel({ doc, onChange }) {
       ) : (
       <>
       <div className="share-row">
-        <Globe size={20} className="muted" />
+        {forOrganization ? <Building2 size={20} className="muted" /> : <Globe size={20} className="muted" />}
         <div className="grow">
-          <div className="share-title">{t('Publish to internet')}</div>
+          <div className="share-title">{forOrganization ? t('Share with your organization') : t('Publish to internet')}</div>
           <div className="muted small">
-            {share ? t('Anyone with the link can view this document') : t('Only members of this workspace can view')}
+            {!share
+              ? t('Only members of this workspace can view')
+              : forOrganization
+                ? t('People of {domains} can view this document after signing in', { domains })
+                : t('Anyone with the link can view this document')}
           </div>
         </div>
         <Switch checked={!!share} disabled={busy || share === undefined || !doc.publishedAt} onChange={toggle} />
       </div>
       {!doc.publishedAt && <div className="muted small">{t('Publish the document before sharing it publicly.')}</div>}
+      {(domains || share?.audience === 'organization') && doc.publishedAt && (
+        <Field label={t('Who can open the link')}>
+          <select value={share ? share.audience : audience} onChange={(e) => changeAudience(e.target.value)} disabled={busy}>
+            <option value="organization" disabled={!domains}>
+              {t('People of {domains}, signed in', { domains: domains || '-' })}
+            </option>
+            <option value="public">{t('Anyone with the link')}</option>
+          </select>
+        </Field>
+      )}
       {share && (
         <div className="row gap">
           <input readOnly value={share.url} className="grow" onFocus={(e) => e.target.select()} />
@@ -120,7 +149,7 @@ function SharePanel({ doc, onChange }) {
             icon={<Copy size={14} />}
             onClick={async () => {
               await copyToClipboard(share.url);
-              toast(t('Public link copied to clipboard'));
+              toast(forOrganization ? t('Link copied to clipboard') : t('Public link copied to clipboard'));
             }}
           >
             {t('Copy')}
@@ -137,6 +166,7 @@ function SharePanel({ doc, onChange }) {
             : t('Nobody has opened the link yet')}
         </div>
       )}
+      {share?.audience === 'organization' && <LinkReaders readers={share.readers || []} />}
       {share && <ShareOptions share={share} onChange={setShare} />}
       </>
       )}
@@ -156,6 +186,32 @@ function SharePanel({ doc, onChange }) {
   );
 }
 
+/** The people outside the workspace who opened a link for the organization */
+function LinkReaders({ readers }) {
+  const [all, setAll] = useState(false);
+  if (!readers.length) return <div className="muted small">{t('Nobody outside the workspace has opened the link yet')}</div>;
+  const shown = all ? readers : readers.slice(0, 5);
+  return (
+    <div className="doc-access">
+      <div className="share-title">{t('Read through the link')}</div>
+      {shown.map((r) => (
+        <div key={r.id} className="member-row">
+          <Avatar name={r.name} color={r.color} size={24} />
+          <span className="member-name">{r.name}</span>
+          <span className="muted small" title={new Date(r.lastViewedAt).toLocaleString()}>
+            {timeAgo(r.lastViewedAt)}
+          </span>
+        </div>
+      ))}
+      {readers.length > shown.length && (
+        <button className="link-btn muted small doc-access-more" onClick={() => setAll(true)}>
+          {t('Show {count} more', { count: readers.length - shown.length })}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Options of a public link, as in Outline */
 function ShareOptions({ share, onChange }) {
   const toast = useToast();
@@ -170,7 +226,7 @@ function ShareOptions({ share, onChange }) {
     ['includeChildDocuments', t('Include nested documents'), t('The documents inside this one can be read through the link too.')],
     ['allowIndexing', t('Search engine indexing'), t('Search engines may list the pages of the link.')],
     ['showLastUpdated', t('Show last modified'), t('Show when the document was last changed.')],
-  ];
+  ].filter(([field]) => field !== 'allowIndexing' || share.audience !== 'organization');
   return (
     <div className="share-options">
       {options.map(([field, label, hint]) => (
@@ -1062,32 +1118,37 @@ export default function DocumentPage() {
     ...(app.instance.allowMarkdownExport !== false
       ? [
           { separator: true },
-          { heading: t('Download as') },
           {
-            label: 'Markdown',
+            label: t('Download'),
             icon: <Download size={16} />,
-            onClick: () =>
-              runAction(async () => {
-                const md = await api('documents.export', { id: doc.id });
-                downloadText(`${slugify(doc.title)}.md`, md);
-              }),
+            submenu: [
+              {
+                label: 'Markdown',
+                icon: <FileText size={16} />,
+                onClick: () =>
+                  runAction(async () => {
+                    const md = await api('documents.export', { id: doc.id });
+                    downloadText(`${slugify(doc.title)}.md`, md);
+                  }),
+              },
+              // they render the editor content
+              ...(markdownMode ? [] : [
+                { label: 'HTML', icon: <FileCode size={16} />, run: (x) => x.downloadHtml },
+                { label: 'PDF', icon: <Printer size={16} />, run: (x) => x.printPdf },
+                { label: t('Word (.docx)'), icon: <FileType size={16} />, run: (x) => x.downloadDocx },
+              ]).map((f) => ({
+                label: f.label,
+                icon: f.icon,
+                onClick: () =>
+                  runAction(async () => {
+                    if (!editorRef.current) return;
+                    // the exporters (and the Word library) are loaded only when used
+                    const exporters = await import('../editor/exporters');
+                    await f.run(exporters)(editorRef.current, { title, emoji: doc.emoji });
+                  }),
+              })),
+            ],
           },
-          // they render the editor content
-          ...(markdownMode ? [] : [
-            { label: 'HTML', icon: <FileCode size={16} />, run: (x) => x.downloadHtml },
-            { label: 'PDF', icon: <Printer size={16} />, run: (x) => x.printPdf },
-            { label: t('Word (.docx)'), icon: <FileType size={16} />, run: (x) => x.downloadDocx },
-          ]).map((f) => ({
-            label: f.label,
-            icon: f.icon,
-            onClick: () =>
-              runAction(async () => {
-                if (!editorRef.current) return;
-                // the exporters (and the Word library) are loaded only when used
-                const exporters = await import('../editor/exporters');
-                await f.run(exporters)(editorRef.current, { title, emoji: doc.emoji });
-              }),
-          })),
           canWrite && !doc.deletedAt && { separator: true },
         ]
       : []),

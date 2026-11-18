@@ -38,6 +38,9 @@ pub struct Team {
     pub sharing: bool,
     pub default_user_role: String,
     pub allowed_domains: String,
+    /// domains of the people who can read the links for the organization (shares with audience 'organization')
+    #[sqlx(default)]
+    pub organization_domains: String,
     pub created_at: DateTime<Utc>,
 }
 

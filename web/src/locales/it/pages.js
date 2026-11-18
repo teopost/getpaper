@@ -109,11 +109,17 @@ export default {
     'I documenti che hai visto di recente compariranno qui per un accesso rapido.',
   'No documents yet. Create one to get started!': 'Ancora nessun documento. Creane uno per iniziare!',
   // SharedDoc
+  'No access': 'Accesso negato',
+  'Only the people of the organization can read this document. Sign in with your work account.':
+    'Solo le persone dell\'organizzazione possono leggere questo documento. Accedi con il tuo account di lavoro.',
+  'Sign in with another account': 'Accedi con un altro account',
   'Not found': 'Non trovato',
   'Last updated {time}': 'Ultimo aggiornamento {time}',
   'Powered by': 'Realizzato con',
   // NoWorkspace
   'No workspace': 'Nessun workspace',
+  'Hi {name}, you are not a member of any workspace. The pages shared with you open from the link you received.':
+    'Ciao {name}, non sei membro di nessun workspace. Le pagine condivise con te si aprono dal link che hai ricevuto.',
   'Hi {name}, you are not a member of any workspace yet. Create a new one, or ask someone to invite you.':
     'Ciao {name}, non sei ancora membro di nessun workspace. Creane uno nuovo o chiedi a qualcuno di invitarti.',
   'Create workspace': 'Crea workspace',

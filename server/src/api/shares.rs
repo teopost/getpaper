@@ -33,11 +33,14 @@ struct ShareRow {
     /// search engines may index the pages of the link
     allow_indexing: bool,
     show_last_updated: bool,
+    /// "public": anyone with the link; "organization": members of the workspace and signed-in people
+    /// with a verified email of one of the organization domains of the workspace
+    audience: String,
 }
 
 const SHARE_SELECT: &str = "SELECT s.id, s.url_id, s.document_id, d.title AS document_title, d.url_id AS document_url_id, \
     s.created_by, u.name AS created_by_name, s.views, s.last_accessed_at, s.created_at, \
-    s.include_children AS include_child_documents, s.allow_indexing, s.show_last_updated \
+    s.include_children AS include_child_documents, s.allow_indexing, s.show_last_updated, s.audience \
     FROM shares s JOIN documents d ON d.id = s.document_id JOIN users u ON u.id = s.created_by";
 
 fn with_url(st: &AppState, s: ShareRow) -> Value {
@@ -45,6 +48,59 @@ fn with_url(st: &AppState, s: ShareRow) -> Value {
     let mut v = serde_json::to_value(&s).unwrap();
     v["url"] = json!(url);
     v
+}
+
+/// A link with the people outside the workspace who read it, for links for the organization
+async fn share_json(st: &AppState, s: ShareRow) -> ApiResult<Value> {
+    let organization = s.audience == "organization";
+    let (doc, created) = (s.document_id, s.created_at);
+    let mut v = with_url(st, s);
+    if organization {
+        v["readers"] = json!(organization_readers(st, doc, created).await?);
+    }
+    Ok(v)
+}
+
+/// A person outside the workspace who opened a link for the organization
+#[derive(Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+struct LinkReader {
+    id: Uuid,
+    name: String,
+    color: String,
+    last_viewed_at: DateTime<Utc>,
+}
+
+/// Who opened the document through a link for the organization and is not a member of its workspace
+/// (most recent first). Members of the workspace are listed in Share → Read by.
+async fn organization_readers(st: &AppState, doc: Uuid, since: DateTime<Utc>) -> ApiResult<Vec<LinkReader>> {
+    Ok(sqlx::query_as(
+        "SELECT u.id, u.name, u.color, v.last_viewed_at FROM views v JOIN users u ON u.id = v.user_id \
+         JOIN documents d ON d.id = v.document_id \
+         WHERE v.document_id = $1 AND v.last_viewed_at >= $2 \
+           AND NOT EXISTS (SELECT 1 FROM team_memberships tm WHERE tm.team_id = d.team_id AND tm.user_id = u.id) \
+         ORDER BY v.last_viewed_at DESC LIMIT 100",
+    )
+    .bind(doc)
+    .bind(since)
+    .fetch_all(&st.db)
+    .await?)
+}
+
+fn valid_audience(a: &str) -> ApiResult<()> {
+    match a {
+        "public" | "organization" => Ok(()),
+        _ => Err(ApiError::bad_request("audience must be public or organization")),
+    }
+}
+
+/// Links for the organization need the organization domains of the workspace
+async fn require_organization_domains(st: &AppState, team_id: Uuid) -> ApiResult<()> {
+    let (domains,): (String,) = sqlx::query_as("SELECT organization_domains FROM teams WHERE id = $1").bind(team_id).fetch_one(&st.db).await?;
+    if domains.trim().is_empty() {
+        return Err(ApiError::bad_request("Set the domains of your organization in Settings → Details first"));
+    }
+    Ok(())
 }
 
 pub async fn list(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Value>> {
@@ -65,6 +121,9 @@ pub async fn list(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Valu
 #[serde(rename_all = "camelCase")]
 pub struct DocReq {
     document_id: String,
+    /// shares.create: "public" (default) or "organization"
+    #[serde(default)]
+    audience: Option<String>,
 }
 
 /// Whether public links of documents in this workspace and collection work: sharing must be
@@ -107,7 +166,10 @@ pub async fn info(State(st): State<AppState>, auth: Auth, Json(b): Json<DocReq>)
     .bind(d.id)
     .fetch_optional(&st.db)
     .await?;
-    ok(row.map(|s| with_url(&st, s)))
+    match row {
+        Some(s) => ok(share_json(&st, s).await?),
+        None => ok(Value::Null),
+    }
 }
 
 pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<DocReq>) -> ApiResult<Json<Value>> {
@@ -142,24 +204,30 @@ pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<DocReq
     .fetch_optional(&st.db)
     .await?;
     if let Some(s) = existing {
-        return ok(with_url(&st, s));
+        return ok(share_json(&st, s).await?);
+    }
+    let audience = b.audience.as_deref().unwrap_or("public");
+    valid_audience(audience)?;
+    if audience == "organization" {
+        require_organization_domains(&st, d.team_id).await?;
     }
     let id = Uuid::new_v4();
-    sqlx::query("INSERT INTO shares (id, url_id, team_id, document_id, created_by) VALUES ($1, $2, $3, $4, $5)")
+    sqlx::query("INSERT INTO shares (id, url_id, team_id, document_id, created_by, audience) VALUES ($1, $2, $3, $4, $5, $6)")
         .bind(id)
         // long random token: public links must not be guessable
         .bind(random_string(24))
         .bind(d.team_id)
         .bind(d.id)
         .bind(auth.user.id)
+        .bind(audience)
         .execute(&st.db)
         .await?;
     let s: ShareRow = sqlx::query_as(&format!("{SHARE_SELECT} WHERE s.id = $1"))
         .bind(id)
         .fetch_one(&st.db)
         .await?;
-    audit::record_in(&st, &auth, Some(d.team_id), "shares.create", Target::document(d.id, &d.title), json!({})).await;
-    ok(with_url(&st, s))
+    audit::record_in(&st, &auth, Some(d.team_id), "shares.create", Target::document(d.id, &d.title), json!({ "audience": audience })).await;
+    ok(share_json(&st, s).await?)
 }
 
 #[derive(Deserialize)]
@@ -174,29 +242,40 @@ pub struct UpdateReq {
     include_child_documents: Option<bool>,
     allow_indexing: Option<bool>,
     show_last_updated: Option<bool>,
+    audience: Option<String>,
 }
 
 /// Changes the options of a public link; same people as revoking it.
 pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<UpdateReq>) -> ApiResult<Json<Value>> {
     let d = manageable(&st, &auth, b.id).await?;
+    if let Some(a) = &b.audience {
+        valid_audience(a)?;
+        if a == "organization" {
+            require_organization_domains(&st, d.team_id).await?;
+        }
+    }
+    // the pages of a link for the organization are never indexed
     sqlx::query(
         "UPDATE shares SET include_children = COALESCE($2, include_children), allow_indexing = COALESCE($3, allow_indexing), \
-         show_last_updated = COALESCE($4, show_last_updated) WHERE id = $1",
+         show_last_updated = COALESCE($4, show_last_updated), audience = COALESCE($5, audience) WHERE id = $1",
     )
     .bind(b.id)
     .bind(b.include_child_documents)
     .bind(b.allow_indexing)
     .bind(b.show_last_updated)
+    .bind(&b.audience)
     .execute(&st.db)
     .await?;
+    sqlx::query("UPDATE shares SET allow_indexing = false WHERE id = $1 AND audience = 'organization'").bind(b.id).execute(&st.db).await?;
     let s: ShareRow = sqlx::query_as(&format!("{SHARE_SELECT} WHERE s.id = $1")).bind(b.id).fetch_one(&st.db).await?;
     let data = json!({
         "includeChildDocuments": s.include_child_documents,
         "allowIndexing": s.allow_indexing,
         "showLastUpdated": s.show_last_updated,
+        "audience": s.audience,
     });
     audit::record_in(&st, &auth, Some(d.team_id), "shares.update", Target::document(d.id, &d.title), data).await;
-    ok(with_url(&st, s))
+    ok(share_json(&st, s).await?)
 }
 
 /// The document of a link that `auth` may change or revoke: who created it, admins, editors of the document
@@ -236,6 +315,8 @@ pub struct PublicShare {
     pub include_children: bool,
     pub allow_indexing: bool,
     pub show_last_updated: bool,
+    /// "public" or "organization" (see `check_audience`)
+    pub audience: String,
 }
 
 /// The public link `share` (its id or its token), None when it doesn't exist or doesn't work any
@@ -244,8 +325,8 @@ pub async fn public_share(st: &AppState, share: &str) -> ApiResult<Option<Public
     if !st.settings().allow_public_sharing {
         return Ok(None);
     }
-    type Row = (Uuid, String, Uuid, bool, bool, bool);
-    const COLS: &str = "SELECT id, url_id, document_id, include_children, allow_indexing, show_last_updated FROM shares";
+    type Row = (Uuid, String, Uuid, bool, bool, bool, String);
+    const COLS: &str = "SELECT id, url_id, document_id, include_children, allow_indexing, show_last_updated, audience FROM shares";
     let row: Option<Row> = match crate::util::parse_id(share) {
         crate::util::IdRef::Uuid(u) => {
             sqlx::query_as(&format!("{COLS} WHERE id = $1 AND revoked_at IS NULL")).bind(u).fetch_optional(&st.db).await?
@@ -254,13 +335,70 @@ pub async fn public_share(st: &AppState, share: &str) -> ApiResult<Option<Public
             sqlx::query_as(&format!("{COLS} WHERE url_id = $1 AND revoked_at IS NULL")).bind(u).fetch_optional(&st.db).await?
         }
     };
-    let Some((id, url_id, doc_id, include_children, allow_indexing, show_last_updated)) = row else { return Ok(None) };
+    let Some((id, url_id, doc_id, include_children, allow_indexing, show_last_updated, audience)) = row else { return Ok(None) };
     let d = crate::perm::find_doc(&st.db, Uuid::nil(), &doc_id.to_string()).await?;
     if d.published_at.is_none() || d.deleted_at.is_some() || !sharing_enabled(st, d.team_id, d.collection_id).await? {
         return Ok(None);
     }
     let (team_name,): (String,) = sqlx::query_as("SELECT name FROM teams WHERE id = $1").bind(d.team_id).fetch_one(&st.db).await?;
-    Ok(Some(PublicShare { id, url_id, document: d, team_name, include_children, allow_indexing, show_last_updated }))
+    // the pages of a link for the organization are never indexed
+    let allow_indexing = allow_indexing && audience == "public";
+    Ok(Some(PublicShare { id, url_id, document: d, team_name, include_children, allow_indexing, show_last_updated, audience }))
+}
+
+/// Whether `auth` may read the document of a link: anyone for public links. Links for the organization
+/// need a member of the workspace, or a signed-in person whose email is verified (see `verified_email`)
+/// and belongs to one of the organization domains of the workspace. Returns whether the reader is a
+/// member of the workspace.
+pub async fn check_audience(st: &AppState, auth: Option<&Auth>, share: &PublicShare) -> ApiResult<bool> {
+    let team_id = share.document.team_id;
+    let Some(auth) = auth else {
+        if share.audience == "public" {
+            return Ok(false);
+        }
+        return Err(ApiError::new(
+            axum::http::StatusCode::UNAUTHORIZED,
+            "authentication_required",
+            "Sign in to read this document",
+        ));
+    };
+    let member: Option<(Uuid,)> =
+        sqlx::query_as("SELECT user_id FROM team_memberships WHERE team_id = $1 AND user_id = $2 AND suspended_at IS NULL")
+            .bind(team_id)
+            .bind(auth.user.id)
+            .fetch_optional(&st.db)
+            .await?;
+    if member.is_some() || share.audience == "public" {
+        return Ok(member.is_some());
+    }
+    let (domains,): (String,) = sqlx::query_as("SELECT organization_domains FROM teams WHERE id = $1").bind(team_id).fetch_one(&st.db).await?;
+    let domain = crate::api::sso::email_domain(&auth.user.email);
+    let in_domain = crate::api::teams::domain_list(&domains).any(|d| d == domain);
+    if in_domain && verified_email(st, &auth.user).await? {
+        return Ok(false);
+    }
+    Err(ApiError::forbidden(format!(
+        "Only the people of {} can read this document. Sign in with your work account.",
+        share.team_name
+    )))
+}
+
+/// Whether the email of the account was proven by a sign-in: with an identity provider that verifies
+/// it (Google, Slack, OpenID Connect; Microsoft when the tenant is specific or the domains are
+/// restricted) or with a sign-in link sent to it. Passwords and passkeys don't prove the address.
+pub async fn verified_email(st: &AppState, user: &crate::models::User) -> ApiResult<bool> {
+    let microsoft_trusted = st.cfg.microsoft.as_ref().is_some_and(crate::api::sso::email_trusted);
+    let (verified,): (bool,) = sqlx::query_as(
+        "SELECT ($2 AND EXISTS (SELECT 1 FROM users WHERE id = $1 AND microsoft_id IS NOT NULL)) \
+            OR EXISTS (SELECT 1 FROM user_identities WHERE user_id = $1 AND lower(email) = lower($3)) \
+            OR EXISTS (SELECT 1 FROM login_tokens WHERE user_id = $1 AND used_at IS NOT NULL)",
+    )
+    .bind(user.id)
+    .bind(microsoft_trusted)
+    .bind(&user.email)
+    .fetch_one(&st.db)
+    .await?;
+    Ok(verified)
 }
 
 /// A document of a public link: the shared one, or one nested in it when the link includes them

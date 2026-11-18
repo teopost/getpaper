@@ -190,7 +190,9 @@ pub async fn info(State(st): State<AppState>, auth: Auth) -> ApiResult<Json<Valu
         None => None,
     };
     let teams = crate::api::teams::my_teams(&st.db, auth.user.id).await?;
+    let can_create_workspace = crate::api::teams::can_create_workspace(&st, &auth.user).await?;
     ok(json!({
+        "canCreateWorkspace": can_create_workspace,
         "user": auth.user,
         "hasPassword": !auth.user.password_hash.is_empty(),
         "team": team,

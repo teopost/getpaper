@@ -19,6 +19,24 @@ export default function NoWorkspace({ auth }) {
       setBusy(false);
     }
   };
+  const logout = async () => {
+    await api('auth.logout');
+    window.location.href = '/login';
+  };
+  // people who signed in only to read a page shared with the organization
+  if (auth.canCreateWorkspace === false)
+    return (
+      <AuthShell
+        title={t('No workspace')}
+        subtitle={t('Hi {name}, you are not a member of any workspace. The pages shared with you open from the link you received.', {
+          name: auth.user.name,
+        })}
+      >
+        <Button variant="secondary" type="button" className="btn-block" onClick={logout}>
+          {t('Log out')}
+        </Button>
+      </AuthShell>
+    );
   return (
     <AuthShell
       title={t('No workspace')}

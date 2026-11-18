@@ -61,7 +61,16 @@ export default function SharedDoc() {
         document.title = d.document.title || t('Untitled');
         window.scrollTo(0, 0);
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => {
+        // links for the organization: sign in, then come back here
+        if (e.status === 401) {
+          const back = window.location.pathname;
+          navigate(`/login?redirect=${encodeURIComponent(back)}`, { replace: true });
+          return;
+        }
+        setError(e);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shareId, docId]);
 
   // public links stay out of search engines unless the link allows it
@@ -78,8 +87,15 @@ export default function SharedDoc() {
   if (error)
     return (
       <div className="centered-page">
-        <h2>{t('Not found')}</h2>
-        <p className="muted">{error}</p>
+        <h2>{error.status === 403 ? t('No access') : t('Not found')}</h2>
+        <p className="muted">
+          {error.status === 403
+            ? t('Only the people of the organization can read this document. Sign in with your work account.')
+            : error.message}
+        </p>
+        {error.status === 403 && (
+          <Link to={`/login?redirect=${encodeURIComponent(window.location.pathname)}`}>{t('Sign in with another account')}</Link>
+        )}
       </div>
     );
   if (!data)

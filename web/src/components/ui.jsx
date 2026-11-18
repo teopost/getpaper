@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
 import { t } from '../i18n';
 
 export function Spinner({ size = 20 }) {
@@ -81,6 +81,30 @@ export function Menu({ trigger, items, align = 'left', className = '', width = 2
   const [pos, setPos] = useState(null);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
+  // the open submenu: index of its item in the menu and where it is shown
+  const [sub, setSub] = useState(null);
+  const subRef = useRef(null);
+  const subWidth = 200;
+
+  useEffect(() => {
+    if (!open) setSub(null);
+  }, [open]);
+
+  // next to its item, on the right (on the left when there is no room), inside the window
+  const openSub = (index, el) => {
+    const r = el.getBoundingClientRect();
+    const m = menuRef.current?.getBoundingClientRect() || r;
+    let left = m.right + 2;
+    if (left + subWidth > window.innerWidth - 8) left = Math.max(8, m.left - subWidth - 2);
+    setSub({ index, top: r.top - 6, left });
+  };
+
+  useLayoutEffect(() => {
+    if (!sub || !subRef.current) return;
+    const h = subRef.current.getBoundingClientRect().height;
+    const top = Math.max(8, Math.min(sub.top, window.innerHeight - h - 8));
+    if (top !== sub.top) setSub((s) => s && { ...s, top });
+  }, [sub]);
 
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
@@ -104,7 +128,7 @@ export function Menu({ trigger, items, align = 'left', className = '', width = 2
   useEffect(() => {
     if (!open) return;
     const onDown = (e) => {
-      if (menuRef.current?.contains(e.target) || triggerRef.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target) || subRef.current?.contains(e.target) || triggerRef.current?.contains(e.target)) return;
       setOpen(false);
     };
     const onKey = (e) => e.key === 'Escape' && setOpen(false);
@@ -117,6 +141,27 @@ export function Menu({ trigger, items, align = 'left', className = '', width = 2
   }, [open]);
 
   const list = typeof items === 'function' ? items() : items;
+  const visible = open ? list.filter(Boolean) : [];
+
+  const itemButton = (it, key, extra = {}) => (
+    <button
+      key={key}
+      className={`menu-item ${it.danger ? 'danger' : ''}`}
+      disabled={it.disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen(false);
+        it.onClick?.();
+      }}
+      {...extra}
+    >
+      {it.icon && <span className="menu-icon">{it.icon}</span>}
+      <span className="menu-label">{it.label}</span>
+      {it.checked && <span className="menu-check">✓</span>}
+      {it.hint && <span className="menu-hint">{it.hint}</span>}
+    </button>
+  );
+  const subItems = sub && visible[sub.index]?.submenu?.filter(Boolean);
 
   return (
     <>
@@ -135,35 +180,58 @@ export function Menu({ trigger, items, align = 'left', className = '', width = 2
         pos &&
         createPortal(
           <div className="menu" ref={menuRef} style={{ top: pos.top, left: pos.left, width }}>
-            {list
-              .filter(Boolean)
-              .map((it, i) =>
-                it.separator ? (
-                  <div key={i} className="menu-separator" />
-                ) : it.heading ? (
-                  <div key={i} className="menu-heading">
-                    {it.heading}
-                  </div>
-                ) : it.render ? (
-                  <div key={i}>{it.render(() => setOpen(false))}</div>
-                ) : (
-                  <button
-                    key={i}
-                    className={`menu-item ${it.danger ? 'danger' : ''}`}
-                    disabled={it.disabled}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpen(false);
-                      it.onClick?.();
-                    }}
-                  >
-                    {it.icon && <span className="menu-icon">{it.icon}</span>}
-                    <span className="menu-label">{it.label}</span>
-                    {it.checked && <span className="menu-check">✓</span>}
-                    {it.hint && <span className="menu-hint">{it.hint}</span>}
-                  </button>
-                )
-              )}
+            {visible.map((it, i) =>
+              it.separator ? (
+                <div key={i} className="menu-separator" onMouseEnter={() => setSub(null)} />
+              ) : it.heading ? (
+                <div key={i} className="menu-heading">
+                  {it.heading}
+                </div>
+              ) : it.render ? (
+                <div key={i}>{it.render(() => setOpen(false))}</div>
+              ) : it.submenu ? (
+                // an item that opens a list of choices beside the menu (on hover, or on click with touch)
+                <button
+                  key={i}
+                  className={`menu-item has-submenu ${sub?.index === i ? 'open' : ''}`}
+                  disabled={it.disabled}
+                  aria-haspopup="menu"
+                  aria-expanded={sub?.index === i}
+                  onMouseEnter={(e) => openSub(i, e.currentTarget)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (sub?.index === i) setSub(null);
+                    else openSub(i, e.currentTarget);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowRight') {
+                      openSub(i, e.currentTarget);
+                      setTimeout(() => subRef.current?.querySelector('button')?.focus());
+                    }
+                  }}
+                >
+                  {it.icon && <span className="menu-icon">{it.icon}</span>}
+                  <span className="menu-label">{it.label}</span>
+                  <ChevronRight size={14} className="menu-submenu-arrow" />
+                </button>
+              ) : (
+                itemButton(it, i, { onMouseEnter: () => setSub(null) })
+              )
+            )}
+          </div>,
+          document.body
+        )}
+      {open &&
+        subItems?.length > 0 &&
+        createPortal(
+          <div
+            className="menu menu-sub"
+            role="menu"
+            ref={subRef}
+            style={{ top: sub.top, left: sub.left, width: subWidth }}
+            onKeyDown={(e) => e.key === 'ArrowLeft' && setSub(null)}
+          >
+            {subItems.map((it, i) => itemButton(it, i))}
           </div>,
           document.body
         )}

@@ -120,7 +120,24 @@ pub struct CreateReq {
     name: String,
 }
 
+/// Whether the user may create a workspace. With sign-up closed (ALLOW_SIGNUP=false) only superadmins and
+/// members of a workspace can: people who signed in only to read a link for the organization stay out.
+pub async fn can_create_workspace(st: &AppState, user: &crate::models::User) -> ApiResult<bool> {
+    if st.cfg.allow_signup || user.is_superadmin {
+        return Ok(true);
+    }
+    let (member,): (bool,) =
+        sqlx::query_as("SELECT EXISTS (SELECT 1 FROM team_memberships WHERE user_id = $1 AND suspended_at IS NULL)")
+            .bind(user.id)
+            .fetch_one(&st.db)
+            .await?;
+    Ok(member)
+}
+
 pub async fn create(State(st): State<AppState>, auth: Auth, Json(b): Json<CreateReq>) -> ApiResult<Json<Value>> {
+    if !can_create_workspace(&st, &auth.user).await? {
+        return Err(ApiError::forbidden("Only members of a workspace can create a new one"));
+    }
     let name = non_empty(&b.name, "Name")?;
     let team = create_team(&st.db, &auth.user, &name, &st.settings().product_name()).await?;
     if let Some(h) = &auth.session_hash {
@@ -170,6 +187,7 @@ pub struct UpdateReq {
     sharing: Option<bool>,
     default_user_role: Option<String>,
     allowed_domains: Option<String>,
+    organization_domains: Option<String>,
     /// logo: an image uploaded to this workspace (attachments.create), "" removes it
     avatar_url: Option<String>,
 }
@@ -195,6 +213,20 @@ async fn valid_logo(st: &AppState, team: Uuid, url: &str) -> ApiResult<Option<St
     }
 }
 
+/// "Example.com; @example.org" -> "example.com, example.org"
+fn normalize_domains(d: &str) -> String {
+    d.split([',', ' ', ';', '\n'])
+        .map(|x| x.trim().trim_start_matches('@').to_lowercase())
+        .filter(|x| x.contains('.'))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The domains of a list saved by `normalize_domains`
+pub fn domain_list(d: &str) -> impl Iterator<Item = String> + '_ {
+    d.split([',', ' ', ';', '\n']).map(|x| x.trim().trim_start_matches('@').to_lowercase()).filter(|x| !x.is_empty())
+}
+
 pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<UpdateReq>) -> ApiResult<Json<Value>> {
     auth.require_admin()?;
     if let Some(r) = &b.default_user_role {
@@ -213,7 +245,7 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     let team: Team = sqlx::query_as(
         "UPDATE teams SET name = COALESCE($2, name), color = COALESCE($3, color), sharing = COALESCE($4, sharing), \
          default_user_role = COALESCE($5, default_user_role), allowed_domains = COALESCE($6, allowed_domains), \
-         avatar_url = CASE WHEN $7 THEN $8 ELSE avatar_url END, \
+         avatar_url = CASE WHEN $7 THEN $8 ELSE avatar_url END, organization_domains = COALESCE($9, organization_domains), \
          updated_at = now() WHERE id = $1 RETURNING *",
     )
     .bind(team_id)
@@ -221,15 +253,10 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     .bind(&b.color)
     .bind(b.sharing)
     .bind(&b.default_user_role)
-    .bind(b.allowed_domains.as_ref().map(|d| {
-        d.split([',', ' ', ';', '\n'])
-            .map(|x| x.trim().trim_start_matches('@').to_lowercase())
-            .filter(|x| x.contains('.'))
-            .collect::<Vec<_>>()
-            .join(", ")
-    }))
+    .bind(b.allowed_domains.as_deref().map(normalize_domains))
     .bind(logo.is_some())
     .bind(logo.flatten())
+    .bind(b.organization_domains.as_deref().map(normalize_domains))
     .fetch_one(&st.db)
     .await?;
     let mut changes = serde_json::Map::new();
@@ -242,6 +269,7 @@ pub async fn update(State(st): State<AppState>, auth: Auth, Json(b): Json<Update
     changed("sharing", json!(before.sharing), json!(team.sharing));
     changed("defaultUserRole", json!(before.default_user_role), json!(team.default_user_role));
     changed("allowedDomains", json!(before.allowed_domains), json!(team.allowed_domains));
+    changed("organizationDomains", json!(before.organization_domains), json!(team.organization_domains));
     changed("logo", json!(before.avatar_url.is_some()), json!(team.avatar_url.is_some()));
     if !changes.is_empty() {
         audit::record(&st, &auth, "teams.update", Target::new("workspace", team.id, team.name.clone()), Value::Object(changes)).await;

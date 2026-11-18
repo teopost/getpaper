@@ -4,6 +4,14 @@ export default {
   'Publish to internet': 'Pubblica su internet',
   'Anyone with the link can view this document': 'Chiunque abbia il link può vedere questo documento',
   'Only members of this workspace can view': 'Solo i membri di questo workspace possono vederlo',
+  'Share with your organization': 'Condividi con la tua organizzazione',
+  'People of {domains} can view this document after signing in':
+    'Le persone di {domains} possono vedere questo documento dopo aver effettuato l\'accesso',
+  'Who can open the link': 'Chi può aprire il link',
+  'People of {domains}, signed in': 'Persone di {domains}, con accesso',
+  'Anyone with the link': 'Chiunque abbia il link',
+  'Nobody outside the workspace has opened the link yet': 'Nessuno al di fuori del workspace ha ancora aperto il link',
+  'Read through the link': 'Letto tramite il link',
   'Publish the document before sharing it publicly.': 'Pubblica il documento prima di condividerlo pubblicamente.',
   'Public link copied to clipboard': 'Link pubblico copiato negli appunti',
   Copy: 'Copia',
@@ -126,7 +134,7 @@ export default {
   'Move': 'Sposta',
   // download and presentation
   Present: 'Presenta',
-  'Download as': 'Scarica come',
+  'Download': 'Scarica',
   'Word (.docx)': 'Word (.docx)',
   'Previous slide': 'Slide precedente',
   'Next slide': 'Slide successiva',

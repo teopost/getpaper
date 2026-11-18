@@ -8,6 +8,21 @@ Docker images are published as `ghcr.io/teopost/getpaper:<version>`.
 
 ## [Unreleased]
 
+### Added
+
+- **Links for the organization**: in *Share*, a link can be opened only by signed-in people whose verified email
+  belongs to the domains set in Settings → Details → Organization domains (and by the members of the workspace),
+  without joining the workspace. The panel lists who opened it from outside the workspace. `shares.create` and
+  `shares.update` accept `audience` (`public` or `organization`). Database migration 0023.
+
+### Changed
+
+- With `ALLOW_SIGNUP=false`, people who are not members of any workspace (for example readers of a link for the
+  organization) can't create a workspace; only superadmins and members of a workspace can. `auth.info` returns
+  `canCreateWorkspace`.
+- The document menu has a single **Download** item: the formats (Markdown, HTML, PDF, Word) open in a submenu
+  beside it, on hover or on click.
+
 ## [0.3.0] - 2026-11-18
 
 ### Added

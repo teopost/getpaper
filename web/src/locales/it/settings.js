@@ -48,6 +48,9 @@ export default {
   'People signing in with Microsoft whose email belongs to one of these domains join this workspace automatically, with the default role. Separate multiple domains with commas.':
     'Le persone che accedono con Microsoft e la cui email appartiene a uno di questi domini entrano automaticamente in questo workspace con il ruolo predefinito. Separa più domini con una virgola.',
   'e.g. {example}': 'es. {example}',
+  'Organization domains': 'Domini dell\'organizzazione',
+  'Documents can be shared with a link that only people with an email of these domains can open, after signing in with a verified address (Microsoft, Google, Slack, OpenID Connect or a sign-in link by email). They do not join the workspace. Separate multiple domains with commas.':
+    'I documenti possono essere condivisi con un link che possono aprire solo le persone con un\'email di questi domini, dopo aver effettuato l\'accesso con un indirizzo verificato (Microsoft, Google, Slack, OpenID Connect o link di accesso via email). Non entrano nel workspace. Separa più domini con una virgola.',
   'Default role': 'Ruolo predefinito',
   'The role new members get when joining automatically.': 'Il ruolo assegnato ai nuovi membri che entrano automaticamente.',
   'Danger zone': 'Zona pericolosa',

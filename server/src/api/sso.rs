@@ -61,6 +61,12 @@ fn is_tenant_specific(ms: &MicrosoftConfig) -> bool {
     !matches!(ms.tenant.as_str(), "common" | "organizations" | "consumers")
 }
 
+/// Whether the email of a Microsoft account can be trusted: a single-tenant app, or an explicit list
+/// of allowed domains
+pub(crate) fn email_trusted(ms: &MicrosoftConfig) -> bool {
+    is_tenant_specific(ms) || !ms.allowed_domains.is_empty()
+}
+
 #[derive(Deserialize)]
 pub struct StartQuery {
     redirect: Option<String>,
@@ -209,7 +215,7 @@ async fn resolve_user(st: &AppState, meta: &ClientMeta, ms: &MicrosoftConfig, id
     }
     // Linking an existing account by email is only safe when the identity provider is trusted for that
     // address: a single-tenant app, or an explicit list of allowed domains.
-    let trusted_email = is_tenant_specific(ms) || !ms.allowed_domains.is_empty();
+    let trusted_email = email_trusted(ms);
     if let Some(u) = sqlx::query_as::<_, User>("SELECT * FROM users WHERE lower(email) = $1")
         .bind(&id.email)
         .fetch_optional(&st.db)

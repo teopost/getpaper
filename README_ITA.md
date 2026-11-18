@@ -77,7 +77,7 @@ Variabili utili (file `.env` accanto a `docker-compose.yml` oppure in ambiente):
 | --- | --- | --- |
 | `URL` | `http://localhost:3000` | URL pubblico, usato nei link di invito e di condivisione |
 | `PORT` | `3000` | Porta esposta sull'host |
-| `ALLOW_SIGNUP` | `true` | Con `false` ci si registra solo tramite invito (il primo utente può sempre registrarsi) |
+| `ALLOW_SIGNUP` | `true` | Con `false` ci si registra solo tramite invito (il primo utente può sempre registrarsi), e solo i superadmin e i membri di un workspace possono crearne uno nuovo |
 | `IMPORT_MAX_MB` | `500` | Dimensione massima di un archivio ZIP da importare |
 | `SUPERADMIN_EMAILS` | | Account sempre superadmin, separati da virgola (vedi sotto) |
 | `DEFAULT_LANGUAGE` | `en` | Lingua dell'interfaccia per chi non l'ha scelta: `en`, `it` |
@@ -272,6 +272,25 @@ link ha la forma `<URL>/s/<token>`, con un token casuale di 24 caratteri (circa 
   workspace con login non vengono contate. Chi legge è anonimo, quindi non si sa chi l'ha aperto.
 - Il link si revoca dallo stesso pannello o da **Impostazioni → Shared Links**.
 - La condivisione si può disattivare per l'intero workspace o per una singola collezione.
+
+### Link per l'organizzazione
+
+Un link si può far aprire solo alle persone della propria organizzazione, senza renderle membri del workspace
+(non vedono collezioni, ricerca o altri documenti). Si impostano i domini in **Impostazioni → Dettagli → Domini
+dell'organizzazione** (per esempio `example.com`), poi in **Share** si sceglie *Chi può aprire il link → Persone di
+example.com*; con i domini impostati è la scelta predefinita per i nuovi link, e un link esistente si può cambiare
+in un senso o nell'altro.
+
+- Chi legge deve fare login. I membri del workspace aprono sempre il link; gli altri devono avere un account con
+  un'email di uno dei domini, verificata da un accesso: Microsoft (con un tenant specifico o
+  `MICROSOFT_ALLOWED_DOMAINS`), Google, Slack, OpenID Connect o un link di accesso via email. Password e passkey non
+  dimostrano l'indirizzo, quindi gli account che hanno usato solo quelli vengono rifiutati.
+- Gli account si creano al primo accesso quando `MICROSOFT_AUTO_PROVISION` / `<PROVIDER>_AUTO_PROVISION` lo
+  consentono; chi non appartiene a nessun workspace arriva direttamente al documento richiesto. Con
+  `ALLOW_SIGNUP=false` non può nemmeno creare un workspace suo: dopo il login può solo aprire i link condivisi con lui.
+- Il pannello elenca chi l'ha aperto da fuori del workspace (e quando); le pagine non vengono mai indicizzate.
+- Valgono le stesse regole dei link pubblici: non funziona se i link pubblici sono disattivati per l'installazione,
+  il workspace o la collezione.
 
 ## Import
 

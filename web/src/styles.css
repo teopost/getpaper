@@ -692,6 +692,16 @@ body.resizing-sidebar {
   font-size: 12px;
   opacity: 0.6;
 }
+.menu-submenu-arrow {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.menu-item.has-submenu.open:not(:hover) {
+  background: var(--hover);
+}
+.menu-item:hover:not(:disabled) .menu-submenu-arrow {
+  color: #fff;
+}
 .menu-search {
   font-size: 14px;
   padding: 6px 10px;

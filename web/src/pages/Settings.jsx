@@ -282,6 +282,7 @@ function Workspace() {
   const [sharing, setSharing] = useState(team.sharing);
   const [defaultRole, setDefaultRole] = useState(team.defaultUserRole);
   const [allowedDomains, setAllowedDomains] = useState(team.allowedDomains || '');
+  const [organizationDomains, setOrganizationDomains] = useState(team.organizationDomains || '');
   const [deleting, setDeleting] = useState(false);
   const [confirmName, setConfirmName] = useState('');
   if (!isAdmin) return <Navigate to="/settings/members" replace />;
@@ -294,7 +295,7 @@ function Workspace() {
         onSubmit={async (e) => {
           e.preventDefault();
           try {
-            await api('teams.update', { name, color, sharing, defaultUserRole: defaultRole, allowedDomains });
+            await api('teams.update', { name, color, sharing, defaultUserRole: defaultRole, allowedDomains, organizationDomains });
             await refreshAuth();
             toast(t('Settings saved'));
           } catch (err) {
@@ -323,6 +324,18 @@ function Workspace() {
           )}
         >
           <input value={allowedDomains} onChange={(e) => setAllowedDomains(e.target.value)} placeholder={t('e.g. {example}', { example: 'example.com, example.org' })} />
+        </Field>
+        <Field
+          label={t('Organization domains')}
+          hint={t(
+            'Documents can be shared with a link that only people with an email of these domains can open, after signing in with a verified address (Microsoft, Google, Slack, OpenID Connect or a sign-in link by email). They do not join the workspace. Separate multiple domains with commas.'
+          )}
+        >
+          <input
+            value={organizationDomains}
+            onChange={(e) => setOrganizationDomains(e.target.value)}
+            placeholder={t('e.g. {example}', { example: 'example.com' })}
+          />
         </Field>
         <Field label={t('Default role')} hint={t('The role new members get when joining automatically.')}>
           <select value={defaultRole} onChange={(e) => setDefaultRole(e.target.value)}>
